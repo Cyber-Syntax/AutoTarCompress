@@ -2,18 +2,7 @@ import subprocess
 from datetime import datetime
 import os
 
-# Directories
-dirs_to_backup = {
-    '~/Documents/', 
-    '~/.config/alacritty/', 
-    '~/.config/i3/', 
-    '~/.config/siyuan/', 
-    '~/.config/SiYuan-Electron/', 
-    '~/.config/polybar/',
-    '~/.config/backintime/',
-    '~/.config/VSCodium/',
-    '~/.config/indicator-sound-switcher.json'
-}
+
 backup_folder = os.path.expanduser('~/Documents/backup-for-cloud/')
 
 # Timestamp
