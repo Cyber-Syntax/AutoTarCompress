@@ -130,3 +130,9 @@ dmypy.json
 
 # test
 *test*
+
+# vscode
+.vscode/
+
+# dirs_to_backup
+dirs_to_backup*

@@ -1,0 +1,3 @@
+# Change to your own directories and delete this line. 
+~/Documents/
+~/Documents/books
