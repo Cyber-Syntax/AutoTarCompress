@@ -22,6 +22,17 @@ class BackupManager:
             print(f"Error calculating checksum for {file_path}: {e}")
             return None
 
+    def encrypt_file(self, file_path, output_file_path):
+        encrypt_cmd = ["openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2", "-in", file_path, "-out", output_file_path]
+
+        try:
+            subprocess.run(encrypt_cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error encrypting file: {e}")
+            return False
+
+        return True
+        
     def backup_directories(self, dirs_to_backup, ignore_file_path):        
         # The backup file will be named with the current date
         date = datetime.datetime.now().strftime("%d-%m-%Y")
