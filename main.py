@@ -24,6 +24,14 @@ class BackupManager:
         except (IOError, OSError) as e:
             print(f"Error calculating checksum: {e}")
             return None
+
+    # check backup already exist for today
+    def check_backup_exist(self):
+        """ Check if a backup file already exists for today """
+
+        date = datetime.datetime.now().strftime("%d-%m-%Y")
+        backup_file_path = os.path.expanduser(f"{self.backup_folder}/{date}.tar.xz")
+        return os.path.isfile(backup_file_path)
         
     def backup_directories(self, dirs_to_backup, ignore_file_path):
         """ Backup the directories listed in dirs_to_backup.txt to a compressed file """
@@ -72,6 +80,8 @@ class EncryptionManager(BackupManager):
 
     # Encrypt the tar backup file
     def encrypt_backup(self, backup_file_path):
+        """ Encrypt the backup file """
+
         # The encrypted backup file will be named with the current date
         date = datetime.datetime.now().strftime("%d-%m-%Y")
         encrypted_backup_file_path = os.path.expanduser(f"{self.backup_folder}/{date}.tar.xz.enc")
@@ -83,20 +93,30 @@ class EncryptionManager(BackupManager):
         try:
             # ask user for password, when user enter password, encrypt file
             subprocess.run(encrypt_cmd, check=True, input="password", encoding="ascii")
-        except subprocess.CalledProcessError as CP_error:
-            print(f"Error encrypting file: {CP_error}")
+        except subprocess.CalledProcessError as cp_error:
+            print(f"Error encrypting file: {cp_error}")
             return False
 
         return True
 
 def main():
+    """ Backup the directories listed in dirs_to_backup.txt to a compressed file """
+
     # Backup folder is the folder where the compressed backup files will be stored
-    backup_folder = '~/Documents/backup-for-cloud'
+    backup_folder = os.path.expanduser("~/Documents/backup-for-cloud")
     dirs_file_path = 'dirs_to_backup.txt'
     ignore_file_path = 'ignore.txt'
 
     backup_manager = BackupManager(backup_folder)
 
+    # Check if a backup file already exists for today
+    if backup_manager.check_backup_exist():
+        print('Backup already exists for today')
+        # encrypt backup file
+        encryption_manager = EncryptionManager(backup_folder)
+        encryption_manager.encrypt_backup(backup_folder)
+        return
+    
     # Read in the directories to backup from the file
     dirs_to_backup = []
     with open(dirs_file_path, 'r') as file:
