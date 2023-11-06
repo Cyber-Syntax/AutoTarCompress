@@ -2,13 +2,18 @@ import os
 import subprocess
 import hashlib
 import datetime
+import sys
+from tqdm import tqdm
 
-""" This script will backup the directories listed in dirs_to_backup.txt to a compressed file """
 class BackupManager:
+    """ This script will backup the directories listed in dirs_to_backup.txt to a compressed file """
+
     def __init__(self, backup_folder):
         self.backup_folder = backup_folder
 
-    def calculate_checksum(self, file_path):                
+    def calculate_checksum(self, file_path):
+        """ Calculate the checksum of a file """
+
         hasher = hashlib.sha256()
         try:
             with open(file_path, 'rb') as f:
@@ -18,11 +23,13 @@ class BackupManager:
                         break
                     hasher.update(data)
             return hasher.hexdigest()
-        except Exception as e:
-            print(f"Error calculating checksum for {file_path}: {e}")
+        except (IOError, OSError) as e:
+            print(f"Error calculating checksum: {e}")
             return None
 
-    def backup_directories(self, dirs_to_backup, ignore_file_path):        
+    def backup_directories(self, dirs_to_backup, ignore_file_path):
+        """ Backup the directories listed in dirs_to_backup.txt to a compressed file """
+
         # The backup file will be named with the current date
         date = datetime.datetime.now().strftime("%d-%m-%Y")
         backup_file_path = os.path.expanduser(f"{self.backup_folder}/{date}.tar.xz")
@@ -38,13 +45,18 @@ class BackupManager:
         dir_paths = [os.path.expanduser(path) for path in dirs_to_backup]
 
         # Create the tar command
-        os_cmd = ["tar", "-cJf", backup_file_path, exclude_option, filesystem_option] + dir_paths
+        # -cJf = create, xz compression, filename
+        tar_cmd = ['tar', '-cJf', backup_file_path, filesystem_option, exclude_option] + dir_paths
 
         # Run the tar command
         try:
-            subprocess.run(os_cmd, check=True)
+            subprocess.check_output(tar_cmd)
         except subprocess.CalledProcessError as e:
             print(f"Error compressing file: {e}")
+            return
+        except KeyboardInterrupt:
+            print("Backup cancelled")
+            sys.exit(1)
         else:
             # Calculate the checksums of the backup file
             expected_checksum = self.calculate_checksum(backup_file_path)
@@ -68,12 +80,12 @@ def main():
 
     # Read in the directories to backup from the file
     dirs_to_backup = []
-    with open(dirs_file_path, 'r') as file:
+    with open(dirs_file_path, 'r', encoding='utf-8') as file:
         for line in file:
             directory = line.strip()
             if directory:  # Skip empty lines
                 dirs_to_backup.append(directory)
-    
+
     backup_manager.backup_directories(dirs_to_backup, ignore_file_path)
 
 if __name__ == "__main__":
