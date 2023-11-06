@@ -2,13 +2,16 @@ import os
 import subprocess
 import hashlib
 import datetime
+from tqdm import tqdm
 
-""" This script will backup the directories listed in dirs_to_backup.txt to a compressed file """
 class BackupManager:
+    """ This script will backup the directories listed in dirs_to_backup.txt to a compressed file """
+
     def __init__(self, backup_folder):
         self.backup_folder = backup_folder
 
-    def calculate_checksum(self, file_path):                
+    def calculate_checksum(self, file_path):
+        """ Calculate the checksum of a file """
         hasher = hashlib.sha256()
         try:
             with open(file_path, 'rb') as f:
@@ -18,22 +21,13 @@ class BackupManager:
                         break
                     hasher.update(data)
             return hasher.hexdigest()
-        except Exception as e:
-            print(f"Error calculating checksum for {file_path}: {e}")
+        except (IOError, OSError) as e:
+            print(f"Error calculating checksum: {e}")
             return None
-
-    def encrypt_file(self, file_path, output_file_path):
-        encrypt_cmd = ["openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2", "-in", file_path, "-out", output_file_path]
-
-        try:
-            subprocess.run(encrypt_cmd, check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Error encrypting file: {e}")
-            return False
-
-        return True
         
-    def backup_directories(self, dirs_to_backup, ignore_file_path):        
+    def backup_directories(self, dirs_to_backup, ignore_file_path):
+        """ Backup the directories listed in dirs_to_backup.txt to a compressed file """
+
         # The backup file will be named with the current date
         date = datetime.datetime.now().strftime("%d-%m-%Y")
         backup_file_path = os.path.expanduser(f"{self.backup_folder}/{date}.tar.xz")
@@ -69,6 +63,32 @@ class BackupManager:
             else:
                 print('File integrity check failed: could not calculate checksums')
 
+# EncryptionManager inherits from BackupManager
+class EncryptionManager(BackupManager):
+    """ This script will encrypt the backup file """
+
+    def __init__(self, backup_folder):
+        super().__init__(backup_folder)
+
+    # Encrypt the tar backup file
+    def encrypt_backup(self, backup_file_path):
+        # The encrypted backup file will be named with the current date
+        date = datetime.datetime.now().strftime("%d-%m-%Y")
+        encrypted_backup_file_path = os.path.expanduser(f"{self.backup_folder}/{date}.tar.xz.enc")
+
+        # Encrypt the backup file
+        encrypt_cmd = ["openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2", "-in", backup_file_path, "-out",
+                        encrypted_backup_file_path]
+
+        try:
+            # ask user for password, when user enter password, encrypt file
+            subprocess.run(encrypt_cmd, check=True, input="password", encoding="ascii")
+        except subprocess.CalledProcessError as CP_error:
+            print(f"Error encrypting file: {CP_error}")
+            return False
+
+        return True
+
 def main():
     # Backup folder is the folder where the compressed backup files will be stored
     backup_folder = '~/Documents/backup-for-cloud'
@@ -84,7 +104,8 @@ def main():
             directory = line.strip()
             if directory:  # Skip empty lines
                 dirs_to_backup.append(directory)
-    
+
+    # Backup the directories
     backup_manager.backup_directories(dirs_to_backup, ignore_file_path)
 
 if __name__ == "__main__":
