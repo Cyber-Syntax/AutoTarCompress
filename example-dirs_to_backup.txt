@@ -1,3 +1,4 @@
-# Change to your own directories and delete this line. 
+# Change to your own directories and delete this lines. 
+# Also don't forget to change this .txt file name to dirs_to_backup.txt
 ~/Documents/
 ~/Documents/books
