@@ -6,11 +6,17 @@ Project Description
 
 ### Todo
 
+- [ ] Cron setup?  
+- [ ] rsnyc vs tar  
+- [ ] Clean old backups  
+- [ ] logging library  
 - [ ] Clear Code  
 
 ### In Progress
 
+- [ ] add tqdm library  
 
 ### Done ✓
 
+- [x] Encryption  
 
