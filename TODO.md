@@ -10,13 +10,13 @@ Project Description
 - [ ] rsnyc vs tar  
 - [ ] Clean old backups  
 - [ ] logging library  
-- [ ] Clear Code  
 
 ### In Progress
 
-- [ ] add tqdm library  
+- [ ] Clear Code  
 
 ### Done ✓
 
+- [x] add tqdm library  
 - [x] Encryption  
 

@@ -11,19 +11,19 @@ from tqdm import tqdm
 class BackupManager:
     """ This class will backup the directories listed in dirs_to_backup.txt to a compressed file """
 
-    def __init__(self, backup_folder):
-        self.backup_folder = backup_folder
+    def __init__(self):
+        self.backup_folder = os.path.expanduser("~/Documents/backup-for-cloud/")
         self.dirs_file_path = 'dirs_to_backup.txt'
+        self.current_date = datetime.datetime.now().strftime("%d-%m-%Y")
+        self.backup_file_path = os.path.expanduser(f"{self.backup_folder}/{self.current_date}.tar.xz")
+        self.ignore_file_path = os.path.expanduser('ignore.txt')
 
     # check backup already exist for today
     def check_backup_exist(self):
         """ Check if a backup file already exists for today """
+        return os.path.isfile(self.backup_file_path)
 
-        date = datetime.datetime.now().strftime("%d-%m-%Y")
-        backup_file_path = os.path.expanduser(f"{self.backup_folder}/{date}.tar.xz")
-        return os.path.isfile(backup_file_path)
-
-    def backup_directories(self, ignore_file_path):
+    def backup_directories(self):
         """ Backup the directories listed in dirs_to_backup.txt to a compressed file """
 
         # Read in the directories to backup from the file
@@ -34,13 +34,8 @@ class BackupManager:
                 if directory:
                     dirs_to_backup.append(directory)
 
-        # The backup file will be named with the current date
-        date = datetime.datetime.now().strftime("%d-%m-%Y")
-        backup_file_path = os.path.expanduser(f"{self.backup_folder}{date}.tar.xz")
-
         # Exclude files and directories listed in the ignore file
-        ignore = os.path.expanduser(ignore_file_path)
-        exclude_option = f"--exclude-from={ignore}"
+        exclude_option = f"--exclude-from={self.ignore_file_path}" if os.path.isfile(ignore) else f"--exclude={ignore}"
         # Only backup files on the same filesystem as the backup folder
         filesystem_option = "--one-file-system"
 
@@ -48,16 +43,16 @@ class BackupManager:
         dir_paths = [os.path.expanduser(path) for path in dirs_to_backup]
 
         # Create the tar command with tqdm progress bar
-        total_size = sum(os.path.getsize(os.path.join(d,f)) for d in dir_paths for f in os.listdir(d) if os.path.isfile(os.path.join(d, f)))
-        print(f"Total size: {total_size}")
-        cpu_threads = os.cpu_count()
+        total_size = sum(entry.stat().st_size for path in dir_paths for entry in os.scandir(path) if entry.is_file())
+        print(f"Total size: {total_size} bytes")
+        cpu_threads = os.cpu_count() - 1
         print(f"CPU threads: {cpu_threads}")
 
         os_cmd = (
             f"tar -cf - {filesystem_option} {exclude_option} {' '.join(dir_paths)} | "
-            f"xz --threads={cpu_threads - 1} | "
+            f"xz --threads={cpu_threads} | "
             f"tqdm --bytes --total {total_size} --desc Processing | gzip | "
-            f"tqdm --bytes --total {total_size} --desc Compressed --position 1 > {backup_file_path}"
+            f"tqdm --bytes --total {total_size} --desc Compressed --position 1 > {self.backup_file_path}"
         )
         # Run the tar command
         try:
@@ -68,25 +63,24 @@ class BackupManager:
         except KeyboardInterrupt:
             print("Backup cancelled")
             sys.exit(0)
-        
 
 # EncryptionManager inherits from BackupManager
-class EncryptionManager:
+class EncryptionManager(BackupManager):
     """ This script will encrypt the backup file """
-    def __init__(self, backup_folder):
-        self.backup_folder = backup_folder
+    def __init__(self):
+        # Call the __init__() method of the parent class
+        super().__init__()
         self.decrypt_file_path = os.path.expanduser("~/Documents/backup-for-cloud/decrypted.tar.xz")
 
     # Encrypt the tar backup file
-    def encrypt_backup(self, backup_file_path):
+    def encrypt_backup(self):
         """ Encrypt the backup file """
 
         # The encrypted backup file will be named with the current date
-        date = datetime.datetime.now().strftime("%d-%m-%Y")
-        file_to_encrypt = os.path.join(self.backup_folder, f"{date}.tar.xz.enc")
+        file_to_encrypt = os.path.join(self.backup_folder, f"{self.current_date}.tar.xz.enc")
 
         # Encrypt the backup file
-        encrypt_cmd = ["openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2", "-in", backup_file_path, "-out",
+        encrypt_cmd = ["openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2", "-in", self.backup_file_path, "-out",
                           file_to_encrypt]
 
         try:
@@ -95,6 +89,9 @@ class EncryptionManager:
         except subprocess.CalledProcessError as cp_error:
             print(f"Error encrypting file: {cp_error}")
             return False
+        except KeyboardInterrupt:
+            print("Encryption cancelled")
+            sys.exit(0)
 
         return True
 
@@ -111,6 +108,9 @@ class EncryptionManager:
         except subprocess.CalledProcessError as cp_error:
             print(f"Error decrypting file: {cp_error}")
             return False
+        except KeyboardInterrupt:
+            print("Decryption cancelled")
+            sys.exit(0)
 
         return True
 
@@ -146,16 +146,12 @@ class EncryptionManager:
         else:
             print('File integrity check failed: checksums do not match')
 
-
 def main():
     """ Backup the directories listed in dirs_to_backup.txt to a compressed file """
 
-    # File paths
-    backup_folder = os.path.expanduser("~/Documents/backup-for-cloud/")
-    ignore_file_path = 'ignore.txt'
     # Classes
-    backup_manager = BackupManager(backup_folder)
-    encryption_manager = EncryptionManager(backup_folder)
+    backup_manager = BackupManager()
+    encryption_manager = EncryptionManager()
 
     # Create a loop that will run until the user enters 4 to exit
     while True:
@@ -176,21 +172,20 @@ def main():
                 print('Backup already exists for today')
                 continue
             # Backup the directories listed in dirs_to_backup.txt to a compressed file
-            backup_manager.backup_directories(ignore_file_path)
+            backup_manager.backup_directories()
         elif choice == 2:
-            date = datetime.datetime.now().strftime("%d-%m-%Y")
-            backup_file_path = os.path.expanduser(f"~/Documents/backup-for-cloud/{date}.tar.xz")
-            encryption_manager.encrypt_backup(backup_file_path)
+            encryption_manager.encrypt_backup()
+
         elif choice == 3:
             print("Choose which file to decrypt: ")
-            # List only encrypted files
-            files = [f for f in os.listdir(backup_folder) if f.endswith('.enc')]
+                    # List only encrypted files
+            files = [f for f in os.listdir(backup_manager.backup_folder) if f.endswith('.enc')]
 
             for i, file in enumerate(files, start=1):
                 print(f"{i}. {file}")
             choice = int(input("Enter your choice: "))
 
-            file_to_decrypt = os.path.join(backup_folder, files[choice])
+            file_to_decrypt = os.path.join(backup_manager.backup_folder, files[choice - 1])
             encryption_manager.decrypt(file_to_decrypt)
             encryption_manager.verify_decrypt_file(file_to_decrypt)
         elif choice == 4:
