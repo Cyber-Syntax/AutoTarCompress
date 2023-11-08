@@ -5,8 +5,6 @@ import hashlib
 import datetime
 import sys
 import time
-import tarfile
-from tqdm import tqdm
 
 class BackupManager:
     """ This class will backup the directories listed in dirs_to_backup.txt to a compressed file """
@@ -35,7 +33,9 @@ class BackupManager:
                     dirs_to_backup.append(directory)
 
         # Exclude files and directories listed in the ignore file
-        exclude_option = f"--exclude-from={self.ignore_file_path}" if os.path.isfile(ignore) else f"--exclude={ignore}"
+        exclude_option = (f"--exclude-from={self.ignore_file_path}"
+                            if os.path.isfile(self.ignore_file_path)
+                            else f"--exclude={self.ignore_file_path}")
         # Only backup files on the same filesystem as the backup folder
         filesystem_option = "--one-file-system"
 
@@ -43,10 +43,15 @@ class BackupManager:
         dir_paths = [os.path.expanduser(path) for path in dirs_to_backup]
 
         # Create the tar command with tqdm progress bar
-        total_size = sum(entry.stat().st_size for path in dir_paths for entry in os.scandir(path) if entry.is_file())
+        total_size = sum(entry.stat().st_size
+                        for path in dir_paths
+                        for entry in os.scandir(path)
+                        if entry.is_file()
+        )
+
         print(f"Total size: {total_size} bytes")
         cpu_threads = os.cpu_count() - 1
-        print(f"CPU threads: {cpu_threads}")
+        print(f"CPU threads - 1: {cpu_threads}")
 
         os_cmd = (
             f"tar -cf - {filesystem_option} {exclude_option} {' '.join(dir_paths)} | "
@@ -80,8 +85,8 @@ class EncryptionManager(BackupManager):
         file_to_encrypt = os.path.join(self.backup_folder, f"{self.current_date}.tar.xz.enc")
 
         # Encrypt the backup file
-        encrypt_cmd = ["openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2", "-in", self.backup_file_path, "-out",
-                          file_to_encrypt]
+        encrypt_cmd = ["openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2", "-in",
+                        self.backup_file_path, "-out", file_to_encrypt]
 
         try:
             # ask user for password, when user enter password, encrypt file
@@ -98,8 +103,8 @@ class EncryptionManager(BackupManager):
     def decrypt(self, file_to_decrypt):
         """ Decrypt the backup file """
 
-        decrypt_cmd = ["openssl", "aes-256-cbc", "-d", "-a", "-salt", "-pbkdf2", "-in", file_to_decrypt, "-out",
-                            self.decrypt_file_path]
+        decrypt_cmd = ["openssl", "aes-256-cbc", "-d", "-a", "-salt",
+                        "-pbkdf2", "-in", file_to_decrypt, "-out", self.decrypt_file_path]
         try:
             # ask user for password
             subprocess.run(decrypt_cmd, check=True, input="password", encoding="ascii")
