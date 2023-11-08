@@ -23,41 +23,6 @@ class BackupManager:
         backup_file_path = os.path.expanduser(f"{self.backup_folder}/{date}.tar.xz")
         return os.path.isfile(backup_file_path)
 
-    def verify_tar_file(self, backup_file_path):
-        """ Verify that a tar file contains all expected files """
-
-        with tarfile.open(backup_file_path, 'r') as tar:
-            # Get a list of all the files in the tar file
-            files_in_tar = tar.getnames()
-
-            # Read in the directories to backup from the file
-            dirs_to_backup = []
-            with open(self.dirs_file_path, 'r', encoding='utf-8') as file:
-                for line in file:
-                    directory = line.strip()
-                    if directory:
-                        dirs_to_backup.append(directory)
-
-            # Get a list of all the files in the directories to backup
-            files_to_backup = []
-            for directory in dirs_to_backup:
-                for root, files in os.walk(directory):
-                    for name in files:
-                        file_path = os.path.join(root, name)
-                        files_to_backup.append(file_path)
-
-            # Sort the lists
-            files_in_tar.sort()
-            files_to_backup.sort()
-
-            # Compare the lists
-            for content in zip(files_in_tar, files_to_backup):
-                if content[0] != content[1]:
-                    print(f"File {content[0]} is missing from the backup")
-                    return False
-
-            return True
-
     def backup_directories(self, ignore_file_path):
         """ Backup the directories listed in dirs_to_backup.txt to a compressed file """
 
@@ -71,7 +36,7 @@ class BackupManager:
 
         # The backup file will be named with the current date
         date = datetime.datetime.now().strftime("%d-%m-%Y")
-        backup_file_path = os.path.expanduser(f"{self.backup_folder}/{date}.tar.xz")
+        backup_file_path = os.path.expanduser(f"{self.backup_folder}{date}.tar.xz")
 
         # Exclude files and directories listed in the ignore file
         ignore = os.path.expanduser(ignore_file_path)
@@ -84,34 +49,26 @@ class BackupManager:
 
         # Create the tar command with tqdm progress bar
         total_size = sum(os.path.getsize(os.path.join(d,f)) for d in dir_paths for f in os.listdir(d) if os.path.isfile(os.path.join(d, f)))
-        os_cmd = ["tar", "-caf", "-", filesystem_option, exclude_option] + dir_paths + ["|", "pv", "-s", str(total_size), ">", backup_file_path]
+        print(f"Total size: {total_size}")
+        cpu_threads = os.cpu_count()
+        print(f"CPU threads: {cpu_threads}")
 
-        os_cmd_str = " ".join(os_cmd)
-
-        # Create progress bar
-        with tqdm(total=total_size, unit='B', unit_scale=True, desc="Backup") as pbar:
-            def handle_output(line):
-                pbar.update(len(line))
-
-            # Run the tar command
-            try:
-                process = subprocess.Popen(os_cmd_str, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1,
-                                           universal_newlines=True, text=True)
-                for line in iter(process.stdout.readline, ''):
-                    handle_output(line)
-                process.stdout.close()
-                process.wait()                
-            except subprocess.CalledProcessError as e:
-                print(f"Error compressing file: {e}")
-                return False
-            except KeyboardInterrupt:
-                print("Backup cancelled")
-                sys.exit(0)
-        
-        # Verify that the tar file contains all expected files
-        if not self.verify_tar_file(backup_file_path):
-            print("Backup failed: tar file does not contain all expected files")
+        os_cmd = (
+            f"tar -cf - {filesystem_option} {exclude_option} {' '.join(dir_paths)} | "
+            f"xz --threads={cpu_threads - 1} | "
+            f"tqdm --bytes --total {total_size} --desc Processing | gzip | "
+            f"tqdm --bytes --total {total_size} --desc Compressed --position 1 > {backup_file_path}"
+        )
+        # Run the tar command
+        try:
+            subprocess.run(os_cmd, check=True, shell=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error compressing file: {e}")
             return False
+        except KeyboardInterrupt:
+            print("Backup cancelled")
+            sys.exit(0)
+        
 
 # EncryptionManager inherits from BackupManager
 class EncryptionManager:
