@@ -9,11 +9,11 @@ Project Description
 - [ ] Cron setup?  
 - [ ] rsnyc vs tar  
 - [ ] Clean old backups  
-- [ ] logging library  
 
 ### In Progress
 
 - [ ] Clear Code  
+- [ ] logging library  
 
 ### Done ✓
 

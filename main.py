@@ -13,7 +13,8 @@ class BackupManager:
         self.backup_folder = os.path.expanduser("~/Documents/backup-for-cloud/")
         self.dirs_file_path = 'dirs_to_backup.txt'
         self.current_date = datetime.datetime.now().strftime("%d-%m-%Y")
-        self.backup_file_path = os.path.expanduser(f"{self.backup_folder}/{self.current_date}.tar.xz")
+        self.backup_file_path = os.path.expanduser(
+                                f"{self.backup_folder}/{self.current_date}.tar.xz")
         self.ignore_file_path = os.path.expanduser('ignore.txt')
 
     # check backup already exist for today
@@ -36,6 +37,7 @@ class BackupManager:
         exclude_option = (f"--exclude-from={self.ignore_file_path}"
                             if os.path.isfile(self.ignore_file_path)
                             else f"--exclude={self.ignore_file_path}")
+
         # Only backup files on the same filesystem as the backup folder
         filesystem_option = "--one-file-system"
 
@@ -50,72 +52,88 @@ class BackupManager:
         )
 
         print(f"Total size: {total_size} bytes")
+
+        # Get the number of CPU threads for xz compression
         cpu_threads = os.cpu_count() - 1
         print(f"CPU threads - 1: {cpu_threads}")
 
+        # Create the tar command with tqdm progress bar
         os_cmd = (
             f"tar -cf - {filesystem_option} {exclude_option} {' '.join(dir_paths)} | "
             f"xz --threads={cpu_threads} | "
             f"tqdm --bytes --total {total_size} --desc Processing | gzip | "
-            f"tqdm --bytes --total {total_size} --desc Compressed --position 1 > {self.backup_file_path}"
+            f"tqdm --bytes --total {total_size} "
+            f"--desc Compressing > {self.backup_file_path}"
         )
+
         # Run the tar command
         try:
             subprocess.run(os_cmd, check=True, shell=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Error compressing file: {e}")
+        except (subprocess.CalledProcessError, FileNotFoundError, PermissionError, OSError,
+                ValueError) as error:
+            print(f"Error backing up files: {type(error).__name__} - {error}")
             return False
         except KeyboardInterrupt:
             print("Backup cancelled")
             sys.exit(0)
+        else:
+            print("Backup completed successfully")
+            return True
 
 # EncryptionManager inherits from BackupManager
 class EncryptionManager(BackupManager):
-    """ This script will encrypt the backup file """
+    """ This script will encrypt the backup file with openssl command"""
     def __init__(self):
         # Call the __init__() method of the parent class
         super().__init__()
         self.decrypt_file_path = os.path.expanduser("~/Documents/backup-for-cloud/decrypted.tar.xz")
 
-    # Encrypt the tar backup file
     def encrypt_backup(self):
-        """ Encrypt the backup file """
+        """ Encrypt the backup file with openssl command"""
 
         # The encrypted backup file will be named with the current date
         file_to_encrypt = os.path.join(self.backup_folder, f"{self.current_date}.tar.xz.enc")
 
-        # Encrypt the backup file
+        # Encrypt the backed up file with openssl command
         encrypt_cmd = ["openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2", "-in",
                         self.backup_file_path, "-out", file_to_encrypt]
 
         try:
             # ask user for password, when user enter password, encrypt file
             subprocess.run(encrypt_cmd, check=True, input="password", encoding="ascii")
-        except subprocess.CalledProcessError as cp_error:
-            print(f"Error encrypting file: {cp_error}")
+        except (subprocess.CalledProcessError, FileNotFoundError, PermissionError,
+                OSError, subprocess.TimeoutExpired, ValueError) as error:
+            print(f"Error encrypting file: {type(error).__name__} - {error}")
             return False
         except KeyboardInterrupt:
             print("Encryption cancelled")
             sys.exit(0)
+        else:
+            print("Encryption completed successfully")
 
         return True
 
     def decrypt(self, file_to_decrypt):
         """ Decrypt the backup file """
 
+        # Decrypt the backup file with openssl command
         decrypt_cmd = ["openssl", "aes-256-cbc", "-d", "-a", "-salt",
                         "-pbkdf2", "-in", file_to_decrypt, "-out", self.decrypt_file_path]
+
         try:
             # ask user for password
             subprocess.run(decrypt_cmd, check=True, input="password", encoding="ascii")
             # Wait for the file to be decrypted
             time.sleep(1)
-        except subprocess.CalledProcessError as cp_error:
-            print(f"Error decrypting file: {cp_error}")
+        except (subprocess.CalledProcessError, FileNotFoundError, PermissionError, OSError,
+                subprocess.TimeoutExpired,ValueError) as error:
+            print(f"Error decrypting file: {type(error).__name__} - {error}")
             return False
         except KeyboardInterrupt:
             print("Decryption cancelled")
             sys.exit(0)
+        else:
+            print("Decryption completed successfully")
 
         return True
 
@@ -125,7 +143,7 @@ class EncryptionManager(BackupManager):
         # remove .enc from file_to_decrypt
         original_file_path = file_to_decrypt[:-4]
 
-        # Compute the SHA256 checksum of the decrypted file
+        # Compute the SHA256 checksum of the *decrypted file*
         hasher = hashlib.sha256()
         with open(self.decrypt_file_path, 'rb') as f:
             while True:
@@ -135,15 +153,15 @@ class EncryptionManager(BackupManager):
                 hasher.update(data)
         actual_checksum = hasher.hexdigest()
 
-        # Compute the SHA256 checksum of the original file
-        hasher_enc = hashlib.sha256()
+        # Compute the SHA256 checksum of the *original file*
+        hasher_orginal = hashlib.sha256()
         with open(original_file_path, 'rb') as f:
             while True:
                 data = f.read(65536)
                 if not data:
                     break
-                hasher_enc.update(data)
-        expected_checksum = hasher_enc.hexdigest()
+                hasher_orginal.update(data)
+        expected_checksum = hasher_orginal.hexdigest()
 
         # Compare the checksums
         if actual_checksum == expected_checksum:
@@ -161,16 +179,24 @@ def main():
     # Create a loop that will run until the user enters 4 to exit
     while True:
         # Display the menu
+        print("=====================================")
+        print("Select an option:")
         print("1.Backup")
         print("2.Encrypt")
         print("3.Decrypt")
         print("4.Exit")
+        print("=====================================")
         try:
             choice = int(input("Enter your choice: "))
-
-        except ValueError:
-            print("Invalid input. Please enter a number.")
+        except (ValueError, TypeError, NameError, AttributeError,
+                IndexError) as error:
+            print(f"Error: {type(error).__name__} - {error}")
+            print("Please enter a number between 1 and 4.")
             continue
+        except KeyboardInterrupt:
+            print("Exiting...")
+            sys.exit(0)
+
         if choice == 1:
             # Check if a backup file already exists for today
             if backup_manager.check_backup_exist():
@@ -182,14 +208,18 @@ def main():
             encryption_manager.encrypt_backup()
 
         elif choice == 3:
+            # List all encrypted files
+            print("=====================================")
             print("Choose which file to decrypt: ")
                     # List only encrypted files
             files = [f for f in os.listdir(backup_manager.backup_folder) if f.endswith('.enc')]
 
             for i, file in enumerate(files, start=1):
                 print(f"{i}. {file}")
+            print("=====================================")
             choice = int(input("Enter your choice: "))
 
+            # files[choice - 1] -> get file name from list files
             file_to_decrypt = os.path.join(backup_manager.backup_folder, files[choice - 1])
             encryption_manager.decrypt(file_to_decrypt)
             encryption_manager.verify_decrypt_file(file_to_decrypt)
