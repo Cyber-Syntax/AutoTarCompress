@@ -6,6 +6,7 @@ The script compresses specific directories as tar.
 
 # Dependencies
 - tar
+- openssl
 
 # Installation
 - Clone the repository via `git clone https://github.com/Cyber-Syntax/AutoTarCompress.git`
