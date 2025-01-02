@@ -6,8 +6,11 @@ from typing import List
 from tqdm import tqdm
 import sys
 import time
+import getpass
+import logging
 from src.size_calculator import SizeCalculator
 from src.old_delete import BackupDeletionManager
+import hashlib
 
 
 @dataclass
@@ -129,6 +132,7 @@ class EncryptionManager(BackupManager):
 
     def encrypt_backup(self) -> bool:
         """Encrypt the backup file with openssl command"""
+        password = getpass.getpass(prompt="Enter encryption password: ")
 
         # The encrypted backup file will be named with the current date
         file_to_encrypt = os.path.join(
@@ -146,30 +150,24 @@ class EncryptionManager(BackupManager):
             self.backup_file_path,
             "-out",
             file_to_encrypt,
+            "-pass",
+            f"pass:{password}",
         ]
 
         try:
-            # ask user for password, when user enter password, encrypt file
-            subprocess.run(encrypt_cmd, check=True, input="password", encoding="ascii")
+            subprocess.run(encrypt_cmd, check=True)
+            logging.info("Encryption completed successfully")
             return True
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            PermissionError,
-            OSError,
-            subprocess.TimeoutExpired,
-            ValueError,
-        ) as error:
-            print(f"Error encrypting file: {type(error).__name__} - {error}")
+        except subprocess.CalledProcessError as error:
+            logging.error(f"Error encrypting file: {error}")
             return False
         except KeyboardInterrupt:
-            print("Encryption cancelled")
+            logging.info("Encryption cancelled")
             sys.exit(0)
-        else:
-            print("Encryption completed successfully")
 
     def decrypt(self, file_to_decrypt: str) -> bool:
         """Decrypt the backup file"""
+        password = getpass.getpass(prompt="Enter decryption password: ")
 
         # Decrypt the backup file with openssl command
         decrypt_cmd = [
@@ -183,35 +181,27 @@ class EncryptionManager(BackupManager):
             file_to_decrypt,
             "-out",
             self.decrypt_file_path,
+            "-pass",
+            f"pass:{password}",
         ]
 
         try:
-            # ask user for password
-            subprocess.run(decrypt_cmd, check=True, input="password", encoding="ascii")
-            # Wait for the file to be decrypted
+            subprocess.run(decrypt_cmd, check=True)
             time.sleep(1)
+            logging.info("Decryption completed successfully")
             return True
-        except (
-            subprocess.CalledProcessError,
-            FileNotFoundError,
-            PermissionError,
-            OSError,
-            subprocess.TimeoutExpired,
-            ValueError,
-        ) as error:
-            print(f"Error decrypting file: {type(error).__name__} - {error}")
+        except subprocess.CalledProcessError as error:
+            logging.error(f"Error decrypting file: {error}")
             return False
         except KeyboardInterrupt:
-            print("Decryption cancelled")
+            logging.info("Decryption cancelled")
             sys.exit(0)
 
     def verify_decrypt_file(self, file_to_decrypt: str):
         """Verify the decrypted file is the same as the original file"""
-
-        # remove .enc from file_to_decrypt
         original_file_path = file_to_decrypt[:-4]
 
-        # Compute the SHA256 checksum of the *decrypted file*
+        # Compute the SHA256 checksum of the decrypted file
         hasher = hashlib.sha256()
         with open(self.decrypt_file_path, "rb") as f:
             while True:
@@ -221,7 +211,7 @@ class EncryptionManager(BackupManager):
                 hasher.update(data)
         actual_checksum = hasher.hexdigest()
 
-        # Compute the SHA256 checksum of the *original file*
+        # Compute the SHA256 checksum of the original file
         hasher_original = hashlib.sha256()
         with open(original_file_path, "rb") as f:
             while True:
@@ -233,9 +223,15 @@ class EncryptionManager(BackupManager):
 
         # Compare the checksums
         if actual_checksum == expected_checksum:
-            print("File integrity verified: checksums match")
+            logging.info("File integrity verified: checksums match")
         else:
-            print("File integrity check failed: checksums do not match")
+            logging.error("File integrity check failed: checksums do not match")
+
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 def main():
