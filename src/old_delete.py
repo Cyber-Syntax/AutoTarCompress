@@ -18,6 +18,7 @@ def ask_and_save_preferences(config_file_path: str):
     config = {"keep_count": keep_count, "keep_enc_count": keep_enc_count}
     with open(config_file_path, "w") as config_file:
         json.dump(config, config_file, indent=4)
+    print(f"Configuration file created at {config_file_path}")
     print(f"Updated number of backups to keep to {keep_count}")
     print(f"Updated number of .enc backups to keep to {keep_enc_count}")
 
@@ -109,3 +110,5 @@ class BackupDeletionManager:
                 print(f"Deleted old encrypted backup: {old_enc_backup}")
             except Exception as e:
                 print(f"Failed to delete {old_enc_backup_path}: {e}")
+
+        print("Old backup deletion process completed.")
