@@ -7,6 +7,7 @@ from tqdm import tqdm
 import sys
 import time
 from src.size_calculator import SizeCalculator
+from src.old_delete import BackupDeletionManager
 
 
 @dataclass
@@ -243,6 +244,7 @@ def main():
     # Classes
     backup_manager = BackupManager()
     encryption_manager = EncryptionManager()
+    deletion_manager = BackupDeletionManager()
 
     # Create a loop that will run until the user enters 4 to exit
     while True:
@@ -252,13 +254,14 @@ def main():
         print("1.Backup")
         print("2.Encrypt")
         print("3.Decrypt")
-        print("4.Exit")
+        print("4.Delete Old Backups")
+        print("5.Exit")
         print("=====================================")
         try:
             choice = int(input("Enter your choice: "))
         except (ValueError, TypeError, NameError, AttributeError, IndexError) as error:
             print(f"Error: {type(error).__name__} - {error}")
-            print("Please enter a number between 1 and 4.")
+            print("Please enter a number between 1 and 5.")
             continue
         except KeyboardInterrupt:
             print("Exiting...")
@@ -300,10 +303,12 @@ def main():
             encryption_manager.decrypt(file_to_decrypt)
             encryption_manager.verify_decrypt_file(file_to_decrypt)
         elif choice == 4:
+            deletion_manager.delete_old_backups()
+        elif choice == 5:
             print("Exiting...")
             sys.exit(0)
         else:
-            print("Invalid choice. Please enter a number between 1 and 4.")
+            print("Invalid choice. Please enter a number between 1 and 5.")
             return
 
 
