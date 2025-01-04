@@ -1,6 +1,4 @@
-Documents/appimages
-Documents/screenloyout
-Documents/backup-for-cloud
-Documents/linuxISO
-Documents/personal
-Documents/test
+~/Documents/appimages
+~/Documents/screenloyout
+~/Documents/backup-for-cloud
+~/Documents/linuxISO
