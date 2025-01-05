@@ -11,6 +11,7 @@ import logging
 from src.size_calculator import SizeCalculator
 from src.old_delete import BackupDeletionManager
 import hashlib
+import tarfile
 
 
 @dataclass
@@ -121,6 +122,43 @@ class BackupManager:
             return False
         except KeyboardInterrupt:
             print("Backup cancelled")
+            sys.exit(0)
+
+    def list_backup_files(self, extension: str = ".tar.xz") -> List[str]:
+        """List all backup files with the specified extension in the backup directory"""
+        try:
+            files = [f for f in os.listdir(self.backup_folder) if f.endswith(extension)]
+            if not files:
+                print("No backup files found.")
+                return []
+            for i, file in enumerate(files, start=1):
+                print(f"{i}. {file}")
+            return files
+        except Exception as error:
+            print(f"Error listing backup files: {type(error).__name__} - {error}")
+            return []
+
+    def extract_backup(self, file_to_extract: str) -> bool:
+        """Extract the backup file to the specified directory"""
+        date_str = os.path.basename(file_to_extract).split(".")[0]
+        extract_to = os.path.join(self.backup_folder, f"{date_str}-extracted")
+        if not os.path.exists(extract_to):
+            os.makedirs(extract_to)
+
+        def filter_function(tarinfo, path):
+            # Customize the tarinfo object here if needed
+            return tarinfo
+
+        try:
+            with tarfile.open(file_to_extract, "r:xz") as tar:
+                tar.extractall(path=extract_to, filter=filter_function)
+            print(f"Backup extracted to {extract_to}")
+            return True
+        except (tarfile.TarError, FileNotFoundError, PermissionError) as error:
+            print(f"Error extracting backup: {type(error).__name__} - {error}")
+            return False
+        except KeyboardInterrupt:
+            print("Extraction cancelled")
             sys.exit(0)
 
 
@@ -242,7 +280,7 @@ def main():
     encryption_manager = EncryptionManager()
     deletion_manager = BackupDeletionManager()
 
-    # Create a loop that will run until the user enters 4 to exit
+    # Create a loop that will run until the user enters 6 to exit
     while True:
         # Display the menu
         print("=====================================")
@@ -251,13 +289,14 @@ def main():
         print("2.Encrypt")
         print("3.Decrypt")
         print("4.Delete Old Backups")
-        print("5.Exit")
+        print("5.Extract Backup Files")
+        print("6.Exit")
         print("=====================================")
         try:
             choice = int(input("Enter your choice: "))
         except (ValueError, TypeError, NameError, AttributeError, IndexError) as error:
             print(f"Error: {type(error).__name__} - {error}")
-            print("Please enter a number between 1 and 5.")
+            print("Please enter a number between 1 and 6.")
             continue
         except KeyboardInterrupt:
             print("Exiting...")
@@ -281,15 +320,11 @@ def main():
             print("=====================================")
             print("Choose which file to decrypt: ")
             # List only encrypted files
-            files = [
-                f
-                for f in os.listdir(backup_manager.backup_folder)
-                if f.endswith(".enc")
-            ]
+            files = backup_manager.list_backup_files(extension=".enc")
 
-            for i, file in enumerate(files, start=1):
-                print(f"{i}. {file}")
-            print("=====================================")
+            if not files:
+                continue
+
             choice = int(input("Enter your choice: "))
 
             # files[choice - 1] -> get file name from list files
@@ -301,10 +336,25 @@ def main():
         elif choice == 4:
             deletion_manager.delete_old_backups()
         elif choice == 5:
+            # List all tar.xz files
+            print("=====================================")
+            print("Choose which backup file to extract: ")
+            files = backup_manager.list_backup_files(extension=".tar.xz")
+
+            if not files:
+                continue
+
+            choice = int(input("Enter your choice: "))
+
+            file_to_extract = os.path.join(
+                backup_manager.backup_folder, files[choice - 1]
+            )
+            backup_manager.extract_backup(file_to_extract)
+        elif choice == 6:
             print("Exiting...")
             sys.exit(0)
         else:
-            print("Invalid choice. Please enter a number between 1 and 5.")
+            print("Invalid choice. Please enter a number between 1 and 6.")
             return
 
 
