@@ -1,5 +1,5 @@
-[![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/Cyber-Syntax/my-unicorn/blob/main/README.md)
-[![tr](https://img.shields.io/badge/lang-tr-red.svg)](https://github.com/Cyber-Syntax/my-unicorn/blob/main/README.tr.md)
+[![en](https://img.shields.io/badge/lang-en-green.svg)](https://github.com/Cyber-Syntax/my-unicorn/blob/main/README.md)
+[![tr](https://img.shields.io/badge/lang-tr-blue.svg)](https://github.com/Cyber-Syntax/my-unicorn/blob/main/README.tr.md)
 
 ---
 
@@ -11,7 +11,7 @@
 
 ---
 
-## ** About AutoTarCompress**
+## **About AutoTarCompress**
 
 - The script compresses specific directories into tar files (e.g., 01-01-2025.tar.xz) and is able to encrypt them using the OpenSSL Python library.
 - It also allows for decryption and extraction of the created files.
