@@ -11,7 +11,7 @@
 
 ---
 
-## ** AutoTarCompress Hakkında**
+## **AutoTarCompress Hakkında**
 
 - Bu script, belirli dizinleri tar dosyalarına sıkıştırır (örn. 01-01-2025.tar.xz) ve OpenSSL Python kütüphanasını kullanarak bunları şifreleyebilir.
 - Ayrıca oluşturulan dosyaların şifresini çözmeyi ve çıkarmayı sağlar.
@@ -19,8 +19,6 @@
 ---
 
 # **💡 Nasıl Kullanılır**
-
-## **⚙️ Kurulum**
 
 1. Bir terminal açın ve bu depoyu klonlayın (git'in yüklü olduğundan emin olun):
 

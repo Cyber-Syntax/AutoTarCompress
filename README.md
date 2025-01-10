@@ -20,8 +20,6 @@
 
 ## **💡 How to Use**
 
-### Optional: Create a virtual environment
-
 1. Open a terminal and clone this repo (make sure you have git installed):
 
    ```bash
