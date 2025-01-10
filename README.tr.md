@@ -50,13 +50,23 @@
    source .venv/bin/activate
    ```
 
-5. Script'i başlatın:
+5. Başlamadan önce yapmanız gerekenler:
+
+   - **example-dirs_to_backup.txt** dosyasındaki örnek **dizinleri** değiştirmelisiniz ve adını **dirs_to_backup.txt** olarak değiştirmelisiniz.
+   - `~/Documents/` dizininde `backup-for-cloud` adlı bir dizin oluşturabilirsiniz. (Eğer bilgisayarınız türkçe ise dizin adını kesinlikle değiştirmelisiniz.)
+
+     - veya yedekleme dizinini main.py bu satırdan değiştirebilirsiniz:
+       ```python
+           backup_folder: str = os.path.expanduser("~/Documents/backup-for-cloud/")
+       ```
+
+6. Script'i başlatın:
 
    ```bash
    python3 main.py
    ```
 
-6. Ekrandaki talimatları izleyin.
+7. Ekrandaki talimatları izleyin.
 
 ---
 
