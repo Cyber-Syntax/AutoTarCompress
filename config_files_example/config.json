@@ -1,0 +1,7 @@
+{
+    "backup_folder": "~/Documents/backup-for-cloud/",
+    "keep_backup": 1,
+    "keep_enc_backup": 1,
+    "dirs_file_path": "dirs_to_backup.txt",
+    "ignore_file_path": "ignore.txt"
+}

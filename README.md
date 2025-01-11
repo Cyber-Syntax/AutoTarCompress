@@ -53,11 +53,6 @@
 5. You need do before start:
 
    - You need to change example directories on the **example-dirs_to_backup.txt** and rename it to **dirs_to_backup.txt**.
-   - You can create `backup-for-cloud` directory on your `~/Documents/` directory.
-     - or you can change the backup directory on this line on the main.py:
-       ```python
-           backup_folder: str = os.path.expanduser("~/Documents/backup-for-cloud/")
-       ```
 
 6. Start the script:
 
