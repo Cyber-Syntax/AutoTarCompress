@@ -50,17 +50,27 @@
    source .venv/bin/activate
    ```
 
-5. You need do before start:
+5. Config File Handling:
+   To customize your backup settings, you can use a `config.json` file. This file allows you to specify:
 
-   - You need to change example directories on the **example-dirs_to_backup.txt** and rename it to **dirs_to_backup.txt**.
+- Backup folder location, Directories to back up, Directories to ignore, Number of tar.xz and tar.xz.enc files to keep
+  **Creating a Config File:**
+  You have two options:
 
-6. Start the script:
+1. **Run the script and follow the on-screen instructions**. This will guide you through creating a `config.json` file.
+2. **Use an example config file (Optional)**:
+
+   - Copy the example configuration from `config_files_example/config.json`
+   - Paste it into your `backup_folder/config_files/config.json` location (e.g `~/Documents/backup-for-cloud/config_files/config.json)
+   - Modify it as needed
+
+3. Start the script:
 
    ```bash
    python3 main.py
    ```
 
-7. Follow the on-screen instructions.
+4. Follow the on-screen instructions.
 
 ---
 
