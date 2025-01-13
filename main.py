@@ -16,10 +16,15 @@ def main():
     backup_manager = BackupManager()
 
     if not os.path.isfile(backup_manager.config_file_path):
+        logging.info("Configuration file not found. Creating a new one.")
         backup_manager.ask_inputs()
         backup_manager.save_credentials()
     else:
         backup_manager.load_credentials()
+        # Check if directories to backup are configured
+        if not backup_manager.dirs_to_backup:
+            logging.warning("No directories found in configuration. Setting up now.")
+            backup_manager.configure_directories()
 
     # Create a loop that will run until the user enters 6 to exit
     while True:

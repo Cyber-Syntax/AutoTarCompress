@@ -50,17 +50,25 @@
    source .venv/bin/activate
    ```
 
-5. Başlamadan önce yapmanız gerekenler:
+5. Yapılandırma dosyası ayarlama:
+   Yedeklemeye ait ayarlarınızı özelleştirmek için, bir `config.json` dosyasını kullanabilirsiniz. Bu dosya size şunları belirtmenizi sağlar:
 
-   - **example-dirs_to_backup.txt** dosyasındaki örnek **dizinleri** değiştirmelisiniz ve adını **dirs_to_backup.txt** olarak değiştirmelisiniz.
+- Yedekleme klasörünün konumu, Geri yüklenecek dizinler, İlgisiz bırakılacak dizinler, Saklanacak tar.xz ve tar.xz.enc dosyalarının sayısı
+  **Ayar Dosyası Oluşturma:**
+  İki seçeneğiniz vardır:
 
-6. Script'i başlatın:
+1. **Senaryoyu çalıştır ve ekrandaki talimatları takip et**. Bu size bir `config.json` dosyası oluşturmayı kılavuzlayacaktır.
+2. **Örnek Ayar Dosyasını Kullan (Opsiyonel)**:
+   - Örnek konfigürasyonunuzu `config_files_example/config.json` konumundan kopyalayın
+   - Bu dosyayı `backup_folder/config_files/config.json` konumuna yapıştırın (örn. `~/Documents/backup-for-cloud/config_files/config.json`)
+   - Gereksinim duyduğunuz kadarını değiştirin
+3. Script'i başlatın:
 
    ```bash
    python3 main.py
    ```
 
-7. Ekrandaki talimatları izleyin.
+4. Ekrandaki talimatları izleyin.
 
 ---
 
