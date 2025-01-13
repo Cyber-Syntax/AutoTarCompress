@@ -1,4 +1,0 @@
-~/Documents/appimages
-~/Documents/screenloyout
-~/Documents/backup-for-cloud
-~/Documents/linuxISO

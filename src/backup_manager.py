@@ -23,32 +23,25 @@ class BackupManager:
     backup_folder: str = field(default_factory=lambda: "~/Documents/backup-for-cloud/")
     keep_backup: int = field(default_factory=lambda: 1)
     keep_enc_backup: int = field(default_factory=lambda: 1)
-    dirs_file_path: str = field(default_factory=lambda: "dirs_to_backup.txt")
-    ignore_file_path: str = field(default_factory=lambda: "ignore.txt")
+    dirs_to_backup: List[str] = field(default_factory=list)
+    ignore_list: List[str] = field(default_factory=list)
     config_file_path: str = field(init=False)
-
-    current_date: str = datetime.datetime.now().strftime("%d-%m-%Y")
     backup_file_path: str = field(init=False)
     decrypt_file_path: str = field(init=False)
-    # size calculator
-    dirs_to_backup: List[str] = field(init=False)
-    ignore_list: List[str] = field(init=False)
+    current_date: str = datetime.datetime.now().strftime("%d-%m-%Y")
 
     def __post_init__(self):
         self.backup_file_path = os.path.expanduser(
             f"{self.backup_folder}/{self.current_date}.tar.xz"
         )
-        # self.backup_folder = os.path.expanduser(self.backup_folder)
-
-        # TODO: save backup folder without expanduser
         self.config_file_path = os.path.join(
             os.path.expanduser(self.backup_folder), "config_files", "config.json"
         )
         # encryption
         self.decrypt_file_path = os.path.join(self.backup_folder, "decrypted.tar.xz")
-        # size calculator
-        self.dirs_to_backup = self.read_dirs_to_backup()
-        self.ignore_list = self.read_ignore_list()
+        # # size calculator
+        # self.dirs_to_backup = []
+        # self.ignore_list = []
 
     def ask_inputs(self):
         while True:
@@ -75,6 +68,102 @@ class BackupManager:
             except ValueError:
                 print("Invalid input, please enter a valid integer.")
 
+        print("\nNow let's configure the directories for backup.")
+        self.configure_directories()
+
+    def configure_directories(self):
+        """Interactive method to add directories to backup and ignore lists."""
+        print("=== Configure Directories to Backup ===")
+        while True:
+            print("\nCurrent directories to backup:")
+            for idx, directory in enumerate(self.dirs_to_backup, start=1):
+                print(f"{idx}. {directory}")
+            print("\nOptions:")
+            print("1. Add directories (separate multiple entries with commas)")
+            print("2. Remove a directory")
+            print("3. View ignore list")
+            print("4. Modify ignore list")
+            print("5. Finish and save")
+
+            choice = input("Choose an option (1-5): ").strip()
+            if choice == "1":
+                dirs_input = input(
+                    "Enter directories to add (separate multiple entries with commas): "
+                ).strip()
+                new_dirs = [d.strip() for d in dirs_input.split(",") if d.strip()]
+                # Avoid duplicates and invalid entries
+                added_dirs = [d for d in new_dirs if d not in self.dirs_to_backup]
+                self.dirs_to_backup.extend(added_dirs)
+                print(f"Added directories: {', '.join(added_dirs)}")
+            elif choice == "2":
+                print("Select a directory to remove:")
+                for idx, directory in enumerate(self.dirs_to_backup, start=1):
+                    print(f"{idx}. {directory}")
+                try:
+                    idx_to_remove = int(input("Enter the number to remove: ").strip())
+                    if 0 < idx_to_remove <= len(self.dirs_to_backup):
+                        removed_dir = self.dirs_to_backup.pop(idx_to_remove - 1)
+                        print(f"Removed: {removed_dir}")
+                    else:
+                        print("Invalid selection.")
+                except ValueError:
+                    print("Invalid input.")
+            elif choice == "3":
+                print("Current ignore list:")
+                for idx, path in enumerate(self.ignore_list, start=1):
+                    print(f"{idx}. {path}")
+            elif choice == "4":
+                self.modify_ignore_list()
+            elif choice == "5":
+                self.save_credentials()
+                print("Configuration saved.")
+                break
+            else:
+                print("Invalid choice. Please try again.")
+
+    def modify_ignore_list(self):
+        """Interactive method to add or remove paths from the ignore list."""
+        print("=== Modify Ignore List ===")
+        while True:
+            print("\nCurrent ignore list:")
+            for idx, path in enumerate(self.ignore_list, start=1):
+                print(f"{idx}. {path}")
+
+            print("\nOptions:")
+            print("1. Add ignore paths (separate multiple entries with commas)")
+            print("2. Remove an ignore path")
+            print("3. Finish and save")
+
+            choice = input("Choose an option (1-3): ").strip()
+            if choice == "1":
+                ignore_input = input(
+                    "Enter paths to ignore (separate multiple entries with commas): "
+                ).strip()
+                new_ignores = [p.strip() for p in ignore_input.split(",") if p.strip()]
+                # Avoid duplicates and invalid entries
+                added_ignores = [p for p in new_ignores if p not in self.ignore_list]
+                self.ignore_list.extend(added_ignores)
+                print(f"Added ignore paths: {', '.join(added_ignores)}")
+            elif choice == "2":
+                print("Select an ignore path to remove:")
+                for idx, path in enumerate(self.ignore_list, start=1):
+                    print(f"{idx}. {path}")
+                try:
+                    idx_to_remove = int(input("Enter the number to remove: ").strip())
+                    if 0 < idx_to_remove <= len(self.ignore_list):
+                        removed_path = self.ignore_list.pop(idx_to_remove - 1)
+                        print(f"Removed from ignore list: {removed_path}")
+                    else:
+                        print("Invalid selection.")
+                except ValueError:
+                    print("Invalid input.")
+            elif choice == "3":
+                self.save_credentials()
+                print("Ignore list updated and saved.")
+                break
+            else:
+                print("Invalid choice. Please try again.")
+
     def save_credentials(self):
         """Save the credentials to a file in json format from response"""
 
@@ -86,11 +175,11 @@ class BackupManager:
             "backup_folder": self.backup_folder,
             "keep_backup": self.keep_backup,
             "keep_enc_backup": self.keep_enc_backup,
-            "dirs_file_path": self.dirs_file_path,
-            "ignore_file_path": self.ignore_file_path,
+            "dirs_to_backup": self.dirs_to_backup,
+            "ignore_list": self.ignore_list,
         }
 
-        with open(self.config_file_path, "w") as config_file:
+        with open(self.config_file_path, "w", encoding="utf-8") as config_file:
             json.dump(config, config_file, indent=4)
 
         print(f"Configuration file created at {self.config_file_path}")
@@ -109,15 +198,15 @@ class BackupManager:
             self.backup_folder = config.get("backup_folder", self.backup_folder)
             self.keep_backup = config.get("keep_backup", self.keep_backup)
             self.keep_enc_backup = config.get("keep_enc_backup", self.keep_enc_backup)
-            self.dirs_file_path = config.get("dirs_file_path", self.dirs_file_path)
-            self.ignore_file_path = config.get(
-                "ignore_file_path", self.ignore_file_path
-            )
+            self.dirs_to_backup = config.get("dirs_to_backup", self.dirs_to_backup)
+            self.ignore_list = config.get("ignore_list", self.ignore_list)
 
             print(f"Configuration loaded from {self.config_file_path}")
             print(f"Backup folder set to {self.backup_folder}")
             print(f"Keep backup: {self.keep_backup}")
             print(f"Keep encrypted backup: {self.keep_enc_backup}")
+            print(f"Directories to backup: {self.dirs_to_backup}")
+            print(f"Ignore list: {self.ignore_list}")
         else:
             print(f"Configuration file {self.config_file_path} not found.")
 
@@ -128,22 +217,13 @@ class BackupManager:
     def backup_directories(self) -> bool:
         """Backup the directories listed in dirs_to_backup.txt to a compressed file"""
 
-        # Read in the directories to backup from the file
-        dirs_to_backup: List[str] = []
-        with open(self.dirs_file_path, "r", encoding="utf-8") as file:
-            for line in file:
-                directory = line.strip()
-                if directory:
-                    dirs_to_backup.append(directory)
+        if not self.dirs_to_backup:
+            print(
+                "No directories to backup. Create directories on the config.json. Look example config.json."
+            )
+            sys.exit()
 
-        # Read and expand paths in the ignore file
-        ignore_paths = []
-        if os.path.isfile(self.ignore_file_path):
-            with open(self.ignore_file_path, "r", encoding="utf-8") as file:
-                for line in file:
-                    ignore_path = line.strip()
-                    if ignore_path:
-                        ignore_paths.append(os.path.expanduser(ignore_path))
+        ignore_paths = [os.path.expanduser(path) for path in self.ignore_list]
 
         # Generate the exclude options for the tar command
         exclude_options = " ".join([f"--exclude={path}" for path in ignore_paths])
@@ -152,13 +232,11 @@ class BackupManager:
         filesystem_option = "--one-file-system"
 
         # Expand the user's home directory for each directory to backup
-        dir_paths = [os.path.expanduser(path) for path in dirs_to_backup]
+        dir_paths = [os.path.expanduser(path) for path in self.dirs_to_backup]
 
         # Calculate the total size using SizeCalculator
-        size_calculator = BackupManager(self.dirs_file_path, self.ignore_file_path)
-        total_size_bytes = size_calculator.calculate_total_backup_size(
-            dirs_to_backup, size_calculator.ignore_list
-        )
+        # size_calculator = BackupManager(self.dirs_to_backup, self.ignore_list)
+        total_size_bytes = self.calculate_total_backup_size(dir_paths, ignore_paths)
 
         # Convert the total size to MB and GiB
         total_size_mb = total_size_bytes / (1024 * 1024)
@@ -409,7 +487,7 @@ class BackupManager:
     def read_dirs_to_backup(self) -> List[str]:
         """Read the directories and files listed in dirs_to_backup.txt"""
         dirs_to_backup = []
-        with open(self.dirs_file_path, "r", encoding="utf-8") as file:
+        with open(self.dirs_to_backup, "r", encoding="utf-8") as file:
             for line in file:
                 directory = line.strip()
                 if directory:
@@ -419,8 +497,8 @@ class BackupManager:
     def read_ignore_list(self) -> List[str]:
         """Read the directories and files listed in ignore.txt"""
         ignore_list = []
-        if os.path.isfile(self.ignore_file_path):
-            with open(self.ignore_file_path, "r", encoding="utf-8") as file:
+        if os.path.isfile(self.ignore_list):
+            with open(self.ignore_list, "r", encoding="utf-8") as file:
                 for line in file:
                     ignore_path = line.strip()
                     if ignore_path:
