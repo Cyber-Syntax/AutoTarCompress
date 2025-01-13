@@ -51,17 +51,16 @@
    ```
 
 5. Yapılandırma dosyası ayarlama:
-   Yedeklemeye ait ayarlarınızı özelleştirmek için, bir `config.json` dosyasını kullanabilirsiniz. Bu dosya size şunları belirtmenizi sağlar:
-
-- Yedekleme klasörünün konumu, Geri yüklenecek dizinler, İlgisiz bırakılacak dizinler, Saklanacak tar.xz ve tar.xz.enc dosyalarının sayısı
-  **Ayar Dosyası Oluşturma:**
-  İki seçeneğiniz vardır:
-
-1. **Senaryoyu çalıştır ve ekrandaki talimatları takip et**. Bu size bir `config.json` dosyası oluşturmayı kılavuzlayacaktır.
-2. **Örnek Ayar Dosyasını Kullan (Opsiyonel)**:
-   - Örnek konfigürasyonunuzu `config_files_example/config.json` konumundan kopyalayın
-   - Bu dosyayı `backup_folder/config_files/config.json` konumuna yapıştırın (örn. `~/Documents/backup-for-cloud/config_files/config.json`)
-   - Gereksinim duyduğunuz kadarını değiştirin
+   - Yedeklemeye ait ayarlarınızı özelleştirmek için, bir `config.json` dosyasını kullanabilirsiniz. Bu dosya size şunları belirtmenizi sağlar:
+      - Yedekleme klasörünün konumu, Geri yüklenecek dizinler, İlgisiz bırakılacak dizinler, Saklanacak tar.xz ve tar.xz.enc dosyalarının sayısı
+  - **Yapılandırma Dosyası Oluşturma:**
+     - İki seçeneğiniz vardır:
+         1. **Senaryoyu çalıştır ve ekrandaki talimatları takip et**. Bu size bir `config.json` dosyası oluşturmayı kılavuzlayacaktır.
+         2. **Örnek Ayar Dosyasını Kullan (Opsiyonel)**:
+            - Örnek konfigürasyonunuzu `config_files_example/config.json` konumundan kopyalayın
+            - Bu dosyayı `backup_folder/config_files/config.json` konumuna yapıştırın (örn. `~/Documents/backup-for-cloud/config_files/config.json`)
+            - Gereksinim duyduğunuz kadarını değiştirin
+          
 3. Script'i başlatın:
 
    ```bash
