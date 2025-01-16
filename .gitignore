@@ -135,5 +135,8 @@ dmypy.json
 # vscode
 .vscode/
 
-# dirs_to_backup
-dirs_to_backup*
+### CUSTOM
+
+# logs
+*.log*
+logs/*

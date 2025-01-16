@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from logging.handlers import RotatingFileHandler
 from src import (
     ArchiveExtractor,
     BackupManager,
@@ -11,14 +12,28 @@ from src import (
     utils,
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+
+def configure_logging():
+    log_file_path = os.path.join(os.path.dirname(__file__), "logs/AutoTarCompress.log")
+    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+    log_handler = RotatingFileHandler(
+        log_file_path,
+        maxBytes=1024 * 1024,
+        backupCount=3,  # 1MB per file, keep 3 backups
+    )
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    log_handler.setFormatter(formatter)
+
+    logger = logging.getLogger()
+    logger.setLevel(
+        logging.INFO
+    )  # Logs INFO and above (INFO, WARNING, ERROR, CRITICAL)
+    logger.addHandler(log_handler)
 
 
 def main():
     """Backup the directories listed in dirs_to_backup.txt to a compressed file"""
+    configure_logging()
 
     # Classes
     config = Config()

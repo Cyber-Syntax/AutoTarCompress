@@ -7,7 +7,7 @@ import logging
 import hashlib
 from dataclasses import dataclass, field
 from .config import Config
-import utils
+from .utils import list_backup_files
 
 
 @dataclass
@@ -19,6 +19,7 @@ class EncryptionManager:
         self.decrypt_file_path = os.path.join(
             os.path.expanduser(self.config.backup_folder), f"decrypted.tar.xz"
         )
+        self.files = list_backup_files(extension=".enc")
 
     def encrypt_backup(self) -> bool:
         """Encrypt the backup file with openssl command"""
@@ -64,16 +65,15 @@ class EncryptionManager:
         print("=====================================")
         print("Choose which file to decrypt: ")
         # List only encrypted files
-        files = utils.list_backup_files(extension=".enc")
 
-        if not files:
+        if not self.files:
             return False
 
         choice = int(input("Enter your choice: "))
 
         # files[choice - 1] -> get file name from list files
         file_to_decrypt = os.path.join(
-            os.path.expanduser(self.config.backup_folder), files[choice - 1]
+            os.path.expanduser(self.config.backup_folder), self.files[choice - 1]
         )
 
         # Decrypt the backup file with openssl command
