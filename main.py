@@ -90,36 +90,12 @@ def main():
         elif choice == 2:
             encryption_manager.encrypt_backup()
         elif choice == 3:
-            # List all encrypted files
-            print("=====================================")
-            print("Choose which file to decrypt: ")
-            # List only encrypted files
-            files = utils.list_backup_files(extension=".enc")
-
-            if not files:
-                continue
-
-            choice = int(input("Enter your choice: "))
-
-            # files[choice - 1] -> get file name from list files
-            file_to_decrypt = os.path.join(config.backup_folder, files[choice - 1])
-            encryption_manager.decrypt(file_to_decrypt)
-            encryption_manager.verify_decrypt_file(file_to_decrypt)
+            encryption_manager.decrypt()
+            encryption_manager.verify_decrypt_file()
         elif choice == 4:
             garbage_collector.delete_old_backups()
         elif choice == 5:
-            # List all tar.xz files
-            print("=====================================")
-            print("Choose which backup file to extract: ")
-            files = utils.list_backup_files(extension=".tar.xz")
-
-            if not files:
-                continue
-
-            choice = int(input("Enter your choice: "))
-
-            file_to_extract = os.path.join(config.backup_folder, files[choice - 1])
-            archive_extractor.extract_backup(file_to_extract)
+            archive_extractor.extract_backup()
         elif choice == 6:
             print("Exiting...")
             sys.exit(0)

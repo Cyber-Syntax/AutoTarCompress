@@ -5,9 +5,10 @@ import time
 import getpass
 import logging
 import hashlib
+from typing import List
 from dataclasses import dataclass, field
 from .config import Config
-from .utils import list_backup_files
+from .utils import list_backup_files, select_file
 
 
 @dataclass
@@ -17,66 +18,49 @@ class EncryptionManager:
 
     def __post_init__(self):
         self.decrypt_file_path = os.path.join(
-            os.path.expanduser(self.config.backup_folder), f"decrypted.tar.xz"
+            os.path.expanduser(self.config.backup_folder), "decrypted.tar.xz"
         )
-        self.files = list_backup_files(extension=".enc")
 
     def encrypt_backup(self) -> bool:
-        """Encrypt the backup file with openssl command"""
-        password = getpass.getpass(prompt="Enter encryption password: ")
-        current_date = self.config.current_date
-
-        # The encrypted backup file will be named with the current date
-        file_to_encrypt = os.path.join(
-            os.path.expanduser(self.config.backup_folder), f"{current_date}.tar.xz.enc"
-        )
-
-        # Encrypt the backed up file with openssl command
-        encrypt_cmd = [
-            "openssl",
-            "aes-256-cbc",
-            "-a",
-            "-salt",
-            "-pbkdf2",
-            "-in",
-            self.config.backup_file_path,
-            "-out",
-            file_to_encrypt,
-            "-pass",
-            f"pass:{password}",
-        ]
-
+        """Encrypt a selected backup file with openssl."""
         try:
+            # Select a `.tar.xz` file to encrypt
+            file_to_encrypt = select_file(extension=".tar.xz")
+            password = getpass.getpass(prompt="Enter encryption password: ")
+
+            # Define encrypted file path
+            encrypted_file = f"{file_to_encrypt}.enc"
+
+            encrypt_cmd = [
+                "openssl",
+                "aes-256-cbc",
+                "-a",
+                "-salt",
+                "-pbkdf2",
+                "-in",
+                file_to_encrypt,
+                "-out",
+                encrypted_file,
+                "-pass",
+                f"pass:{password}",
+            ]
+
+            # Run the encryption command
             subprocess.run(encrypt_cmd, check=True)
-            logging.info("Encryption completed successfully")
+            logging.info(f"Encryption completed successfully: {encrypted_file}")
             return True
+        except ValueError as e:
+            logging.error(f"Encryption failed: {e}")
+            return False
         except subprocess.CalledProcessError as error:
             logging.error(f"Error encrypting file: {error}")
             return False
         except KeyboardInterrupt:
-            logging.info("Encryption cancelled")
+            logging.info("Encryption cancelled.")
             sys.exit(0)
 
-    def decrypt(self, file_to_decrypt: str) -> bool:
-        """Decrypt the backup file"""
-        password = getpass.getpass(prompt="Enter decryption password: ")
-
-        # List all encrypted files
-        print("=====================================")
-        print("Choose which file to decrypt: ")
-        # List only encrypted files
-
-        if not self.files:
-            return False
-
-        choice = int(input("Enter your choice: "))
-
-        # files[choice - 1] -> get file name from list files
-        file_to_decrypt = os.path.join(
-            os.path.expanduser(self.config.backup_folder), self.files[choice - 1]
-        )
-
-        # Decrypt the backup file with openssl command
+    def decrypt_file(self, file_to_decrypt: str, password: str) -> bool:
+        """Decrypt the selected file using OpenSSL."""
         decrypt_cmd = [
             "openssl",
             "aes-256-cbc",
@@ -93,43 +77,51 @@ class EncryptionManager:
         ]
 
         try:
+            # Run the decryption command
             subprocess.run(decrypt_cmd, check=True)
-            time.sleep(1)
-            logging.info("Decryption completed successfully")
+            logging.info(f"Decryption completed successfully: {self.decrypt_file_path}")
             return True
         except subprocess.CalledProcessError as error:
             logging.error(f"Error decrypting file: {error}")
             return False
         except KeyboardInterrupt:
-            logging.info("Decryption cancelled")
-            sys.exit(0)
+            logging.info("Decryption cancelled.")
+            raise
 
-    def verify_decrypt_file(self, file_to_decrypt: str):
-        """Verify the decrypted file is the same as the original file"""
-        original_file_path = file_to_decrypt[:-4]
+    def verify_decrypt_file(self, original_file_path: str) -> None:
+        """Verify the decrypted file's integrity by comparing checksums."""
+        actual_checksum = self.compute_checksum(self.decrypt_file_path)
+        expected_checksum = self.compute_checksum(original_file_path)
 
-        # Compute the SHA256 checksum of the decrypted file
-        hasher = hashlib.sha256()
-        with open(self.decrypt_file_path, "rb") as f:
-            while True:
-                data = f.read(65536)
-                if not data:
-                    break
-                hasher.update(data)
-        actual_checksum = hasher.hexdigest()
-
-        # Compute the SHA256 checksum of the original file
-        hasher_original = hashlib.sha256()
-        with open(original_file_path, "rb") as f:
-            while True:
-                data = f.read(65536)
-                if not data:
-                    break
-                hasher_original.update(data)
-        expected_checksum = hasher_original.hexdigest()
-
-        # Compare the checksums
         if actual_checksum == expected_checksum:
-            logging.info("File integrity verified: checksums match")
+            logging.info("File integrity verified: checksums match.")
         else:
-            logging.error("File integrity check failed: checksums do not match")
+            logging.error("File integrity check failed: checksums do not match.")
+
+    @staticmethod
+    def compute_checksum(file_path: str) -> str:
+        """Compute the SHA256 checksum of a file."""
+        hasher = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            while chunk := f.read(65536):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
+    def decrypt(self) -> bool:
+        """Main decryption workflow."""
+        try:
+            # Select a `.enc` file to decrypt
+            file_to_decrypt = select_file(extension=".enc")
+            password = getpass.getpass(prompt="Enter decryption password: ")
+
+            if self.decrypt_file(file_to_decrypt, password):
+                # Verify integrity by comparing with the original file
+                original_file_path = file_to_decrypt.replace(".enc", "")
+                self.verify_decrypt_file(original_file_path)
+                return True
+        except ValueError as e:
+            logging.error(f"Decryption failed: {e}")
+            return False
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            return False
