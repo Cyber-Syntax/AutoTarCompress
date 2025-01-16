@@ -91,7 +91,6 @@ def main():
             encryption_manager.encrypt_backup()
         elif choice == 3:
             encryption_manager.decrypt()
-            encryption_manager.verify_decrypt_file()
         elif choice == 4:
             garbage_collector.delete_old_backups()
         elif choice == 5:

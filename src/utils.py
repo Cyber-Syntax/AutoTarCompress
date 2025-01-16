@@ -6,7 +6,6 @@ import logging
 
 def list_backup_files(extension: str) -> List[str]:
     """List all backup files with the specified extension in the backup directory."""
-    from .config import Config
 
     config = Config()
     backup_folder = os.path.expanduser(config.backup_folder)
@@ -40,9 +39,6 @@ def select_file(extension: str) -> str:
         raise ValueError(f"No files found with extension '{extension}'.")
 
     print("=====================================")
-    print(f"Choose a file to process ({extension}):")
-    for idx, file in enumerate(files, start=1):
-        print(f"{idx}. {file}")
 
     while True:
         try:
