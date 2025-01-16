@@ -1,7 +1,15 @@
 import os
 import sys
 import logging
-from src.backup_manager import BackupManager
+from src import (
+    ArchiveExtractor,
+    BackupManager,
+    Config,
+    EncryptionManager,
+    GarbageCollector,
+    SizeCalculator,
+    utils,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -13,18 +21,23 @@ def main():
     """Backup the directories listed in dirs_to_backup.txt to a compressed file"""
 
     # Classes
-    backup_manager = BackupManager()
+    config = Config()
+    size_calculator = SizeCalculator(config=config)
+    archive_extractor = ArchiveExtractor(config=config)
+    backup_manager = BackupManager(config=config, size_calculator=size_calculator)
+    encryption_manager = EncryptionManager(config=config)
+    garbage_collector = GarbageCollector(config=config)
 
-    if not os.path.isfile(backup_manager.config_file_path):
+    if not os.path.isfile(config.config_file_path):
         logging.info("Configuration file not found. Creating a new one.")
-        backup_manager.ask_inputs()
-        backup_manager.save_credentials()
+        config.ask_inputs()
+        config.save_credentials()
     else:
-        backup_manager.load_credentials()
+        config.load_credentials()
         # Check if directories to backup are configured
-        if not backup_manager.dirs_to_backup:
+        if not config.dirs_to_backup:
             logging.warning("No directories found in configuration. Setting up now.")
-            backup_manager.configure_directories()
+            config.configure_directories()
 
     # Create a loop that will run until the user enters 6 to exit
     while True:
@@ -60,13 +73,13 @@ def main():
             else:
                 print("Backup failed.")
         elif choice == 2:
-            backup_manager.encrypt_backup()
+            encryption_manager.encrypt_backup()
         elif choice == 3:
             # List all encrypted files
             print("=====================================")
             print("Choose which file to decrypt: ")
             # List only encrypted files
-            files = backup_manager.list_backup_files(extension=".enc")
+            files = utils.list_backup_files(extension=".enc")
 
             if not files:
                 continue
@@ -74,28 +87,24 @@ def main():
             choice = int(input("Enter your choice: "))
 
             # files[choice - 1] -> get file name from list files
-            file_to_decrypt = os.path.join(
-                backup_manager.backup_folder, files[choice - 1]
-            )
-            backup_manager.decrypt(file_to_decrypt)
-            backup_manager.verify_decrypt_file(file_to_decrypt)
+            file_to_decrypt = os.path.join(config.backup_folder, files[choice - 1])
+            encryption_manager.decrypt(file_to_decrypt)
+            encryption_manager.verify_decrypt_file(file_to_decrypt)
         elif choice == 4:
-            backup_manager.delete_old_backups()
+            garbage_collector.delete_old_backups()
         elif choice == 5:
             # List all tar.xz files
             print("=====================================")
             print("Choose which backup file to extract: ")
-            files = backup_manager.list_backup_files(extension=".tar.xz")
+            files = utils.list_backup_files(extension=".tar.xz")
 
             if not files:
                 continue
 
             choice = int(input("Enter your choice: "))
 
-            file_to_extract = os.path.join(
-                backup_manager.backup_folder, files[choice - 1]
-            )
-            backup_manager.extract_backup(file_to_extract)
+            file_to_extract = os.path.join(config.backup_folder, files[choice - 1])
+            archive_extractor.extract_backup(file_to_extract)
         elif choice == 6:
             print("Exiting...")
             sys.exit(0)
