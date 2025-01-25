@@ -9,6 +9,8 @@ from typing import List
 from dataclasses import dataclass, field
 from tqdm import tqdm
 
+# TODO: get, set, setup to send backup_folder to utils.py or ...?
+
 
 @dataclass
 class Config:
