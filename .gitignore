@@ -137,3 +137,6 @@ dmypy.json
 
 # dirs_to_backup
 dirs_to_backup*
+
+# ruff
+.ruff_cache
