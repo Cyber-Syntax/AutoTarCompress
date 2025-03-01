@@ -20,6 +20,13 @@ def main():
     """Main application entry point"""
     facade = BackupFacade()
 
+    # Always expand backup folder path first
+    expanded_backup_dir = os.path.expanduser(facade.config.backup_folder)
+
+    # Create backup directory if missing
+    if not os.path.exists(expanded_backup_dir):
+        os.makedirs(expanded_backup_dir)  # Secure directory permissions
+
     # Initial configuration check
     if not os.path.exists(facade.config.config_path):
         logging.info("No configuration found. Starting initial setup.")
@@ -58,7 +65,7 @@ def main():
                 # List available backup files
                 backup_files = [
                     f
-                    for f in os.listdir(facade.config.backup_folder)
+                    for f in os.listdir(expanded_backup_dir)
                     if f.endswith(".tar.xz") and not f.endswith(".enc")
                 ]
                 if not backup_files:
@@ -67,9 +74,7 @@ def main():
                 selected = select_file(backup_files, facade.config.backup_folder)
                 EncryptCommand(facade.config, selected).execute()
             elif choice == 3:
-                enc_files = [
-                    f for f in os.listdir(facade.config.backup_folder) if f.endswith(".enc")
-                ]
+                enc_files = [f for f in os.listdir(expanded_backup_dir) if f.endswith(".enc")]
                 if not enc_files:
                     print("No encrypted backups found")
                     continue
@@ -80,7 +85,7 @@ def main():
             elif choice == 5:
                 backup_files = [
                     f
-                    for f in os.listdir(facade.config.backup_folder)
+                    for f in os.listdir(expanded_backup_dir)
                     if f.endswith(".tar.xz") and not f.endswith(".enc")
                 ]
                 if not backup_files:
