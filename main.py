@@ -1,12 +1,11 @@
+import logging
 import os
 import sys
-import logging
-from src.backup_manager import BackupFacade, DecryptCommand, ExtractCommand, EncryptCommand
+
+from src.backup_manager import BackupFacade, DecryptCommand, EncryptCommand, ExtractCommand
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def select_file(files: list, backup_folder: str) -> str:
@@ -20,7 +19,7 @@ def select_file(files: list, backup_folder: str) -> str:
 def main():
     """Main application entry point"""
     facade = BackupFacade()
-    
+
     # Initial configuration check
     if not os.path.exists(facade.config.config_path):
         logging.info("No configuration found. Starting initial setup.")
@@ -37,7 +36,7 @@ def main():
         print("4. Cleanup Old Backups")
         print("5. Extract Backup")
         print("6. Exit")
-        
+
         try:
             choice = input("Enter your choice (1-6): ").strip()
             if choice == "6":
@@ -47,19 +46,20 @@ def main():
             choice = int(choice)
             if choice < 1 or choice > 6:
                 raise ValueError
-                
+
         except ValueError:
             print("Invalid input. Please enter a number between 1-6.")
             continue
 
         try:
             if choice == 1:
-                facade.execute_command('backup')
+                facade.execute_command("backup")
             elif choice == 2:
                 # List available backup files
                 backup_files = [
-                    f for f in os.listdir(facade.config.backup_folder)
-                    if f.endswith('.tar.xz') and not f.endswith('.enc')
+                    f
+                    for f in os.listdir(facade.config.backup_folder)
+                    if f.endswith(".tar.xz") and not f.endswith(".enc")
                 ]
                 if not backup_files:
                     print("No backup files available for encryption")
@@ -68,8 +68,7 @@ def main():
                 EncryptCommand(facade.config, selected).execute()
             elif choice == 3:
                 enc_files = [
-                    f for f in os.listdir(facade.config.backup_folder) 
-                    if f.endswith('.enc')
+                    f for f in os.listdir(facade.config.backup_folder) if f.endswith(".enc")
                 ]
                 if not enc_files:
                     print("No encrypted backups found")
@@ -77,18 +76,19 @@ def main():
                 selected = select_file(enc_files, facade.config.backup_folder)
                 DecryptCommand(facade.config, selected).execute()
             elif choice == 4:
-                facade.execute_command('cleanup')
+                facade.execute_command("cleanup")
             elif choice == 5:
                 backup_files = [
-                    f for f in os.listdir(facade.config.backup_folder)
-                    if f.endswith('.tar.xz') and not f.endswith('.enc')
+                    f
+                    for f in os.listdir(facade.config.backup_folder)
+                    if f.endswith(".tar.xz") and not f.endswith(".enc")
                 ]
                 if not backup_files:
                     print("No backup files found")
                     continue
                 selected = select_file(backup_files, facade.config.backup_folder)
                 ExtractCommand(facade.config, selected).execute()
-                
+
         except KeyboardInterrupt:
             print("\nOperation cancelled by user")
         except Exception as e:

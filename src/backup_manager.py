@@ -1,25 +1,27 @@
-import os
-import subprocess
 import datetime
-import sys
-import time
-import tarfile
-import json
-import gettext
 import getpass
-import logging
+import gettext
 import hashlib
+import json
+import logging
+import os
 import re
-from typing import List, Dict
-from dataclasses import dataclass, field
-from tqdm import tqdm
+import subprocess
+import sys
+import tarfile
+import time
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Dict, List
+
+from tqdm import tqdm
 
 _ = gettext.gettext
 
 # --------------------------
 # Configuration Management
 # --------------------------
+
 
 @dataclass
 class BackupConfig:
@@ -49,32 +51,35 @@ class BackupConfig:
             "dirs_to_backup": self.dirs_to_backup,
             "ignore_list": self.ignore_list,
         }
-        
+
         config_dir = os.path.dirname(self.config_path)
         os.makedirs(config_dir, exist_ok=True)
-        
+
         with open(self.config_path, "w") as f:
             json.dump(config_data, f, indent=4)
 
     @classmethod
-    def load(cls) -> 'BackupConfig':
+    def load(cls) -> "BackupConfig":
         default_config = cls()
         config_path = default_config.config_path
-        
+
         if os.path.exists(config_path):
             with open(config_path, "r") as f:
                 config_data = json.load(f)
             return cls(**config_data)
         return default_config
 
+
 # --------------------------
 # Command Pattern
 # --------------------------
+
 
 class Command(ABC):
     @abstractmethod
     def execute(self):
         pass
+
 
 class BackupCommand(Command):
     def __init__(self, config: BackupConfig):
@@ -97,14 +102,14 @@ class BackupCommand(Command):
     def _run_backup_process(self, total_size: int):
         exclude_options = " ".join([f"--exclude={path}" for path in self.config.ignore_list])
         dir_paths = [os.path.expanduser(path) for path in self.config.dirs_to_backup]
-        
+
         cmd = (
             f"tar -cf - --one-file-system {exclude_options} {' '.join(dir_paths)} | "
             f"xz --threads={os.cpu_count()-1} > {self.config.backup_path}"
         )
 
         try:
-            with tqdm(total=total_size, unit='B', unit_scale=True) as pbar:
+            with tqdm(total=total_size, unit="B", unit_scale=True) as pbar:
                 process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
                 while process.poll() is None:
                     if os.path.exists(self.config.backup_path):
@@ -113,6 +118,7 @@ class BackupCommand(Command):
             self.logger.info("Backup completed successfully")
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Backup failed: {e}")
+
 
 class EncryptCommand(Command):
     def __init__(self, config: BackupConfig, file_to_encrypt: str):
@@ -123,14 +129,20 @@ class EncryptCommand(Command):
     def execute(self) -> bool:
         password = getpass.getpass("Enter encryption password: ")
         output_path = f"{self.file_to_encrypt}.enc"
-        
+
         cmd = [
-            "openssl", "aes-256-cbc", "-a", "-salt", "-pbkdf2",
-            "-in", self.file_to_encrypt,
-            "-out", output_path,
-            "-pass", f"pass:{password}"
+            "openssl",
+            "aes-256-cbc",
+            "-a",
+            "-salt",
+            "-pbkdf2",
+            "-in",
+            self.file_to_encrypt,
+            "-out",
+            output_path,
+            "-pass",
+            f"pass:{password}",
         ]
-        
         try:
             subprocess.run(cmd, check=True)
             self.logger.info(f"Encrypted {os.path.basename(self.file_to_encrypt)} successfully")
@@ -138,6 +150,7 @@ class EncryptCommand(Command):
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Encryption failed: {e}")
             return False
+
 
 class CleanupCommand(Command):
     def __init__(self, config: BackupConfig):
@@ -151,9 +164,9 @@ class CleanupCommand(Command):
     def _cleanup_files(self, ext: str, keep_count: int):
         files = sorted(
             [f for f in os.listdir(self.config.backup_folder) if f.endswith(ext)],
-            key=lambda x: datetime.datetime.strptime(x.split('.')[0], "%d-%m-%Y")
+            key=lambda x: datetime.datetime.strptime(x.split(".")[0], "%d-%m-%Y"),
         )
-        
+
         for old_file in files[:-keep_count]:
             try:
                 os.remove(os.path.join(self.config.backup_folder, old_file))
@@ -161,9 +174,11 @@ class CleanupCommand(Command):
             except Exception as e:
                 self.logger.error(f"Failed to delete {old_file}: {e}")
 
+
 # --------------------------
 # Support Components
 # --------------------------
+
 
 class SizeCalculator:
     def __init__(self, directories: List[str], ignore_list: List[str]):
@@ -182,7 +197,7 @@ class SizeCalculator:
             if self._should_ignore(root):
                 dirs[:] = []
                 continue
-            
+
             for file in files:
                 file_path = os.path.join(root, file)
                 if not self._should_ignore(file_path):
@@ -195,16 +210,18 @@ class SizeCalculator:
     def _should_ignore(self, path: str) -> bool:
         return any(path.startswith(ignored) for ignored in self.ignore_list)
 
+
 # --------------------------
 # Facade
 # --------------------------
+
 
 class BackupFacade:
     def __init__(self):
         self.config = BackupConfig.load()
         self.commands: Dict[str, Command] = {
-            'backup': BackupCommand(self.config),
-            'cleanup': CleanupCommand(self.config)
+            "backup": BackupCommand(self.config),
+            "cleanup": CleanupCommand(self.config),
         }
 
     def configure(self):
@@ -238,16 +255,15 @@ class BackupFacade:
         print("\n=== Backup Retention Settings ===")
         try:
             self.config.keep_backup = int(
-                input("Number of regular backups to keep (default 1): ") 
-                or self.config.keep_backup
+                input("Number of regular backups to keep (default 1): ") or self.config.keep_backup
             )
             self.config.keep_enc_backup = int(
-                input("Number of encrypted backups to keep (default 1): ") 
+                input("Number of encrypted backups to keep (default 1): ")
                 or self.config.keep_enc_backup
             )
         except ValueError:
             print("Invalid number format. Using existing values.")
-            
+
     def _setup_directories(self):
         """Interactive directory configuration"""
         print("\n=== Directory Configuration ===")
@@ -255,17 +271,16 @@ class BackupFacade:
             "Backup Directories",
             self.config.dirs_to_backup,
             "Enter directories to add (comma-separated): ",
-            "Current backup directories:"
+            "Current backup directories:",
         )
         self._manage_path_list(
             "Ignored Paths",
             self.config.ignore_list,
             "Enter paths to ignore (comma-separated): ",
-            "Current ignored paths:"
+            "Current ignored paths:",
         )
 
-    def _manage_path_list(self, title: str, target_list: list, 
-                        add_prompt: str, list_header: str):
+    def _manage_path_list(self, title: str, target_list: list, add_prompt: str, list_header: str):
         """Generic interactive list manager"""
         while True:
             print(f"\n{list_header}")
@@ -281,7 +296,7 @@ class BackupFacade:
             print("1. Add paths")
             print("2. Remove path")
             print("3. Finish configuration")
-            
+
             try:
                 choice = int(input("Choose an option (1-3): "))
             except ValueError:
@@ -289,7 +304,7 @@ class BackupFacade:
                 continue
 
             if choice == 1:
-                new_items = input(add_prompt).split(',')
+                new_items = input(add_prompt).split(",")
                 cleaned_paths = self._validate_paths([p.strip() for p in new_items])
                 target_list.extend(p for p in cleaned_paths if p not in target_list)
             elif choice == 2:
@@ -305,15 +320,15 @@ class BackupFacade:
         for path in paths:
             if not path:
                 continue
-                
+
             expanded = os.path.expanduser(path)
             if not os.path.exists(expanded):
                 print(f"Warning: Path does not exist - {expanded}")
-                if input("Add anyway? (y/N): ").lower() != 'y':
+                if input("Add anyway? (y/N): ").lower() != "y":
                     continue
-            
+
             # Store original path with ~ if provided
-            valid_paths.append(path)  
+            valid_paths.append(path)
         return valid_paths
 
     def _remove_path(self, target_list: list):
@@ -321,7 +336,7 @@ class BackupFacade:
         if not target_list:
             print("List is empty")
             return
-            
+
         try:
             index = int(input(f"Enter number to remove (1-{len(target_list)}): ")) - 1
             if 0 <= index < len(target_list):
@@ -332,6 +347,7 @@ class BackupFacade:
         except ValueError:
             print("Please enter a valid number")
 
+
 class DecryptCommand(Command):
     def __init__(self, config, file_path):
         self.config = config
@@ -341,14 +357,22 @@ class DecryptCommand(Command):
     def execute(self):
         password = getpass.getpass("Enter decryption password: ")
         output_path = os.path.splitext(self.file_path)[0]  # Remove .enc
-        
+
         cmd = [
-            "openssl", "aes-256-cbc", "-d", "-a", "-salt", "-pbkdf2",
-            "-in", self.file_path,
-            "-out", output_path,
-            "-pass", f"pass:{password}"
+            "openssl",
+            "aes-256-cbc",
+            "-d",
+            "-a",
+            "-salt",
+            "-pbkdf2",
+            "-in",
+            self.file_path,
+            "-out",
+            output_path,
+            "-pass",
+            f"pass:{password}",
         ]
-        
+
         try:
             subprocess.run(cmd, check=True)
             self.logger.info("Decryption successful")
@@ -361,7 +385,7 @@ class DecryptCommand(Command):
     def _verify_integrity(self, decrypted_path: str):
         """Verify decrypted file matches original backup checksum"""
         original_path = decrypted_path  # Same as decrypted output path
-        
+
         if not os.path.exists(original_path):
             self.logger.warning("Original backup file not available for verification")
             return
@@ -369,7 +393,7 @@ class DecryptCommand(Command):
         try:
             decrypted_checksum = self._calculate_sha256(decrypted_path)
             original_checksum = self._calculate_sha256(original_path)
-            
+
             if decrypted_checksum == original_checksum:
                 self.logger.info("File integrity verified: SHA256 checksums match")
             else:
@@ -380,13 +404,14 @@ class DecryptCommand(Command):
     def _calculate_sha256(self, file_path: str) -> str:
         """Calculate SHA256 checksum for a file"""
         sha256 = hashlib.sha256()
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             while True:
                 data = f.read(65536)
                 if not data:
                     break
                 sha256.update(data)
         return sha256.hexdigest()
+
 
 class ExtractCommand(Command):
     def __init__(self, config, file_path):
