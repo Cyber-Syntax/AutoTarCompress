@@ -28,6 +28,8 @@ _ = gettext.gettext
 
 @dataclass
 class BackupConfig:
+    """Configuration data for backup manager"""
+
     backup_folder: str = "~/Documents/backup-for-cloud/"
     keep_backup: int = 1
     keep_enc_backup: int = 1
@@ -85,17 +87,22 @@ class BackupConfig:
 
 
 class Command(ABC):
+    """Command interface for backup manager"""
+
     @abstractmethod
     def execute(self):
         pass
 
 
 class BackupCommand(Command):
+    """Concrete command to perform backup"""
+
     def __init__(self, config: BackupConfig):
         self.config = config
         self.logger = logging.getLogger(__name__)
 
     def execute(self):
+        """Execute backup process"""
         if not self.config.dirs_to_backup:
             self.logger.error("No directories configured for backup")
             return False
@@ -148,13 +155,24 @@ class BackupCommand(Command):
             sys.stdout.write("\n")
 
 
-# TESTING: increasing security with fd0 and iteration
+# TESTING: increasing security with fd0 and iterations
+# TEST: Is it realy delete password from memory?
+# Is it better way to handle this?
 class EncryptCommand(Command):
+    """Concrete command to perform encryption
+    using OpenSSL with secure PBKDF2 implementation
+    fd:0 is used to pass password securely without exposing in process list
+    root user can still see the password in process list
+    after the process is done, the password is deleted from memory
+    """
+
     PBKDF2_ITERATIONS = 600000  # OWASP recommended minimum
 
     def __init__(self, config: BackupConfig, file_to_encrypt: str):
         self.file_to_encrypt = file_to_encrypt
         self.logger = logging.getLogger(__name__)
+        self._password_context = ContextManager()._password_context
+        self._safe_cleanup = ContextManager()._safe_cleanup
 
         self.required_openssl_version = (3, 0, 0)  # Argon2id requires OpenSSL 3.0+
 
@@ -218,39 +236,6 @@ class EncryptCommand(Command):
             self._safe_cleanup(output_path)
             return False
 
-    @contextmanager
-    def _password_context(self):
-        """Secure password handling with proper memory sanitization"""
-        try:
-            password = getpass.getpass("Enter encryption password: ")
-            if not password:
-                self.logger.error("Empty password rejected")
-                yield None
-                return
-
-            # Convert to mutable bytearray for secure cleanup
-            password_bytes = bytearray(password.encode("utf-8"))
-            yield password_bytes.decode("utf-8")
-
-        finally:
-            # Securely overwrite the memory
-            if "password_bytes" in locals():
-                # Overwrite each byte with zero
-                for i in range(len(password_bytes)):
-                    password_bytes[i] = 0
-                # Prevent compiler optimizations from skipping the loop
-                password_bytes = None
-                del password_bytes
-
-        def _safe_cleanup(self, path: str):
-            """Securely remove partial files on failure"""
-            try:
-                if os.path.exists(path):
-                    os.remove(path)
-                    self.logger.info("Cleaned up partial encrypted file")
-            except Exception as e:
-                self.logger.error(f"Failed to clean up {path}: {str(e)}")
-
     def _sanitize_logs(self, output: bytes) -> str:
         """Safe log sanitization without modifying bytes"""
         sanitized = output.replace(b"password=", b"password=[REDACTED]")
@@ -259,6 +244,8 @@ class EncryptCommand(Command):
 
 
 class CleanupCommand(Command):
+    """Concrete command to perform cleanup of old backups"""
+
     def __init__(self, config: BackupConfig):
         self.config = config
         self.logger = logging.getLogger(__name__)
@@ -287,6 +274,8 @@ class CleanupCommand(Command):
 
 
 class SizeCalculator:
+    """Calculate total size of directories to be backed up"""
+
     def __init__(self, directories: List[str], ignore_list: List[str]):
         self.directories = [os.path.expanduser(d) for d in directories]
         self.ignore_list = [os.path.expanduser(p) for p in ignore_list]
@@ -328,6 +317,8 @@ class SizeCalculator:
 
 
 class BackupFacade:
+    """Facade to manage backup manager operations"""
+
     def __init__(self):
         self.config = BackupConfig.load()
         self.commands: Dict[str, Command] = {
@@ -459,6 +450,50 @@ class BackupFacade:
             print("Please enter a valid number")
 
 
+# HACK: Use ContextManager class to pass _password_context and _safe_cleanup methods
+# TODO: Is there a better way to handle this?
+# NOTE: Python’s garbage collector or internal caching might still have copies elsewhere??
+# TODO: mmap or mlock, cryptography, ctypes, or C extension for better memory handling
+class ContextManager:
+    """Secure context manager for password handling"""
+
+    @contextmanager
+    def _password_context(self):
+        """Secure password handling with proper memory sanitization.
+        By using mutable object like bytearray you can overwrite the data in memory
+        """
+        try:
+            # Get inmutable password from user
+            password = getpass.getpass("Enter file encryption password: ")
+            if not password:
+                self.logger.error("Empty password rejected")
+                yield None
+                return
+
+            # Convert to mutable bytearray for secure cleanup
+            password_bytes = bytearray(password.encode("utf-8"))
+            yield password_bytes.decode("utf-8")
+
+        finally:
+            # Securely overwrite the memory
+            if "password_bytes" in locals():
+                # Overwrite each byte with zero
+                for i in range(len(password_bytes)):
+                    password_bytes[i] = 0
+                # Prevent compiler optimizations from skipping the loop
+                password_bytes = None
+                del password_bytes
+
+    def _safe_cleanup(self, path: str):
+        """Securely remove partial files on failure"""
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+                self.logger.info("Cleaned up partial encrypted file")
+        except Exception as e:
+            self.logger.error(f"Failed to clean up {path}: {str(e)}")
+
+
 class DecryptCommand(Command):
     PBKDF2_ITERATIONS = 600000  # Must match encryption iterations
 
@@ -466,10 +501,13 @@ class DecryptCommand(Command):
         self.config = config
         self.file_path = file_path
         self.logger = logging.getLogger(__name__)
+        self._password_context = ContextManager()._password_context
+        self._safe_cleanup = ContextManager()._safe_cleanup
 
     def execute(self):
         """Secure decryption with matched PBKDF2 parameters"""
         output_path = os.path.splitext(self.file_path)[0]
+        decrypted_path = f"{output_path}-decrypted"
 
         with self._password_context() as password:
             if not password:
@@ -488,7 +526,7 @@ class DecryptCommand(Command):
                 "-in",
                 self.file_path,
                 "-out",
-                output_path,
+                decrypted_path,
                 "-pass",
                 "fd:0",
             ]
@@ -509,37 +547,17 @@ class DecryptCommand(Command):
                 self._safe_cleanup(output_path)
                 return False
 
-    # TODO: let send this to utils and access there because we use same function on 2 different class.
-    @contextmanager
-    def _password_context(self):
-        """Secure password handling with proper memory sanitization"""
-        try:
-            password = getpass.getpass("Enter decryption password: ")
-            if not password:
-                self.logger.error("Empty password rejected")
-                yield None
-                return
-
-            # Convert to mutable bytearray for secure cleanup
-            password_bytes = bytearray(password.encode("utf-8"))
-            yield password_bytes.decode("utf-8")
-
-        finally:
-            # Securely overwrite the memory
-            if "password_bytes" in locals():
-                # Overwrite each byte with zero
-                for i in range(len(password_bytes)):
-                    password_bytes[i] = 0
-                # Prevent compiler optimizations from skipping the loop
-                password_bytes = None
-                del password_bytes
-
     def _verify_integrity(self, decrypted_path: str):
         """Verify decrypted file matches original backup checksum"""
         original_path = os.path.splitext(self.file_path)[0]
         if os.path.exists(original_path):
             decrypted_hash = self._calculate_sha256(decrypted_path)
             original_hash = self._calculate_sha256(original_path)
+
+            # Compare hashes
+            print(f"Decrypted hash: {decrypted_hash}")
+            print(f"Original hash: {original_hash}")
+
             if decrypted_hash == original_hash:
                 self.logger.info("Integrity verified: SHA256 match")
             else:
