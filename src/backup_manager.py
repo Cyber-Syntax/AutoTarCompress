@@ -41,6 +41,8 @@ class BackupConfig:
         # TODO: need proper logic with paths
         # Automatically expand path during initialization
         self.backup_folder = os.path.expanduser(self.backup_folder)
+        self.ignore_list = [os.path.expanduser(p) for p in self.ignore_list]
+        self.dirs_to_backup = [os.path.expanduser(d) for d in self.dirs_to_backup]
 
     @property
     def current_date(self) -> str:
@@ -116,43 +118,48 @@ class BackupCommand(Command):
         return calculator.calculate_total_size()
 
     # HACK: use loading spinner as a workaround loading which tqdm won't work
-    def _run_backup_process(self, total_size: int):
-        exclude_options = " ".join([f"--exclude={path}" for path in self.config.ignore_list])
-        dir_paths = [os.path.expanduser(path) for path in self.config.dirs_to_backup]
 
+    def _run_backup_process(self, total_size: int):
+        # Check is there any file exist with same name
+        if os.path.exists(self.config.backup_path):
+            print(f"File already exist: {self.config.backup_path}")
+            if input("Do you want to remove it? (y/n): ").lower() == "y":
+                os.remove(self.config.backup_path)
+            else:
+                return
+
+        exclude_options = " ".join([f"--exclude={path}" for path in self.config.ignore_list])
+
+        # TODO: need to fix this exclude option
+        # exclude_options += f" --exclude={os.path.basename(self.config.backup_folder)}"
+
+        dir_paths = [os.path.expanduser(path) for path in self.config.dirs_to_backup]
+        # HACK: h option is used to follow symlinks
         cmd = (
-            f"tar -cf - --one-file-system {exclude_options} {' '.join(dir_paths)} | "
+            f"tar -chf - --one-file-system {exclude_options} {' '.join(dir_paths)} | "
             f"xz --threads={os.cpu_count()-1} > {self.config.backup_path}"
         )
+        total_size_gb = total_size / 1024**3
+
+        self.logger.info(f"Starting backup to {self.config.backup_path}")
+        self.logger.info(f"Total size: {total_size_gb} GB")
 
         try:
-            self._show_spinner()
+            # FIX: later spinner not working for now
+            # FAILED: not work as expected because of "| tar: Removing leading `/' from member names" outputs
+            # self._show_spinner(subprocess.Popen(cmd, shell=True))
             subprocess.run(cmd, shell=True, check=True)
             self.logger.info("Backup completed successfully")
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Backup failed: {e}")
 
-    def _show_spinner(self):
+    def _show_spinner(self, process):
         spinner = itertools.cycle(["/", "-", "\\", "|"])
-        start_time = time.time()
-
-        def run_spinner():
-            while not hasattr(self, "process_complete"):
-                sys.stdout.write(next(spinner) + " ")
-                sys.stdout.flush()
-                sys.stdout.write("\b\b")
-                time.sleep(0.1)
-
-        spinner_thread = threading.Thread(target=run_spinner)
-        spinner_thread.start()
-
-        # Simulated process - replace with actual process monitoring
-        try:
-            subprocess.run(cmd, shell=True, check=True)
-        finally:
-            self.process_complete = True
-            spinner_thread.join()
-            sys.stdout.write("\n")
+        while process.poll() is None:
+            sys.stdout.write(next(spinner) + " ")
+            sys.stdout.flush()
+            sys.stdout.write("\b\b")
+            time.sleep(0.1)
 
 
 # TESTING: increasing security with fd0 and iterations
@@ -243,6 +250,7 @@ class EncryptCommand(Command):
         return sanitized.decode("utf-8", errors="replace")
 
 
+# TODO: Add decrypted file path too
 class CleanupCommand(Command):
     """Concrete command to perform cleanup of old backups"""
 
@@ -274,41 +282,100 @@ class CleanupCommand(Command):
 
 
 class SizeCalculator:
-    """Calculate total size of directories to be backed up"""
+    """Calculate total size of directories to be backed up and display results."""
 
     def __init__(self, directories: List[str], ignore_list: List[str]):
+        # Expand user paths (e.g., ~) and normalize the directories and ignore list.
         self.directories = [os.path.expanduser(d) for d in directories]
         self.ignore_list = [os.path.expanduser(p) for p in ignore_list]
 
     def calculate_total_size(self) -> int:
+        """
+        Iterate over all directories and sum up their sizes.
+
+        Returns:
+            Total size in bytes.
+        """
+        print("\n📂 **Backup Size Summary**")
+        print("=" * 40)
+
         total = 0
         for directory in self.directories:
-            total += self._calculate_directory_size(directory)
+            dir_size = self._calculate_directory_size(directory)
+            total += dir_size
+            print(f"📁 {directory}: {self._format_size(dir_size)}")
+
+        print("=" * 40)
+        print(f"✅ Total Backup Size: {self._format_size(total)}\n")
         return total
 
-    # HACK: st_dev to prevent different filesystems
     def _calculate_directory_size(self, directory: str) -> int:
+        """
+        Calculate the size of a directory recursively.
+
+        Args:
+            directory (str): The path of the directory to calculate size.
+
+        Returns:
+            The total size in bytes of files within the directory.
+        """
         total = 0
         try:
-            dir_stat = os.stat(directory)
-            dir_device = dir_stat.st_dev
-
+            # Walk the directory tree.
             for root, dirs, files in os.walk(directory):
-                try:
-                    root_stat = os.stat(root)
-                    if root_stat.st_dev != dir_device:
-                        dirs[:] = []  # Skip different filesystems
-                        continue
-                except PermissionError:
+                if self._should_ignore(root):
+                    dirs[:] = []  # Prevent descending into subdirectories.
                     continue
 
-                # Rest of size calculation logic
+                for f in files:
+                    file_path = os.path.join(root, f)
+                    if self._should_ignore(file_path):
+                        continue
+                    try:
+                        total += os.path.getsize(file_path)
+                    except OSError as e:
+                        logging.warning(f"⚠️ Error accessing file {file_path}: {e}")
         except Exception as e:
-            logging.warning(f"Error accessing {directory}: {e}")
+            logging.warning(f"⚠️ Error accessing directory {directory}: {e}")
         return total
 
     def _should_ignore(self, path: str) -> bool:
-        return any(path.startswith(ignored) for ignored in self.ignore_list)
+        """Check if a path should be ignored."""
+        return any(ignore in path for ignore in self.ignore_list)
+
+    def _format_size(self, size_in_bytes: int) -> str:
+        """
+        Convert a size in bytes to a human-readable format (KB, MB, GB).
+
+        Args:
+            size_in_bytes (int): The size in bytes.
+
+        Returns:
+            str: The formatted size string.
+        """
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
+            if size_in_bytes < 1024:
+                return f"{size_in_bytes:.2f} {unit}"
+            size_in_bytes /= 1024
+        return f"{size_in_bytes:.2f} PB"
+
+    def _should_ignore(self, path: str) -> bool:
+        """
+        Determine whether the given path should be ignored based on the ignore list.
+
+        The check is performed using the normalized path to avoid mismatches due to path formatting.
+
+        Args:
+            path (str): The file or directory path to check.
+
+        Returns:
+            True if the path starts with any of the ignore paths, False otherwise.
+        """
+        # Normalize the path for a consistent comparison.
+        normalized_path = os.path.normpath(path)
+        return any(
+            normalized_path.startswith(os.path.normpath(ignored)) for ignored in self.ignore_list
+        )
 
 
 # --------------------------
@@ -451,11 +518,17 @@ class BackupFacade:
 
 
 # HACK: Use ContextManager class to pass _password_context and _safe_cleanup methods
-# TODO: Is there a better way to handle this?
 # NOTE: Python’s garbage collector or internal caching might still have copies elsewhere??
-# TODO: mmap or mlock, cryptography, ctypes, or C extension for better memory handling
+
+
+# TODO: mmap or mlock, cryptography, or C extension for better memory handling
+# TODO: ctypes(mlock) better for this scenario?
+# cryptography is much better but it's complex to use (consider for future)
 class ContextManager:
     """Secure context manager for password handling"""
+
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
 
     @contextmanager
     def _password_context(self):

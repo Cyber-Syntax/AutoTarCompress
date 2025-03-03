@@ -5,7 +5,11 @@ import sys
 from src.backup_manager import BackupFacade, DecryptCommand, EncryptCommand, ExtractCommand
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filename="logs/AutoTarCompress.log",
+)
 
 
 def select_file(files: list, backup_folder: str) -> str:

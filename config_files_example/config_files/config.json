@@ -1,18 +1,22 @@
 {
-  "backup_folder": "~/Documents/backup-for-cloud/",
+  "backup_folder": "~/Documents/backup-for-cloud",
   "keep_backup": 1,
   "keep_enc_backup": 1,
   "dirs_to_backup": [
-    "~/Documents/",
-    "~/dotfiles/",
-    "~/bare/",
-    "~/Pictures/",
-    "~/Music/"
+    "~/Documents",
+    "~/dotfiles",
+    "~/bare",
+    "~/Pictures",
+    "~/Music"
   ],
   "ignore_list": [
     "~/Documents/appimages",
     "~/Documents/backup-for-cloud",
-    "~/Documents/linuxISO"
+    "~/Documents/linuxISO",
+    "~/Documents/.stversions",
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    ".ruff_cache"
   ]
 }
-
