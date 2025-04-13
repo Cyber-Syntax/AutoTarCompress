@@ -1,107 +1,107 @@
+import logging
 import os
 import sys
-import logging
-from src.backup_manager import BackupManager
+
+from src.backup_manager import BackupFacade, DecryptCommand, EncryptCommand, ExtractCommand
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    filename="logs/AutoTarCompress.log",
 )
 
 
+def select_file(files: list, backup_folder: str) -> str:
+    """Helper function to select a file from a list"""
+    for idx, file in enumerate(files, start=1):
+        print(f"{idx}. {file}")
+    choice = int(input("Enter your choice: ")) - 1
+    return os.path.join(backup_folder, files[choice])
+
+
 def main():
-    """Backup the directories listed in dirs_to_backup.txt to a compressed file"""
+    """Main application entry point"""
+    facade = BackupFacade()
 
-    # Classes
-    backup_manager = BackupManager()
+    # Always expand backup folder path first
+    expanded_backup_dir = os.path.expanduser(facade.config.backup_folder)
 
-    if not os.path.isfile(backup_manager.config_file_path):
-        logging.info("Configuration file not found. Creating a new one.")
-        backup_manager.ask_inputs()
-        backup_manager.save_credentials()
+    # Create backup directory if missing
+    if not os.path.exists(expanded_backup_dir):
+        os.makedirs(expanded_backup_dir)  # Secure directory permissions
+
+    # Initial configuration check
+    if not os.path.exists(facade.config.config_path):
+        logging.info("No configuration found. Starting initial setup.")
+        facade.configure()
     else:
-        backup_manager.load_credentials()
-        # Check if directories to backup are configured
-        if not backup_manager.dirs_to_backup:
-            logging.warning("No directories found in configuration. Setting up now.")
-            backup_manager.configure_directories()
+        logging.info("Loading existing configuration")
+        facade.config = facade.config.load()
 
-    # Create a loop that will run until the user enters 6 to exit
     while True:
-        # Display the menu
-        print("=====================================")
-        print("Select an option:")
-        print("1.Backup")
-        print("2.Encrypt")
-        print("3.Decrypt")
-        print("4.Delete Old Backups")
-        print("5.Extract Backup Files")
-        print("6.Exit")
-        print("=====================================")
+        print("\n===== Backup Manager =====")
+        print("1. Perform Backup")
+        print("2. Encrypt Backup File")
+        print("3. Decrypt Backup")
+        print("4. Cleanup Old Backups")
+        print("5. Extract Backup")
+        print("6. Exit")
+
         try:
-            choice = int(input("Enter your choice: "))
-        except (ValueError, TypeError, NameError, AttributeError, IndexError) as error:
-            print(f"Error: {type(error).__name__} - {error}")
-            print("Please enter a number between 1 and 6.")
+            choice = input("Enter your choice (1-6): ").strip()
+            if choice == "6":
+                print("Exiting...")
+                sys.exit(0)
+
+            choice = int(choice)
+            if choice < 1 or choice > 6:
+                raise ValueError
+
+        except ValueError:
+            print("Invalid input. Please enter a number between 1-6.")
             continue
+
+        try:
+            if choice == 1:
+                facade.execute_command("backup")
+            elif choice == 2:
+                # List available backup files
+                backup_files = [
+                    f
+                    for f in os.listdir(expanded_backup_dir)
+                    if f.endswith(".tar.xz") and not f.endswith(".enc")
+                ]
+                if not backup_files:
+                    print("No backup files available for encryption")
+                    continue
+                selected = select_file(backup_files, facade.config.backup_folder)
+                EncryptCommand(facade.config, selected).execute()
+            elif choice == 3:
+                enc_files = [f for f in os.listdir(expanded_backup_dir) if f.endswith(".enc")]
+                if not enc_files:
+                    print("No encrypted backups found")
+                    continue
+                selected = select_file(enc_files, facade.config.backup_folder)
+                DecryptCommand(facade.config, selected).execute()
+            elif choice == 4:
+                facade.execute_command("cleanup")
+            elif choice == 5:
+                backup_files = [
+                    f
+                    for f in os.listdir(expanded_backup_dir)
+                    if f.endswith(".tar.xz") and not f.endswith(".enc")
+                ]
+                if not backup_files:
+                    print("No backup files found")
+                    continue
+                selected = select_file(backup_files, facade.config.backup_folder)
+                ExtractCommand(facade.config, selected).execute()
+
         except KeyboardInterrupt:
-            print("Exiting...")
-            sys.exit(0)
-
-        if choice == 1:
-            # Check if a backup file already exists for today
-            if backup_manager.check_backup_exist():
-                print("Backup already exists for today")
-                continue
-            # Backup the directories listed in dirs_to_backup.txt to a compressed file
-            success = backup_manager.backup_directories()
-            if success:
-                print("Backup was successful.")
-            else:
-                print("Backup failed.")
-        elif choice == 2:
-            backup_manager.encrypt_backup()
-        elif choice == 3:
-            # List all encrypted files
-            print("=====================================")
-            print("Choose which file to decrypt: ")
-            # List only encrypted files
-            files = backup_manager.list_backup_files(extension=".enc")
-
-            if not files:
-                continue
-
-            choice = int(input("Enter your choice: "))
-
-            # files[choice - 1] -> get file name from list files
-            file_to_decrypt = os.path.join(
-                backup_manager.backup_folder, files[choice - 1]
-            )
-            backup_manager.decrypt(file_to_decrypt)
-            backup_manager.verify_decrypt_file(file_to_decrypt)
-        elif choice == 4:
-            backup_manager.delete_old_backups()
-        elif choice == 5:
-            # List all tar.xz files
-            print("=====================================")
-            print("Choose which backup file to extract: ")
-            files = backup_manager.list_backup_files(extension=".tar.xz")
-
-            if not files:
-                continue
-
-            choice = int(input("Enter your choice: "))
-
-            file_to_extract = os.path.join(
-                backup_manager.backup_folder, files[choice - 1]
-            )
-            backup_manager.extract_backup(file_to_extract)
-        elif choice == 6:
-            print("Exiting...")
-            sys.exit(0)
-        else:
-            print("Invalid choice. Please enter a number between 1 and 6.")
-            return
+            print("\nOperation cancelled by user")
+        except Exception as e:
+            logging.error(f"Operation failed: {str(e)}")
 
 
 if __name__ == "__main__":
