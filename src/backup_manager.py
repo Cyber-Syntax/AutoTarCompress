@@ -131,7 +131,8 @@ class BackupCommand(Command):
         exclude_options = " ".join([f"--exclude={path}" for path in self.config.ignore_list])
 
         # TODO: need to fix this exclude option
-        # exclude_options += f" --exclude={os.path.basename(self.config.backup_folder)}"
+        # TEST: without os.path.basename which it is not working
+        # exclude_options += f" --exclude={self.config.backup_folder}"
 
         dir_paths = [os.path.expanduser(path) for path in self.config.dirs_to_backup]
         # HACK: h option is used to follow symlinks
@@ -628,8 +629,8 @@ class DecryptCommand(Command):
             original_hash = self._calculate_sha256(original_path)
 
             # Compare hashes
-            print(f"Decrypted hash: {decrypted_hash}")
-            print(f"Original hash: {original_hash}")
+            print(f"Decrypted file hash: {decrypted_hash}")
+            print(f"Original file hash: {original_hash}")
 
             if decrypted_hash == original_hash:
                 self.logger.info("Integrity verified: SHA256 match")
