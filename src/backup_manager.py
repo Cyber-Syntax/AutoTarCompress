@@ -26,6 +26,7 @@ _ = gettext.gettext
 # --------------------------
 
 
+# TODO: add last backup date and time on the config file
 @dataclass
 class BackupConfig:
     """Configuration data for backup manager"""
@@ -35,6 +36,8 @@ class BackupConfig:
     keep_enc_backup: int = 1
     dirs_to_backup: List[str] = field(default_factory=list)
     ignore_list: List[str] = field(default_factory=list)
+    # TEST: add last backup date and time
+    # last_backup: Optional[str] = None
 
     def __post_init__(self):
         # HACK: this solve as a workaround
@@ -138,7 +141,7 @@ class BackupCommand(Command):
         # HACK: h option is used to follow symlinks
         cmd = (
             f"tar -chf - --one-file-system {exclude_options} {' '.join(dir_paths)} | "
-            f"xz --threads={os.cpu_count()-1} > {self.config.backup_path}"
+            f"xz --threads={os.cpu_count() - 1} > {self.config.backup_path}"
         )
         total_size_gb = total_size / 1024**3
 
@@ -166,6 +169,9 @@ class BackupCommand(Command):
 # TESTING: increasing security with fd0 and iterations
 # TEST: Is it realy delete password from memory?
 # Is it better way to handle this?
+
+
+# TODO: add a key file option with master password for better security
 class EncryptCommand(Command):
     """Concrete command to perform encryption
     using OpenSSL with secure PBKDF2 implementation
@@ -252,6 +258,7 @@ class EncryptCommand(Command):
 
 
 # TODO: Add decrypted file path too
+# add prints for user to see the progress
 class CleanupCommand(Command):
     """Concrete command to perform cleanup of old backups"""
 
@@ -273,6 +280,7 @@ class CleanupCommand(Command):
             try:
                 os.remove(os.path.join(self.config.backup_folder, old_file))
                 self.logger.info(f"Deleted old backup: {old_file}")
+                print(f"Deleted old backup: {old_file}")
             except Exception as e:
                 self.logger.error(f"Failed to delete {old_file}: {e}")
 
