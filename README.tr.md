@@ -58,7 +58,7 @@
          1. **Senaryoyu çalıştır ve ekrandaki talimatları takip et**. Bu size bir `config.json` dosyası oluşturmayı kılavuzlayacaktır.
          2. **Örnek Ayar Dosyasını Kullan (Opsiyonel)**:
             - Örnek konfigürasyonunuzu `config_files_example/config.json` konumundan kopyalayın
-            - Bu dosyayı `backup_folder/config_files/config.json` konumuna yapıştırın (örn. `~/Documents/backup-for-cloud/config_files/config.json`)
+            - Bu dosyayı `~/.config/autotarcompress/config.json` konumuna yapıştırın (örn. `~/Documents/backup-for-cloud/config_files/config.json`)
             - Gereksinim duyduğunuz kadarını değiştirin
           
 3. Script'i başlatın:

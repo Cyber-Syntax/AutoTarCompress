@@ -58,7 +58,7 @@
      - You have two options:
        1. **Use an example config file (Recommended)**:
           - Copy the example configuration from `config_files_example/config.json`
-          - Paste it into your `backup_folder/config_files/config.json` location (e.g `~/Documents/backup-for-cloud/config_files/config.json`)
+          - Paste it into your `~/Documents/project_configs/AutoTarCompress/config_files/config.json` location
           - Modify it as needed
        2. **Run the script and follow the on-screen instructions**.
           - This will guide you through creating a `config.json` file.
