@@ -6,16 +6,17 @@ and other utility operations.
 
 import logging
 import os
-from typing import List
+from pathlib import Path
+from typing import List, Union
 
 
 class SizeCalculator:
     """Calculate total size of directories to be backed up and display results."""
 
     def __init__(self, directories: List[str], ignore_list: List[str]):
-        # Expand user paths (e.g., ~) and normalize the directories and ignore list.
-        self.directories = [os.path.expanduser(d) for d in directories]
-        self.ignore_list = [os.path.expanduser(p) for p in ignore_list]
+        # Expand user paths (e.g., ~) and normalize as Path objects
+        self.directories = [Path(os.path.expanduser(d)) for d in directories]
+        self.ignore_list = [Path(os.path.expanduser(p)) for p in ignore_list]
 
     def calculate_total_size(self) -> int:
         """
@@ -37,52 +38,60 @@ class SizeCalculator:
         print(f"✅ Total Backup Size: {self._format_size(total)}\n")
         return total
 
-    def _calculate_directory_size(self, directory: str) -> int:
+    def _calculate_directory_size(self, directory: Path) -> int:
         """
         Calculate the size of a directory recursively.
 
         Args:
-            directory (str): The path of the directory to calculate size.
+            directory: The path of the directory to calculate size.
 
         Returns:
             The total size in bytes of files within the directory.
         """
         total = 0
         try:
-            # Walk the directory tree.
+            # Walk the directory tree
             for root, dirs, files in os.walk(directory):
-                if self._should_ignore(root):
+                root_path = Path(root)
+                if self._should_ignore(root_path):
                     dirs[:] = []  # Prevent descending into subdirectories.
                     continue
 
-                for f in files:
-                    file_path = os.path.join(root, f)
+                for file in files:
+                    file_path = root_path / file
                     if self._should_ignore(file_path):
                         continue
                     try:
-                        total += os.path.getsize(file_path)
+                        total += file_path.stat().st_size
                     except OSError as e:
                         logging.warning(f"⚠️ Error accessing file {file_path}: {e}")
+                        
         except Exception as e:
             logging.warning(f"⚠️ Error accessing directory {directory}: {e}")
+            
         return total
 
-    def _should_ignore(self, path: str) -> bool:
+    def _should_ignore(self, path: Union[Path, str]) -> bool:
         """
         Determine whether the given path should be ignored based on the ignore list.
 
         The check is performed using the normalized path to avoid mismatches due to path formatting.
 
         Args:
-            path (str): The file or directory path to check.
+            path: The file or directory path to check.
 
         Returns:
             True if the path starts with any of the ignore paths, False otherwise.
         """
-        # Normalize the path for a consistent comparison.
-        normalized_path = os.path.normpath(path)
+        if isinstance(path, str):
+            path = Path(path)
+            
+        # Convert to absolute path for consistent comparison
+        absolute_path = path.absolute()
+        
         return any(
-            normalized_path.startswith(os.path.normpath(ignored)) for ignored in self.ignore_list
+            str(absolute_path).startswith(str(ignored.absolute())) 
+            for ignored in self.ignore_list
         )
 
     def _format_size(self, size_in_bytes: int) -> str:
@@ -90,10 +99,10 @@ class SizeCalculator:
         Convert a size in bytes to a human-readable format (KB, MB, GB).
 
         Args:
-            size_in_bytes (int): The size in bytes.
+            size_in_bytes: The size in bytes.
 
         Returns:
-            str: The formatted size string.
+            The formatted size string.
         """
         for unit in ["B", "KB", "MB", "GB", "TB"]:
             if size_in_bytes < 1024:

@@ -3,8 +3,8 @@
 This module provides a simplified interface to the backup system components.
 """
 
-import os
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Any
 
 from src.commands import BackupCommand, CleanupCommand, Command
 from src.config import BackupConfig
@@ -20,7 +20,7 @@ class BackupFacade:
             "cleanup": CleanupCommand(self.config),
         }
 
-    def configure(self):
+    def configure(self) -> None:
         """Interactive configuration wizard"""
         print("\n=== Backup Manager Configuration ===")
         self._setup_paths()
@@ -29,24 +29,24 @@ class BackupFacade:
         self.config.save()
         print("\nConfiguration saved successfully!")
 
-    def execute_command(self, command_name: str):
+    def execute_command(self, command_name: str) -> Any:
         """Execute a predefined command"""
         if command_name in self.commands:
-            self.commands[command_name].execute()
+            return self.commands[command_name].execute()
         else:
             raise ValueError(f"Unknown command: {command_name}")
 
-    def _setup_paths(self):
+    def _setup_paths(self) -> None:
         """Configure backup storage location"""
         print("\n=== Backup Storage Location ===")
         new_path = input(
             "Enter backup directory (default: ~/Documents/backup-for-cloud/): "
         ).strip()
         if new_path:
-            self.config.backup_folder = new_path
-        print(f"Using backup directory: {os.path.expanduser(self.config.backup_folder)}")
+            self.config.backup_folder = str(Path(new_path).expanduser())
+        print(f"Using backup directory: {Path(self.config.backup_folder).expanduser()}")
 
-    def _setup_retention(self):
+    def _setup_retention(self) -> None:
         """Configure backup retention policies"""
         print("\n=== Backup Retention Settings ===")
         try:
@@ -60,7 +60,7 @@ class BackupFacade:
         except ValueError:
             print("Invalid number format. Using existing values.")
 
-    def _setup_directories(self):
+    def _setup_directories(self) -> None:
         """Interactive directory configuration"""
         print("\n=== Directory Configuration ===")
         self._manage_path_list(
@@ -76,7 +76,7 @@ class BackupFacade:
             "Current ignored paths:",
         )
 
-    def _manage_path_list(self, title: str, target_list: list, add_prompt: str, list_header: str):
+    def _manage_path_list(self, title: str, target_list: list, add_prompt: str, list_header: str) -> None:
         """Generic interactive list manager"""
         while True:
             print(f"\n{list_header}")
@@ -84,8 +84,8 @@ class BackupFacade:
                 print("  None configured")
             else:
                 for i, path in enumerate(target_list, 1):
-                    expanded = os.path.expanduser(path)
-                    status = "(exists)" if os.path.exists(expanded) else "(not found)"
+                    expanded = Path(path).expanduser()
+                    status = "(exists)" if expanded.exists() else "(not found)"
                     print(f"  {i}. {path} {status}")
 
             print("\nOptions:")
@@ -117,8 +117,8 @@ class BackupFacade:
             if not path:
                 continue
 
-            expanded = os.path.expanduser(path)
-            if not os.path.exists(expanded):
+            expanded = Path(path).expanduser()
+            if not expanded.exists():
                 print(f"Warning: Path does not exist - {expanded}")
                 if input("Add anyway? (y/N): ").lower() != "y":
                     continue
@@ -127,7 +127,7 @@ class BackupFacade:
             valid_paths.append(path)
         return valid_paths
 
-    def _remove_path(self, target_list: list):
+    def _remove_path(self, target_list: list) -> None:
         """Safely remove items from list"""
         if not target_list:
             print("List is empty")

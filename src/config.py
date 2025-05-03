@@ -6,8 +6,8 @@ This module handles loading, saving, and validation of backup configuration.
 import datetime
 import json
 import logging
-import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 
@@ -27,12 +27,12 @@ class BackupConfig:
     ignore_list: List[str] = field(default_factory=list)
     last_backup: Optional[str] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Expand all paths after initialization."""
-        self.backup_folder = os.path.expanduser(self.backup_folder)
-        self.ignore_list = [os.path.expanduser(p) for p in self.ignore_list]
-        self.dirs_to_backup = [os.path.expanduser(d) for d in self.dirs_to_backup]
-        self.config_dir = os.path.expanduser(self.config_dir)
+        self.backup_folder = str(Path(self.backup_folder).expanduser())
+        self.ignore_list = [str(Path(p).expanduser()) for p in self.ignore_list]
+        self.dirs_to_backup = [str(Path(d).expanduser()) for d in self.dirs_to_backup]
+        self.config_dir = str(Path(self.config_dir).expanduser())
 
     @property
     def current_date(self) -> str:
@@ -40,14 +40,14 @@ class BackupConfig:
         return datetime.datetime.now().strftime("%d-%m-%Y")
 
     @property
-    def config_path(self) -> str:
+    def config_path(self) -> Path:
         """Get the full path to the config file."""
-        return os.path.join(self.config_dir, "config.json")
+        return Path(self.config_dir) / "config.json"
 
     @property
-    def backup_path(self) -> str:
+    def backup_path(self) -> Path:
         """Get the full path to the backup file."""
-        return os.path.expanduser(f"{self.backup_folder}/{self.current_date}.tar.xz")
+        return Path(self.backup_folder) / f"{self.current_date}.tar.xz"
 
     def save(self) -> None:
         """Save current configuration to the config file."""
@@ -62,9 +62,9 @@ class BackupConfig:
         }
 
         # Ensure the config directory exists
-        os.makedirs(self.config_dir, exist_ok=True)
+        Path(self.config_dir).mkdir(parents=True, exist_ok=True)
 
-        with open(self.config_path, "w") as f:
+        with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=4)
 
         logging.info(f"Configuration saved to {self.config_path}")
@@ -75,9 +75,9 @@ class BackupConfig:
         default_config = cls()
         config_path = default_config.config_path
 
-        if os.path.exists(config_path):
+        if config_path.exists():
             try:
-                with open(config_path, "r") as f:
+                with open(config_path, "r", encoding="utf-8") as f:
                     config_data = json.load(f)
                 return cls(**config_data)
             except json.JSONDecodeError as e:
@@ -99,12 +99,12 @@ class BackupConfig:
         config_path = default_config.config_path
 
         # Check if config file exists
-        if not os.path.exists(config_path):
+        if not config_path.exists():
             return False, f"Configuration file not found at {config_path}"
 
         try:
             # Try to load the configuration
-            with open(config_path, "r") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
 
             config = cls(**config_data)
@@ -114,10 +114,10 @@ class BackupConfig:
                 return False, "No backup directories configured"
 
             # Check if backup folder exists or can be created
-            backup_folder = os.path.expanduser(config.backup_folder)
-            if not os.path.exists(backup_folder):
+            backup_folder = Path(config.backup_folder)
+            if not backup_folder.exists():
                 try:
-                    os.makedirs(backup_folder, exist_ok=True)
+                    backup_folder.mkdir(parents=True, exist_ok=True)
                 except OSError:
                     return False, f"Cannot create backup folder at {backup_folder}"
 

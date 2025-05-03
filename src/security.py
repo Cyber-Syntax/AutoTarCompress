@@ -1,28 +1,34 @@
-"""Security utilities for safe password handling and file operations.
+"""Security utilities for backup operations.
 
-This module provides secure context managers and utilities for handling
-sensitive data like passwords and encrypted files.
+This module provides security-related functions and classes for handling sensitive
+operations like password management and secure file operations.
 """
 
 import getpass
 import logging
-import os
 from contextlib import contextmanager
+from pathlib import Path
+from typing import Optional, Union
 
 
 class ContextManager:
-    """Secure context manager for password handling"""
+    """Secure context manager for password handling with memory sanitization."""
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
 
     @contextmanager
-    def _password_context(self):
+    def _password_context(self) -> str:
         """Secure password handling with proper memory sanitization.
-        By using mutable object like bytearray you can overwrite the data in memory
+        
+        Uses a mutable bytearray to securely handle passwords and overwrite memory
+        before deletion.
+        
+        Yields:
+            str: The user's password or None if entry was empty
         """
         try:
-            # Get inmutable password from user
+            # Get immutable password from user
             password = getpass.getpass("Enter file encryption password: ")
             if not password:
                 self.logger.error("Empty password rejected")
@@ -43,11 +49,16 @@ class ContextManager:
                 password_bytes = None
                 del password_bytes
 
-    def _safe_cleanup(self, path: str):
-        """Securely remove partial files on failure"""
+    def _safe_cleanup(self, path: Union[str, Path]) -> None:
+        """Securely remove partial files on failure.
+        
+        Args:
+            path: Path to the file that needs to be cleaned up
+        """
         try:
-            if os.path.exists(path):
-                os.remove(path)
+            file_path = Path(path)
+            if file_path.exists():
+                file_path.unlink()
                 self.logger.info("Cleaned up partial encrypted file")
         except Exception as e:
             self.logger.error(f"Failed to clean up {path}: {str(e)}")
