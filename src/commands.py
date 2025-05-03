@@ -6,19 +6,19 @@ for backward compatibility.
 
 # Re-export command classes for backward compatibility
 from src.commands import (
-    Command,
     BackupCommand,
     CleanupCommand,
+    Command,
     DecryptCommand,
     EncryptCommand,
     ExtractCommand,
 )
 
 __all__ = [
+    "BackupCommand",
+    "CleanupCommand",
     "Command",
-    "BackupCommand", 
-    "CleanupCommand", 
-    "DecryptCommand", 
-    "EncryptCommand", 
+    "DecryptCommand",
+    "EncryptCommand",
     "ExtractCommand",
 ]

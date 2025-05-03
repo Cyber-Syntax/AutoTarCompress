@@ -8,7 +8,7 @@ import getpass
 import logging
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 
 class ContextManager:
@@ -20,12 +20,13 @@ class ContextManager:
     @contextmanager
     def _password_context(self) -> str:
         """Secure password handling with proper memory sanitization.
-        
+
         Uses a mutable bytearray to securely handle passwords and overwrite memory
         before deletion.
-        
+
         Yields:
             str: The user's password or None if entry was empty
+
         """
         try:
             # Get immutable password from user
@@ -51,9 +52,10 @@ class ContextManager:
 
     def _safe_cleanup(self, path: Union[str, Path]) -> None:
         """Securely remove partial files on failure.
-        
+
         Args:
             path: Path to the file that needs to be cleaned up
+
         """
         try:
             file_path = Path(path)
@@ -61,4 +63,4 @@ class ContextManager:
                 file_path.unlink()
                 self.logger.info("Cleaned up partial encrypted file")
         except Exception as e:
-            self.logger.error(f"Failed to clean up {path}: {str(e)}")
+            self.logger.error(f"Failed to clean up {path}: {e!s}")

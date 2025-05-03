@@ -1,14 +1,12 @@
 """Extract command implementation for backup archives.
 
-This module contains the ExtractCommand class that handles the extraction 
+This module contains the ExtractCommand class that handles the extraction
 of compressed backup archives.
 """
 
 import logging
-import os
 import tarfile
 from pathlib import Path
-from typing import Optional
 
 from src.commands.command import Command
 from src.config import BackupConfig
@@ -36,10 +34,10 @@ class ExtractCommand(Command):
                     if not str(target_path.absolute()).startswith(str(extract_dir.absolute())):
                         self.logger.error(f"Attempted path traversal: {member.name}")
                         return False
-                
+
                 # Safe to extract
                 tar.extractall(path=extract_dir)
-            
+
             self.logger.info(f"Successfully extracted to {extract_dir}")
             return True
         except tarfile.TarError as e:

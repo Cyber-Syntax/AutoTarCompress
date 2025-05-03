@@ -10,7 +10,6 @@ import os
 import subprocess
 import sys
 import time
-from typing import List
 
 from src.commands.command import Command
 from src.config import BackupConfig

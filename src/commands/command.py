@@ -12,4 +12,3 @@ class Command(ABC):
     @abstractmethod
     def execute(self):
         """Execute the command operation"""
-        pass

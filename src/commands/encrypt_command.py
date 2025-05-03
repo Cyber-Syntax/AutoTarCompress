@@ -31,7 +31,11 @@ class EncryptCommand(Command):
         self._password_context = ContextManager()._password_context
         self._safe_cleanup = ContextManager()._safe_cleanup
 
-        self.required_openssl_version: Tuple[int, int, int] = (3, 0, 0)  # Argon2id requires OpenSSL 3.0+
+        self.required_openssl_version: Tuple[int, int, int] = (
+            3,
+            0,
+            0,
+        )  # Argon2id requires OpenSSL 3.0+
 
     def execute(self) -> bool:
         """Secure PBKDF2 implementation with proper OpenSSL syntax"""

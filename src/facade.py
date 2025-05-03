@@ -4,7 +4,7 @@ This module provides a simplified interface to the backup system components.
 """
 
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from src.commands import BackupCommand, CleanupCommand, Command
 from src.config import BackupConfig
@@ -76,7 +76,9 @@ class BackupFacade:
             "Current ignored paths:",
         )
 
-    def _manage_path_list(self, title: str, target_list: list, add_prompt: str, list_header: str) -> None:
+    def _manage_path_list(
+        self, title: str, target_list: list, add_prompt: str, list_header: str
+    ) -> None:
         """Generic interactive list manager"""
         while True:
             print(f"\n{list_header}")

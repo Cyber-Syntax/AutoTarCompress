@@ -9,7 +9,6 @@ import logging
 import os
 import re
 import subprocess
-from typing import Optional
 
 from src.commands.command import Command
 from src.config import BackupConfig

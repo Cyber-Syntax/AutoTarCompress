@@ -77,7 +77,7 @@ class BackupConfig:
 
         if config_path.exists():
             try:
-                with open(config_path, "r", encoding="utf-8") as f:
+                with open(config_path, encoding="utf-8") as f:
                     config_data = json.load(f)
                 return cls(**config_data)
             except json.JSONDecodeError as e:
@@ -94,6 +94,7 @@ class BackupConfig:
             Tuple containing:
             - bool: True if configuration is valid, False otherwise
             - str: Message describing the verification result
+
         """
         default_config = cls()
         config_path = default_config.config_path
@@ -104,7 +105,7 @@ class BackupConfig:
 
         try:
             # Try to load the configuration
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, encoding="utf-8") as f:
                 config_data = json.load(f)
 
             config = cls(**config_data)
@@ -129,4 +130,4 @@ class BackupConfig:
         except KeyError as e:
             return False, f"Missing required configuration key: {e}"
         except Exception as e:
-            return False, f"Configuration validation error: {str(e)}"
+            return False, f"Configuration validation error: {e!s}"

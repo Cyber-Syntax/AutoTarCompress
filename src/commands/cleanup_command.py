@@ -8,7 +8,6 @@ import datetime
 import logging
 import os
 from pathlib import Path
-from typing import List
 
 from src.commands.command import Command
 from src.config import BackupConfig
@@ -29,13 +28,14 @@ class CleanupCommand(Command):
 
     def _cleanup_files(self, ext: str, keep_count: int) -> None:
         """Delete old backup files based on file extension and retention count.
-        
+
         Args:
             ext: File extension to filter for cleanup
             keep_count: Number of recent files to keep
+
         """
         backup_folder = Path(self.config.backup_folder)
-        
+
         # Get all files with the specified extension
         files = sorted(
             [f for f in os.listdir(backup_folder) if f.endswith(ext)],
