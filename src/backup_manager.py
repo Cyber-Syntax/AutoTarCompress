@@ -29,7 +29,7 @@ _ = gettext.gettext
 @dataclass
 class BackupConfig:
     """Configuration data for backup manager.
-    
+
     This class handles configuration properties for the backup system including
     file paths, retention policies, and backup targets.
     """
@@ -81,7 +81,7 @@ class BackupConfig:
 
         with open(self.config_path, "w") as f:
             json.dump(config_data, f, indent=4)
-        
+
         logging.info(f"Configuration saved to {self.config_path}")
 
     @classmethod
@@ -100,11 +100,11 @@ class BackupConfig:
                 logging.warning("Using default configuration")
                 return default_config
         return default_config
-    
+
     @classmethod
     def verify_config(cls) -> Tuple[bool, str]:
         """Verify if the configuration file exists and is properly set up.
-        
+
         Returns:
             Tuple containing:
             - bool: True if configuration is valid, False otherwise
@@ -112,22 +112,22 @@ class BackupConfig:
         """
         default_config = cls()
         config_path = default_config.config_path
-        
+
         # Check if config file exists
         if not os.path.exists(config_path):
             return False, f"Configuration file not found at {config_path}"
-        
+
         try:
             # Try to load the configuration
             with open(config_path, "r") as f:
                 config_data = json.load(f)
-            
+
             config = cls(**config_data)
-            
+
             # Validate essential configuration
             if not config.dirs_to_backup:
                 return False, "No backup directories configured"
-                
+
             # Check if backup folder exists or can be created
             backup_folder = os.path.expanduser(config.backup_folder)
             if not os.path.exists(backup_folder):
@@ -135,10 +135,10 @@ class BackupConfig:
                     os.makedirs(backup_folder, exist_ok=True)
                 except OSError:
                     return False, f"Cannot create backup folder at {backup_folder}"
-            
+
             # All checks passed
             return True, "Configuration is valid"
-            
+
         except json.JSONDecodeError:
             return False, "Configuration file is corrupt or invalid JSON"
         except KeyError as e:

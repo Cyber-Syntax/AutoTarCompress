@@ -1,19 +1,40 @@
+"""Main entry point for AutoTarCompress backup system.
+
+This module contains the main application logic for the backup system,
+including the command-line interface and initialization.
+"""
+
 import logging
 import os
 import sys
+from typing import List
 
-from src.backup_manager import BackupFacade, DecryptCommand, EncryptCommand, ExtractCommand
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    filename="logs/AutoTarCompress.log",
-)
+from src.commands import DecryptCommand, EncryptCommand, ExtractCommand
+from src.facade import BackupFacade
 
 
-def select_file(files: list, backup_folder: str) -> str:
-    """Helper function to select a file from a list"""
+def setup_logging():
+    """Configure application logging."""
+    log_dir = "logs"
+    os.makedirs(log_dir, exist_ok=True)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        filename=f"{log_dir}/AutoTarCompress.log",
+    )
+
+
+def select_file(files: List[str], backup_folder: str) -> str:
+    """Helper function to select a file from a list.
+
+    Args:
+        files: List of file names to choose from
+        backup_folder: Base directory containing the files
+
+    Returns:
+        Full path to the selected file
+    """
     for idx, file in enumerate(files, start=1):
         print(f"{idx}. {file}")
     choice = int(input("Enter your choice: ")) - 1
@@ -22,6 +43,7 @@ def select_file(files: list, backup_folder: str) -> str:
 
 def main():
     """Main application entry point"""
+    setup_logging()
     facade = BackupFacade()
 
     # Always expand backup folder path first
