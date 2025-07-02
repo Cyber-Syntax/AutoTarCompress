@@ -5,24 +5,56 @@ including the command-line interface and initialization.
 """
 
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import sys
 from typing import List
+from pathlib import Path
 
 from src.commands import DecryptCommand, EncryptCommand, ExtractCommand
 from src.facade import BackupFacade
 
+def get_xdg_state_home() -> Path:
+    """Get the XDG state home directory."""
+    xdg_state_home = os.getenv("XDG_STATE_HOME")
+    if not xdg_state_home or not Path(xdg_state_home).is_absolute():
+        return Path.home() / ".local" / "state"
+    return Path(xdg_state_home)
 
-def setup_logging():
-    """Configure application logging."""
-    log_dir = "logs"
-    os.makedirs(log_dir, exist_ok=True)
+def setup_logging() -> None:
+    """Configure logging for the application."""
+    log_dir_base = get_xdg_state_home()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        filename=f"{log_dir}/AutoTarCompress.log",
-    )
+    log_dir = log_dir_base / "autotarcompress"
+    log_dir.mkdir(parents=True, exist_ok=True)  # Use parents=True to create intermediate dirs
+    log_file = "autotarcompress.log"
+    log_file_path = log_dir / log_file
+
+    # Configure file handler for all log levels
+    file_handler = RotatingFileHandler(log_file_path, maxBytes=1024 * 1024, backupCount=3)
+    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+    file_handler.setFormatter(file_formatter)
+    file_handler.setLevel(logging.DEBUG)
+
+    # Configure console handler for ERROR and above only
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.ERROR)  # Only show errors and above in console
+    console_formatter = logging.Formatter("%(message)s")  # Simpler format for console
+    console_handler.setFormatter(console_formatter)
+
+    # Get root logger and configure it
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+    # Remove any existing handlers (in case this function is called multiple times)
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+
+    # Add the configured handlers
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    logging.info("Logging configured with DEBUG level")
 
 
 def select_file(files: List[str], backup_folder: str) -> str:
