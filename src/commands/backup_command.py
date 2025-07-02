@@ -7,6 +7,7 @@ using tar and xz compression.
 import itertools
 import logging
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -55,9 +56,13 @@ class BackupCommand(Command):
         # exclude_options += f" --exclude={self.config.backup_folder}"
 
         dir_paths = [os.path.expanduser(path) for path in self.config.dirs_to_backup]
+        
+        # Properly quote directory paths to handle spaces and special characters
+        quoted_paths = [shlex.quote(path) for path in dir_paths]
+        
         # HACK: h option is used to follow symlinks
         cmd = (
-            f"tar -chf - --one-file-system {exclude_options} {' '.join(dir_paths)} | "
+            f"tar -chf - --one-file-system {exclude_options} {' '.join(quoted_paths)} | "
             f"xz --threads={os.cpu_count() - 1} > {self.config.backup_path}"
         )
         total_size_gb = total_size / 1024**3
