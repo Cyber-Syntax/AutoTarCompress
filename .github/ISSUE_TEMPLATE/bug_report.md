@@ -29,7 +29,7 @@ assignees: ""
 
 **LOG**
 
-> Paste the log(`/home/<your_username>/.local/state/my-unicorn/my-unicorn.log`) here:
+> Paste the log(`/home/<your_username>/.local/state/autotarcompress/autotarcompress.log`) here:
 
 ```
 
