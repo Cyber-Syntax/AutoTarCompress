@@ -13,8 +13,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from src.commands.extract import ExtractCommand
-from src.config import BackupConfig
+from autotarcompress.commands.extract import ExtractCommand
+from autotarcompress.config import BackupConfig
 
 
 class TestExtractCommand:
@@ -46,7 +46,7 @@ class TestExtractCommand:
         assert command.config == mock_config
         assert command.file_path == test_archive_file
         assert isinstance(command.logger, logging.Logger)
-        assert command.logger.name == "src.commands.extract"
+        assert command.logger.name == "autotarcompress.commands.extract"
 
     @patch("tarfile.open")
     @patch("pathlib.Path.mkdir")
@@ -249,8 +249,6 @@ class TestExtractCommand:
     )
     def test_filename_handling_property(self, filename: str) -> None:
         """Property-based test for filename handling."""
-        from src.config import BackupConfig
-
         extract_command = ExtractCommand(BackupConfig(), "/tmp/test.tar.xz")
 
         # Skip filenames that would be problematic in filesystem
@@ -279,7 +277,7 @@ class TestExtractCommand:
 
     def test_logging_configuration(self, extract_command: ExtractCommand) -> None:
         """Test that logging is properly configured."""
-        assert extract_command.logger.name == "src.commands.extract"
+        assert extract_command.logger.name == "autotarcompress.commands.extract"
         assert isinstance(extract_command.logger, logging.Logger)
 
     @patch("tarfile.open")

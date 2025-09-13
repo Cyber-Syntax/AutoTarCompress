@@ -14,8 +14,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from src.commands.backup import BackupCommand
-from src.config import BackupConfig
+from autotarcompress.commands.backup import BackupCommand
+from autotarcompress.config import BackupConfig
 
 # Test constants
 TWO_GB = 2147483648
@@ -55,7 +55,7 @@ class TestBackupCommand:
 
         assert command.config == mock_config
         assert isinstance(command.logger, logging.Logger)
-        assert command.logger.name == "src.commands.backup"
+        assert command.logger.name == "autotarcompress.commands.backup"
 
     def test_execute_no_directories_configured(self, backup_command: BackupCommand) -> None:
         """Test execute fails when no directories are configured for backup."""
@@ -65,7 +65,7 @@ class TestBackupCommand:
 
         assert result is False
 
-    @patch("src.commands.backup.SizeCalculator")
+    @patch("autotarcompress.commands.backup.SizeCalculator")
     @patch("subprocess.run")
     @patch("os.path.exists")
     def test_execute_successful_backup(
@@ -90,7 +90,7 @@ class TestBackupCommand:
             mock_save.assert_called_once_with(ONE_GB)
             mock_subprocess.assert_called_once()
 
-    @patch("src.commands.backup.SizeCalculator")
+    @patch("autotarcompress.commands.backup.SizeCalculator")
     @patch("subprocess.run")
     @patch("os.path.exists")
     def test_execute_backup_file_exists_user_refuses_removal(
@@ -112,7 +112,7 @@ class TestBackupCommand:
             assert result is False
             mock_subprocess.assert_not_called()
 
-    @patch("src.commands.backup.SizeCalculator")
+    @patch("autotarcompress.commands.backup.SizeCalculator")
     @patch("subprocess.run")
     @patch("os.path.exists")
     @patch("os.remove")
@@ -140,7 +140,7 @@ class TestBackupCommand:
             assert result is True
             mock_remove.assert_called_once_with(backup_command.config.backup_path)
 
-    @patch("src.commands.backup.SizeCalculator")
+    @patch("autotarcompress.commands.backup.SizeCalculator")
     @patch("subprocess.run")
     @patch("os.path.exists")
     def test_execute_subprocess_error(
@@ -163,7 +163,7 @@ class TestBackupCommand:
 
     def test_calculate_total_size(self, backup_command: BackupCommand) -> None:
         """Test _calculate_total_size method."""
-        with patch("src.commands.backup.SizeCalculator") as mock_size_calc:
+        with patch("autotarcompress.commands.backup.SizeCalculator") as mock_size_calc:
             mock_calc_instance = Mock()
             mock_calc_instance.calculate_total_size.return_value = TWO_GB
             mock_size_calc.return_value = mock_calc_instance
@@ -286,7 +286,7 @@ class TestBackupCommand:
         with (
             patch("subprocess.run") as mock_subprocess,
             patch("os.path.exists", return_value=False),
-            patch("src.commands.backup.SizeCalculator") as mock_calc,
+            patch("autotarcompress.commands.backup.SizeCalculator") as mock_calc,
         ):
             mock_calc_instance = Mock()
             mock_calc_instance.calculate_total_size.return_value = ONE_KB

@@ -17,15 +17,15 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Updated imports based on the new refactored structure
-from src.commands import (
+from autotarcompress.commands import (
     BackupCommand,
     CleanupCommand,
     EncryptCommand,
 )
-from src.config import BackupConfig
-from src.facade import BackupFacade
-from src.security import ContextManager
-from src.utils import SizeCalculator
+from autotarcompress.config import BackupConfig
+from autotarcompress.facade import BackupFacade
+from autotarcompress.security import ContextManager
+from autotarcompress.utils import SizeCalculator
 
 
 # Fixtures

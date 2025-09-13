@@ -15,8 +15,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from src.commands.cleanup import CleanupCommand
-from src.config import BackupConfig
+from autotarcompress.commands.cleanup import CleanupCommand
+from autotarcompress.config import BackupConfig
 
 # Constants for test magic numbers
 EXPECTED_DELETED_COUNT_REGULAR = 4
@@ -99,7 +99,7 @@ class TestCleanupCommand:
 
         assert command.config is mock_config
         assert isinstance(command.logger, logging.Logger)
-        assert command.logger.name == "src.commands.cleanup"
+        assert command.logger.name == "autotarcompress.commands.cleanup"
 
     @patch.object(CleanupCommand, "_cleanup_files")
     def test_execute_calls_cleanup_methods(

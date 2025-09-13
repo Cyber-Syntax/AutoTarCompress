@@ -12,13 +12,13 @@ from unittest.mock import MagicMock, patch
 # Add the parent directory to sys.path so Python can find src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.commands import (
+from autotarcompress.commands import (
     BackupCommand,
     CleanupCommand,
     EncryptCommand,
     InfoCommand,
 )
-from src.config import BackupConfig
+from autotarcompress.config import BackupConfig
 
 
 class TestBackupCommand:
@@ -61,8 +61,8 @@ class TestBackupCommand:
             result = command._format_size(size_bytes)
             assert result == expected
 
-    @patch("src.commands.backup.subprocess.run")
-    @patch("src.commands.backup.os.path.exists")
+    @patch("autotarcompress.commands.backup.subprocess.run")
+    @patch("autotarcompress.commands.backup.os.path.exists")
     def test_backup_success_saves_info(
         self, mock_exists: MagicMock, mock_subprocess: MagicMock, test_config: BackupConfig
     ) -> None:
@@ -85,8 +85,8 @@ class TestBackupCommand:
         assert result is True
         mock_save_info.assert_called_once_with(1000)
 
-    @patch("src.commands.backup.subprocess.run")
-    @patch("src.commands.backup.os.path.exists")
+    @patch("autotarcompress.commands.backup.subprocess.run")
+    @patch("autotarcompress.commands.backup.os.path.exists")
     def test_backup_failure_no_info_saved(
         self, mock_exists: MagicMock, mock_subprocess: MagicMock, test_config: BackupConfig
     ) -> None:
@@ -251,7 +251,7 @@ class TestEncryptCommand:
         assert command.file_to_encrypt == test_file
         assert hasattr(command, "logger")
 
-    @patch("src.commands.encrypt.subprocess.run")
+    @patch("autotarcompress.commands.encrypt.subprocess.run")
     @patch("getpass.getpass")
     def test_encrypt_command_execution(
         self, mock_getpass: MagicMock, mock_subprocess: MagicMock, test_config: BackupConfig

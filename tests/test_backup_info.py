@@ -15,9 +15,9 @@ import pytest
 # Add the parent directory to sys.path so Python can find src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.commands.backup import BackupCommand
-from src.commands.info import InfoCommand
-from src.config import BackupConfig
+from autotarcompress.commands.backup import BackupCommand
+from autotarcompress.commands.info import InfoCommand
+from autotarcompress.config import BackupConfig
 
 
 # Fixtures
@@ -76,11 +76,11 @@ class TestBackupInfoSaving:
         fixed_datetime.isoformat.return_value = "2025-09-13T10:30:45"
         fixed_datetime.strftime.return_value = "13-09-2025"
 
-        with patch("src.commands.backup.datetime.datetime") as mock_datetime:
+        with patch("autotarcompress.commands.backup.datetime.datetime") as mock_datetime:
             mock_datetime.now.return_value = fixed_datetime
 
             # Also mock it for the config's current_date property
-            with patch("src.config.datetime.datetime") as mock_config_datetime:
+            with patch("autotarcompress.config.datetime.datetime") as mock_config_datetime:
                 mock_config_datetime.now.return_value = fixed_datetime
 
                 # Call the private method directly for testing
@@ -131,8 +131,8 @@ class TestBackupInfoSaving:
             result = backup_command._format_size(size_bytes)
             assert result == expected
 
-    @patch("src.commands.backup.subprocess.run")
-    @patch("src.commands.backup.os.path.exists")
+    @patch("autotarcompress.commands.backup.subprocess.run")
+    @patch("autotarcompress.commands.backup.os.path.exists")
     def test_backup_command_saves_info_on_success(self, mock_exists, mock_subprocess, test_config):
         """Test that backup command saves info when backup succeeds."""
         # Setup mocks
@@ -152,8 +152,8 @@ class TestBackupInfoSaving:
         assert result is True
         mock_save_info.assert_called_once_with(1000)
 
-    @patch("src.commands.backup.subprocess.run")
-    @patch("src.commands.backup.os.path.exists")
+    @patch("autotarcompress.commands.backup.subprocess.run")
+    @patch("autotarcompress.commands.backup.os.path.exists")
     def test_backup_command_no_info_on_failure(self, mock_exists, mock_subprocess, test_config):
         """Test that backup command doesn't save info when backup fails."""
         # Setup mocks

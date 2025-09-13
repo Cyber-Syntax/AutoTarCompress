@@ -11,8 +11,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import List
 
-from src.commands import DecryptCommand, EncryptCommand, ExtractCommand
-from src.facade import BackupFacade
+from autotarcompress.commands import DecryptCommand, EncryptCommand, ExtractCommand
+from autotarcompress.facade import BackupFacade
 
 
 def get_xdg_state_home() -> Path:

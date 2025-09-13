@@ -6,8 +6,8 @@ This module provides a simplified interface to the backup system components.
 from pathlib import Path
 from typing import Any, Dict, List
 
-from src.commands import BackupCommand, CleanupCommand, Command, InfoCommand
-from src.config import BackupConfig
+from autotarcompress.commands import BackupCommand, CleanupCommand, Command, InfoCommand
+from autotarcompress.config import BackupConfig
 
 
 class BackupFacade:

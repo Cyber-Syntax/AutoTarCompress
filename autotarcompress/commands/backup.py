@@ -15,9 +15,9 @@ import sys
 import time
 from pathlib import Path
 
-from src.commands.command import Command
-from src.config import BackupConfig
-from src.utils import SizeCalculator
+from autotarcompress.commands.command import Command
+from autotarcompress.config import BackupConfig
+from autotarcompress.utils import SizeCalculator
 
 
 class BackupCommand(Command):

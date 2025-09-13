@@ -9,8 +9,8 @@ import logging
 import os
 from pathlib import Path
 
-from src.commands.command import Command
-from src.config import BackupConfig
+from autotarcompress.commands.command import Command
+from autotarcompress.config import BackupConfig
 
 
 class CleanupCommand(Command):

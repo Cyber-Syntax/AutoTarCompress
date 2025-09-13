@@ -12,7 +12,7 @@ from unittest.mock import patch
 # Add the parent directory to sys.path so Python can find src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.config import BackupConfig
+from autotarcompress.config import BackupConfig
 
 
 class TestBackupConfig:

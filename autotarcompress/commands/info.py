@@ -9,8 +9,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from src.commands.command import Command
-from src.config import BackupConfig
+from autotarcompress.commands.command import Command
+from autotarcompress.config import BackupConfig
 
 
 class InfoCommand(Command):

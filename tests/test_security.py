@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 # Add the parent directory to sys.path so Python can find src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.security import ContextManager
+from autotarcompress.security import ContextManager
 
 
 class TestContextManager:
@@ -28,7 +28,7 @@ class TestContextManager:
         assert hasattr(context_manager, "_password_context")
         assert callable(context_manager._password_context)
 
-    @patch("src.security.getpass.getpass")
+    @patch("autotarcompress.security.getpass.getpass")
     def test_password_context_functionality(self, mock_getpass: MagicMock) -> None:
         """Test password context functionality through mocking."""
         mock_getpass.return_value = "test_password"
@@ -53,7 +53,7 @@ class TestContextManager:
         assert hasattr(context_manager.logger, "info")
         assert hasattr(context_manager.logger, "debug")
 
-    @patch("src.security.logging.getLogger")
+    @patch("autotarcompress.security.logging.getLogger")
     def test_context_manager_logging_configuration(self, mock_get_logger: MagicMock) -> None:
         """Test that context manager configures logging correctly."""
         mock_logger = MagicMock()
@@ -62,5 +62,5 @@ class TestContextManager:
         context_manager = ContextManager()
 
         # Verify logger was requested with correct module name
-        mock_get_logger.assert_called_with("src.security")
+        mock_get_logger.assert_called_with("autotarcompress.security")
         assert context_manager.logger == mock_logger

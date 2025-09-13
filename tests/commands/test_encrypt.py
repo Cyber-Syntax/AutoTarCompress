@@ -13,8 +13,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from src.commands.encrypt import EncryptCommand
-from src.config import BackupConfig
+from autotarcompress.commands.encrypt import EncryptCommand
+from autotarcompress.config import BackupConfig
 
 # Test constants
 PBKDF2_ITERATIONS = 600000
@@ -49,7 +49,7 @@ class TestEncryptCommand:
 
         assert command.file_to_encrypt == test_file
         assert isinstance(command.logger, logging.Logger)
-        assert command.logger.name == "src.commands.encrypt"
+        assert command.logger.name == "autotarcompress.commands.encrypt"
         assert command.PBKDF2_ITERATIONS == PBKDF2_ITERATIONS
 
     def test_execute_file_not_found(self, encrypt_command: EncryptCommand) -> None:

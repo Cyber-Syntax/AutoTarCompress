@@ -8,8 +8,8 @@ import logging
 import tarfile
 from pathlib import Path
 
-from src.commands.command import Command
-from src.config import BackupConfig
+from autotarcompress.commands.command import Command
+from autotarcompress.config import BackupConfig
 
 
 class ExtractCommand(Command):

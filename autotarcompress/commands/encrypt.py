@@ -10,9 +10,9 @@ import re
 import subprocess
 from typing import Tuple
 
-from src.commands.command import Command
-from src.config import BackupConfig
-from src.security import ContextManager
+from autotarcompress.commands.command import Command
+from autotarcompress.config import BackupConfig
+from autotarcompress.security import ContextManager
 
 
 class EncryptCommand(Command):

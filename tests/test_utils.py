@@ -10,7 +10,7 @@ from unittest.mock import patch
 # Add the parent directory to sys.path so Python can find src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.utils import SizeCalculator
+from autotarcompress.utils import SizeCalculator
 
 
 class TestSizeCalculator:
@@ -57,7 +57,7 @@ class TestSizeCalculator:
         # Size with ignore should be less than or equal to size without ignore
         assert size_with_ignore <= size_without_ignore
 
-    @patch("src.utils.os.walk")
+    @patch("autotarcompress.utils.os.walk")
     def test_calculate_total_size_handles_permission_errors(self, mock_walk) -> None:
         """Test that size calculator handles permission errors gracefully."""
         # Mock os.walk to raise PermissionError
@@ -82,7 +82,7 @@ class TestSizeCalculator:
         # Should return 0 for non-existent directory
         assert total_size == 0
 
-    @patch("src.utils.os.walk")
+    @patch("autotarcompress.utils.os.walk")
     def test_calculate_total_size_with_mocked_files(self, mock_walk) -> None:
         """Test size calculation with mocked file system."""
         # Mock os.walk to return test data

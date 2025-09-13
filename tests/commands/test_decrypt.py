@@ -14,8 +14,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from src.commands.decrypt import DecryptCommand
-from src.config import BackupConfig
+from autotarcompress.commands.decrypt import DecryptCommand
+from autotarcompress.config import BackupConfig
 
 # Test constants
 PBKDF2_ITERATIONS = 600000
@@ -55,7 +55,7 @@ class TestDecryptCommand:
         assert command.config == mock_config
         assert command.file_path == test_encrypted_file
         assert isinstance(command.logger, logging.Logger)
-        assert command.logger.name == "src.commands.decrypt"
+        assert command.logger.name == "autotarcompress.commands.decrypt"
         assert command.PBKDF2_ITERATIONS == PBKDF2_ITERATIONS
 
     @patch("subprocess.run")

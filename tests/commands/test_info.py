@@ -15,8 +15,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from src.commands.info import InfoCommand
-from src.config import BackupConfig
+from autotarcompress.commands.info import InfoCommand
+from autotarcompress.config import BackupConfig
 
 
 class TestInfoCommand:
@@ -79,7 +79,7 @@ class TestInfoCommand:
 
         assert command.config is mock_config
         assert isinstance(command.logger, logging.Logger)
-        assert command.logger.name == "src.commands.info"
+        assert command.logger.name == "autotarcompress.commands.info"
 
     @patch("builtins.print")
     @patch.object(InfoCommand, "_load_backup_info")

@@ -5,7 +5,7 @@ for backward compatibility.
 """
 
 # Re-export command classes for backward compatibility
-from src.commands import (
+from autotarcompress.commands import (
     BackupCommand,
     CleanupCommand,
     Command,

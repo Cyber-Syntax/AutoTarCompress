@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from src.commands.command import Command
+from autotarcompress.commands.command import Command
 
 
 class ConcreteCommand(Command):
