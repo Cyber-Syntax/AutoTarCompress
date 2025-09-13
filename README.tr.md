@@ -1,91 +1,85 @@
-[![en](https://img.shields.io/badge/lang-en-green.svg)](https://github.com/Cyber-Syntax/AutoTarCompress/blob/main/README.md)
-[![tr](https://img.shields.io/badge/lang-tr-blue.svg)](https://github.com/Cyber-Syntax/AutoTarCompress/blob/main/README.tr.md)
+İngilizce: [README.md](https://github.com/Cyber-Syntax/AutoTarCompress/blob/main/README.md)
 
 ---
 
-# **⚠️ Dikkat**
-
-- Bu proje sınırlı testlerden dolayı şu anlık **beta aşamasındadır** . Başlangıçta öğrenme amaçlı geliştirilmiş olsa da, benim özel ihtiyaçlarımı etkin bir şekilde karşılamaktadır.
-- **Önemli:** Script’i güncellerken **Releases** bölümündeki talimatları takip edin. Güncellemeler yeni özellikler veya değişiklikler içerebilir ve bu değişiklikler farklı adımlar gerektirebilir. Talimatları olabildiğince basit tutmaya çalışacağım.
-- **Şu anda desteklenen:** Sadece Linux. macOS'ta çalışabilir, ancak henüz test edilmemiştir.
-
----
-
-## **AutoTarCompress Hakkında**
-
-- Bu script, belirli dizinleri tar dosyalarına sıkıştırır (örn. 01-01-2025.tar.xz) ve OpenSSL Python kütüphanasını kullanarak bunları şifreleyebilir.
-- Ayrıca oluşturulan dosyaların şifresini çözmeyi ve çıkarmayı sağlar.
+> [!CAUTION]
+>
+> - Bu proje şu anda sınırlı test nedeniyle **beta aşamasındadır**.
+> - **Önemli:** Scripti güncellerken **Sürümler** bölümündeki talimatları izleyin.
+> - **Desteklenen İşletim Sistemi:** Şu anda yalnızca Linux desteklenmektedir.
 
 ---
 
-# **💡 Nasıl Kullanılır**
 
-1. Bir terminal açın ve bu depoyu klonlayın (git'in yüklü olduğundan emin olun):
+# **AutoTarCompress Hakkında**
 
-   ```bash
-   cd ~/Downloads/
-   git clone https://github.com/Cyber-Syntax/AutoTarCompress.git
-   ```
 
-2. Proje dizinine gidin:
-
-   ```bash
-   cd ~/Downloads/Cyber-Syntax/AutoTarCompress
-   ```
-
-3. **Opsiyonel: Sanal bir ortam oluşturun (Tavsiye Edilir)**
-
-   - Sanal ortam oluşturun:
-     - `python3 -m venv .venv`
-   - Sanal ortamı etkinleştirin:
-     - `source .venv/bin/activate`
-   - `pip` kullanarak bağımlılıkları yükleyin:
-     - `pip install -r requirements.txt`
-   - Eğer bu yöntem çalışmazsa, bağımlılıkları manuel olarak yükleyin (bazıları zaten yüklü olabilir; hata alırsanız yüklenmeyenleri deneyin).
-     - `pip3 install tqdm`
-
-4. Sanal ortamı etkinleştirin (eğer oluşturulduysa):
-
-   ```bash
-   source .venv/bin/activate
-   ```
-
-5. Yapılandırma dosyası ayarlama:
-   - Yedeklemeye ait ayarlarınızı özelleştirmek için, bir `config.json` dosyasını kullanabilirsiniz. Bu dosya size şunları belirtmenizi sağlar:
-      - Yedekleme klasörünün konumu, Geri yüklenecek dizinler, İlgisiz bırakılacak dizinler, Saklanacak tar.xz ve tar.xz.enc dosyalarının sayısı
-  - **Yapılandırma Dosyası Oluşturma:**
-     - İki seçeneğiniz vardır:
-         1. **Senaryoyu çalıştır ve ekrandaki talimatları takip et**. Bu size bir `config.json` dosyası oluşturmayı kılavuzlayacaktır.
-         2. **Örnek Ayar Dosyasını Kullan (Opsiyonel)**:
-            - Örnek konfigürasyonunuzu `config_files_example/config.json` konumundan kopyalayın
-            - Bu dosyayı `~/.config/autotarcompress/config.json` konumuna yapıştırın (örn. `~/Documents/backup-for-cloud/config_files/config.json`)
-            - Gereksinim duyduğunuz kadarını değiştirin
-          
-3. Script'i başlatın:
-
-   ```bash
-   python3 main.py
-   ```
-
-4. Ekrandaki talimatları izleyin.
+> [!NOTE]
+> AutoTarCompress, önemli dizinlerinizin sıkıştırılmış yedeklerini oluşturma ve yönetme sürecini kolaylaştıran bir Linux komut satırı aracıdır. Sıkıştırma, şifreleme ve şifre çözme gibi özellikler sunar.
+>
+> - Detaylı bilgi: [wiki.md](docs/wiki.md)
 
 ---
+
+
+## **💡 Nasıl Kullanılır**
+
+
+1. Bir terminal açın ve bu depoyu klonlayın (git'in kurulu olduğundan emin olun):
+
+```bash
+git clone https://github.com/Cyber-Syntax/AutoTarCompress.git
+```
+
+2. Proje dizinine geçin:
+
+```bash
+cd AutoTarCompress
+```
+
+cd AutoTarCompress
+chmod +x install.sh
+./install.sh
+
+3. Kurulum dosyasını çalıştırılabilir yapın ve yükleme scriptini çalıştırın:
+
+```bash
+chmod +x install.sh && ./install.sh
+```
+
+4. Kurulumdan sonra shell'i yeniden başlatın veya şunu çalıştırın:
+
+```bash
+source ~/.bashrc   # veya ~/.zshrc
+```
+
+5. Yapılandırma
+
+Örnek yapılandırmayı kopyalayın ve ihtiyacınıza göre düzenleyin:
+
+```bash
+mkdir -p ~/.config/autotarcompress
+cp config_files_example/config.json ~/.config/autotarcompress/config.json
+# İhtiyacınıza göre ~/.config/autotarcompress/config.json dosyasını düzenleyin
+```
+
+Ya da aracı doğrudan çalıştırıp, etkileşimli olarak yapılandırma oluşturmak için ekrandaki yönergeleri takip edin.
+
+## Scripti çalıştırın
+
+```bash
+autotarcompress
+```
+
+Yedek oluşturmak, şifrelemek veya çıkarmak için ekrandaki talimatları izleyin.
+
+---
+
 
 ## **🙏 Bu Projeye Destek Olun**
 
-- **GitHub üzerinde yıldız ⭐** vererek desteğinizi gösterebilirsiniz, böylece kodlama yolculuğumda motive olmamı sağlar!
-- **💖 Projeyi Destekle:** Çalışmalarımı desteklemek ve projeler yapmaya devam etmemi sağlamak istersen, bana sponsor olmayı düşünebilirsin:
-  - [![Sponsor Ol](https://img.shields.io/badge/Sponsor-💖-brightgreen)](https://github.com/sponsors/Cyber-Syntax)
+Bu script işinize yaradıysa:
 
-### **🤝 Katkı Sağlama**
-
-- Bu proje benim için öncelikle bir öğrenme kaynağıdır, ancak geri bildirim veya önerilerden memnuniyet duyarım! Tüm katkıları entegre etmeyi veya sürekli olarak katılım sağlamayı vaat edemem, ancak proje hedeflerine uygun iyileştirmelere ve fikirlere açığım.
-- Yine de, daha ayrıntılı bir açıklama için lütfen [CONTRIBUTING.tr.md](.github/CONTRIBUTING.tr.md) dosyasına göz atın.
-
----
-
-## **📝 Lisans**
-
-Bu script, [GPL 3.0 Lisansı](https://www.gnu.org/licenses/gpl-3.0.en.html) altında lisanslanmıştır. Lisansın bir kopyasını [LICENSE](https://github.com/Cyber-Syntax/my-unicorn/blob/main/LICENSE) dosyasından veya [www.gnu.org](https://www.gnu.org/licenses/gpl-3.0.en.html) adresinden bulabilirsiniz.
-
----
+- **GitHub'da bir yıldız ⭐ vererek** desteğinizi gösterebilir ve kodlama yolculuğumda motive olmamı sağlayabilirsiniz!
+- **💖 Bu Projeye Destek Olun:** Çalışmalarımı desteklemek ve yeni projeler geliştirmeye devam etmemi sağlamak isterseniz, bana sponsor olabilirsiniz:
+    - [![Sponsor Me](https://img.shields.io/badge/Sponsor-💖-brightgreen)](https://github.com/sponsors/Cyber-Syntax)
