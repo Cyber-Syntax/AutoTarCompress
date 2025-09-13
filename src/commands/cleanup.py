@@ -43,10 +43,14 @@ class CleanupCommand(Command):
         )
 
         # Delete files exceeding the retention count
-        for old_file in files[:-keep_count]:
+        files_to_delete = files if keep_count == 0 else files[:-keep_count]
+
+        for old_file in files_to_delete:
             file_path = backup_folder / old_file
             try:
                 file_path.unlink()
-                self.logger.info(f"Deleted old backup: {old_file}")
+                self.logger.info("Deleted old backup: %s", old_file)
+                print(f"Deleted old backup: {old_file}")
             except Exception as e:
-                self.logger.error(f"Failed to delete {old_file}: {e}")
+                self.logger.error("Failed to delete %s: %s", old_file, e)
+                print(f"Failed to delete {old_file}: {e}")

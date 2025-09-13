@@ -40,7 +40,13 @@ class InfoCommand(Command):
                 return None
 
             with open(info_file_path, encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                # Validate that the loaded data is a dictionary
+                if isinstance(data, dict):
+                    return data
+                else:
+                    self.logger.error("Backup info file does not contain a valid JSON object")
+                    return None
 
         except json.JSONDecodeError as e:
             self.logger.error(f"Error reading backup info file: {e}")
