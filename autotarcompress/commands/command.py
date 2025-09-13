@@ -10,5 +10,5 @@ class Command(ABC):
     """Command interface for backup manager"""
 
     @abstractmethod
-    def execute(self):
+    def execute(self) -> bool:
         """Execute the command operation"""

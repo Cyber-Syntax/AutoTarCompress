@@ -10,9 +10,9 @@ import re
 import subprocess
 from typing import Tuple
 
-from src.commands.command import Command
-from src.config import BackupConfig
-from src.security import ContextManager
+from autotarcompress.commands.command import Command
+from autotarcompress.config import BackupConfig
+from autotarcompress.security import ContextManager
 
 
 class EncryptCommand(Command):
@@ -96,9 +96,14 @@ class EncryptCommand(Command):
             self.logger.error(f"Encryption failed: {self._sanitize_logs(e.stderr)}")
             self._safe_cleanup(output_path)
             return False
+        except subprocess.TimeoutExpired:
+            self.logger.error("Encryption timed out")
+            self._safe_cleanup(output_path)
+            return False
 
     def _sanitize_logs(self, output: bytes) -> str:
-        """Safe log sanitization without modifying bytes"""
-        sanitized = output.replace(b"password=", b"password=[REDACTED]")
+        """Safe log sanitization without modifying bytes."""
+        # Replace password=<value> with password=[REDACTED]
+        sanitized = re.sub(rb"password=[^\s]*", b"password=[REDACTED]", output)
         sanitized = re.sub(rb"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", b"[IP_REDACTED]", sanitized)
         return sanitized.decode("utf-8", errors="replace")

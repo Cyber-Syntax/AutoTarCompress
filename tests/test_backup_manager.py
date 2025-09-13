@@ -17,15 +17,15 @@ import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Updated imports based on the new refactored structure
-from src.commands import (
+from autotarcompress.commands import (
     BackupCommand,
     CleanupCommand,
     EncryptCommand,
 )
-from src.config import BackupConfig
-from src.facade import BackupFacade
-from src.security import ContextManager
-from src.utils import SizeCalculator
+from autotarcompress.config import BackupConfig
+from autotarcompress.facade import BackupFacade
+from autotarcompress.security import ContextManager
+from autotarcompress.utils import SizeCalculator
 
 
 # Fixtures
@@ -155,7 +155,6 @@ class TestBackupConfig:
             "keep_enc_backup": test_config.keep_enc_backup,
             "dirs_to_backup": test_config.dirs_to_backup,
             "ignore_list": test_config.ignore_list,
-            "last_backup": test_config.last_backup,
         }
 
         # Create a mock file object that returns our config data
@@ -181,7 +180,6 @@ class TestBackupConfig:
             "keep_enc_backup": test_config.keep_enc_backup,
             "dirs_to_backup": test_config.dirs_to_backup,
             "ignore_list": test_config.ignore_list,
-            "last_backup": test_config.last_backup,
         }
 
         # Create a mock file object that returns our config data

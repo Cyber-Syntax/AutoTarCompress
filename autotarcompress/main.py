@@ -5,14 +5,15 @@ including the command-line interface and initialization.
 """
 
 import logging
-from logging.handlers import RotatingFileHandler
 import os
 import sys
-from typing import List
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import List
 
-from src.commands import DecryptCommand, EncryptCommand, ExtractCommand
-from src.facade import BackupFacade
+from autotarcompress.commands import DecryptCommand, EncryptCommand, ExtractCommand
+from autotarcompress.facade import BackupFacade
+
 
 def get_xdg_state_home() -> Path:
     """Get the XDG state home directory."""
@@ -20,6 +21,7 @@ def get_xdg_state_home() -> Path:
     if not xdg_state_home or not Path(xdg_state_home).is_absolute():
         return Path.home() / ".local" / "state"
     return Path(xdg_state_home)
+
 
 def setup_logging() -> None:
     """Configure logging for the application."""
@@ -66,6 +68,7 @@ def select_file(files: List[str], backup_folder: str) -> str:
 
     Returns:
         Full path to the selected file
+
     """
     for idx, file in enumerate(files, start=1):
         print(f"{idx}. {file}")
@@ -100,20 +103,21 @@ def main():
         print("3. Decrypt Backup")
         print("4. Cleanup Old Backups")
         print("5. Extract Backup")
-        print("6. Exit")
+        print("6. Show Last Backup Info")
+        print("7. Exit")
 
         try:
-            choice = input("Enter your choice (1-6): ").strip()
-            if choice == "6":
+            choice = input("Enter your choice (1-7): ").strip()
+            if choice == "7":
                 print("Exiting...")
                 sys.exit(0)
 
             choice = int(choice)
-            if choice < 1 or choice > 6:
+            if choice < 1 or choice > 7:
                 raise ValueError
 
         except ValueError:
-            print("Invalid input. Please enter a number between 1-6.")
+            print("Invalid input. Please enter a number between 1-7.")
             continue
 
         try:
@@ -151,11 +155,13 @@ def main():
                     continue
                 selected = select_file(backup_files, facade.config.backup_folder)
                 ExtractCommand(facade.config, selected).execute()
+            elif choice == 6:
+                facade.execute_command("info")
 
         except KeyboardInterrupt:
             print("\nOperation cancelled by user")
         except Exception as e:
-            logging.error(f"Operation failed: {str(e)}")
+            logging.error(f"Operation failed: {e!s}")
 
 
 if __name__ == "__main__":

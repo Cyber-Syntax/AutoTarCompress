@@ -6,8 +6,8 @@ This module provides a simplified interface to the backup system components.
 from pathlib import Path
 from typing import Any, Dict, List
 
-from src.commands import BackupCommand, CleanupCommand, Command
-from src.config import BackupConfig
+from autotarcompress.commands import BackupCommand, CleanupCommand, Command, InfoCommand
+from autotarcompress.config import BackupConfig
 
 
 class BackupFacade:
@@ -18,6 +18,7 @@ class BackupFacade:
         self.commands: Dict[str, Command] = {
             "backup": BackupCommand(self.config),
             "cleanup": CleanupCommand(self.config),
+            "info": InfoCommand(self.config),
         }
 
     def configure(self) -> None:
