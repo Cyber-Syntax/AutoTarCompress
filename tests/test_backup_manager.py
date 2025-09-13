@@ -155,7 +155,6 @@ class TestBackupConfig:
             "keep_enc_backup": test_config.keep_enc_backup,
             "dirs_to_backup": test_config.dirs_to_backup,
             "ignore_list": test_config.ignore_list,
-            "last_backup": test_config.last_backup,
         }
 
         # Create a mock file object that returns our config data
@@ -181,7 +180,6 @@ class TestBackupConfig:
             "keep_enc_backup": test_config.keep_enc_backup,
             "dirs_to_backup": test_config.dirs_to_backup,
             "ignore_list": test_config.ignore_list,
-            "last_backup": test_config.last_backup,
         }
 
         # Create a mock file object that returns our config data
