@@ -21,15 +21,17 @@ class InfoCommand(Command):
         self.config = config
         self.logger = logging.getLogger(__name__)
 
-    def execute(self) -> None:
+    def execute(self) -> bool:
         """Execute info display process."""
         backup_info = self._load_backup_info()
 
         if backup_info:
             self._display_backup_info(backup_info)
+            return True
         else:
             print("No backup information found.")
             print("This usually means no backups have been created yet.")
+            return False
 
     def _load_backup_info(self) -> Optional[Dict[str, Any]]:
         """Load backup information from last-backup-info.json."""
