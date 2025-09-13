@@ -4,12 +4,12 @@ This module aggregates all command classes for easy importing.
 """
 
 from src.commands.command import Command
-from src.commands.backup_command import BackupCommand
-from src.commands.cleanup_command import CleanupCommand
-from src.commands.decrypt_command import DecryptCommand
-from src.commands.encrypt_command import EncryptCommand
-from src.commands.extract_command import ExtractCommand
-from src.commands.info_command import InfoCommand
+from src.commands.backup import BackupCommand
+from src.commands.cleanup import CleanupCommand
+from src.commands.decrypt import DecryptCommand
+from src.commands.encrypt import EncryptCommand
+from src.commands.extract import ExtractCommand
+from src.commands.info import InfoCommand
 
 __all__ = [
     "Command",
