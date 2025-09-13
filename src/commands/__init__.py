@@ -9,6 +9,7 @@ from src.commands.cleanup_command import CleanupCommand
 from src.commands.decrypt_command import DecryptCommand
 from src.commands.encrypt_command import EncryptCommand
 from src.commands.extract_command import ExtractCommand
+from src.commands.info_command import InfoCommand
 
 __all__ = [
     "Command",
@@ -17,4 +18,5 @@ __all__ = [
     "DecryptCommand",
     "EncryptCommand",
     "ExtractCommand",
+    "InfoCommand",
 ]

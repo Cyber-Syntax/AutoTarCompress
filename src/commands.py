@@ -12,6 +12,7 @@ from src.commands import (
     DecryptCommand,
     EncryptCommand,
     ExtractCommand,
+    InfoCommand,
 )
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "DecryptCommand",
     "EncryptCommand",
     "ExtractCommand",
+    "InfoCommand",
 ]

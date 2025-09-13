@@ -8,7 +8,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 
 @dataclass
@@ -25,7 +25,6 @@ class BackupConfig:
     keep_enc_backup: int = 1
     dirs_to_backup: List[str] = field(default_factory=list)
     ignore_list: List[str] = field(default_factory=list)
-    last_backup: Optional[str] = None
 
     def __post_init__(self) -> None:
         """Expand all paths after initialization."""
@@ -58,7 +57,6 @@ class BackupConfig:
             "keep_enc_backup": self.keep_enc_backup,
             "dirs_to_backup": self.dirs_to_backup,
             "ignore_list": self.ignore_list,
-            "last_backup": self.last_backup,
         }
 
         # Ensure the config directory exists
@@ -79,9 +77,16 @@ class BackupConfig:
             try:
                 with open(config_path, encoding="utf-8") as f:
                     config_data = json.load(f)
-                return cls(**config_data)
+
+                # Filter out unknown fields (like old last_backup field)
+                valid_fields = {field.name for field in cls.__dataclass_fields__.values()}
+                filtered_data = {
+                    key: value for key, value in config_data.items() if key in valid_fields
+                }
+
+                return cls(**filtered_data)
             except json.JSONDecodeError as e:
-                logging.error(f"Error reading config file: {e}")
+                logging.error("Error reading config file: %s", e)
                 logging.warning("Using default configuration")
                 return default_config
         return default_config

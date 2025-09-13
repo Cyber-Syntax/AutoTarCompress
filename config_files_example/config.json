@@ -1,25 +1,24 @@
 {
-  "backup_folder": "~/Documents/backup-for-cloud/",
-  "config_dir": "~/.config/autotarcompress",
-  "keep_backup": 1,
-  "keep_enc_backup": 1,
-  "dirs_to_backup": [
-    "~/Pictures",
-    "~/Documents",
-    "~/.config/autotarcompress",
-    "~/.mozilla/firefox/sqwu9kep.default-release",
-    "~/.config/BraveSoftware/Brave-Browser/Default",
-    "~/dotfiles",
-    "~/bare"
-  ],
-  "ignore_list": [
-    "~/Documents/appimages",
-    "~/Documents/backup-for-cloud",
-    "~/Documents/.stversions",
-    "node_modules",
-    ".venv",
-    "__pycache__",
-    ".ruff_cache"
-  ],
-  "last_backup": null
+	"backup_folder": "~/Documents/backup-for-cloud/",
+	"config_dir": "~/.config/autotarcompress",
+	"keep_backup": 1,
+	"keep_enc_backup": 1,
+	"dirs_to_backup": [
+		"~/Pictures",
+		"~/Documents",
+		"~/.config/autotarcompress",
+		"~/.mozilla/firefox/sqwu9kep.default-release",
+		"~/.config/BraveSoftware/Brave-Browser/Default",
+		"~/dotfiles",
+		"~/bare"
+	],
+	"ignore_list": [
+		"~/Documents/appimages",
+		"~/Documents/backup-for-cloud",
+		"~/Documents/.stversions",
+		"node_modules",
+		".venv",
+		"__pycache__",
+		".ruff_cache"
+	]
 }
