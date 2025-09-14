@@ -13,21 +13,17 @@ from typing import List, Tuple
 
 @dataclass
 class BackupConfig:
-    """Configuration data for backup manager.
-
-    This class handles configuration properties for the backup system including
-    file paths, retention policies, and backup targets.
-    """
+    """Configuration data for backup manager (paths, retention, targets)."""
 
     backup_folder: str = "~/Documents/backup-for-cloud/"
     config_dir: str = "~/.config/autotarcompress"
     keep_backup: int = 1
     keep_enc_backup: int = 1
-    dirs_to_backup: List[str] = field(default_factory=list)
-    ignore_list: List[str] = field(default_factory=list)
+    dirs_to_backup: list[str] = field(default_factory=list)
+    ignore_list: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
-        """Expand all paths after initialization."""
+        """Expand all configured paths after initialization."""
         self.backup_folder = str(Path(self.backup_folder).expanduser())
         self.ignore_list = [str(Path(p).expanduser()) for p in self.ignore_list]
         self.dirs_to_backup = [str(Path(d).expanduser()) for d in self.dirs_to_backup]
@@ -35,17 +31,17 @@ class BackupConfig:
 
     @property
     def current_date(self) -> str:
-        """Get current date formatted as string."""
+        """Return current date as string (dd-mm-YYYY)."""
         return datetime.datetime.now().strftime("%d-%m-%Y")
 
     @property
     def config_path(self) -> Path:
-        """Get the full path to the config file."""
+        """Return the full path to the config file."""
         return Path(self.config_dir) / "config.json"
 
     @property
     def backup_path(self) -> Path:
-        """Get the full path to the backup file."""
+        """Return the full path to the backup file."""
         return Path(self.backup_folder) / f"{self.current_date}.tar.xz"
 
     def save(self) -> None:
@@ -61,11 +57,9 @@ class BackupConfig:
 
         # Ensure the config directory exists
         Path(self.config_dir).mkdir(parents=True, exist_ok=True)
-
         with open(self.config_path, "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=4)
-
-        logging.info(f"Configuration saved to {self.config_path}")
+        logging.info("Configuration saved to %s", self.config_path)
 
     @classmethod
     def load(cls) -> "BackupConfig":

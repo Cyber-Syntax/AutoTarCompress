@@ -21,46 +21,78 @@ from autotarcompress.utils import SizeCalculator
 
 
 class BackupCommand(Command):
-    """Concrete command to perform backup"""
+    """Command to create compressed backup archives using tar and xz."""
 
-    def __init__(self, config: BackupConfig):
-        self.config = config
-        self.logger = logging.getLogger(__name__)
+    def __init__(self, config: BackupConfig) -> None:
+        """Initialize BackupCommand.
+
+        Args:
+            config (BackupConfig): Backup configuration object.
+
+        """
+        self.config: BackupConfig = config
+        self.logger: logging.Logger = logging.getLogger(__name__)
 
     def execute(self) -> bool:
-        """Execute backup process."""
+        """Execute backup process.
+
+        Returns:
+            bool: True if backup succeeded, False otherwise.
+
+        """
         if not self.config.dirs_to_backup:
-            self.logger.error("No directories configured for backup")
+            msg = "No directories configured for backup. Skipping backup."
+            print(msg)
+            self.logger.error("No directories configured for backup. Skipping backup.")
             return False
-
-        total_size = self._calculate_total_size()
-        success = self._run_backup_process(total_size)
-
-        # Save backup info if backup was successful
+        total_size: int = self._calculate_total_size()
+        if total_size == 0:
+            msg = "Total backup size is 0 bytes. Nothing to back up."
+            print(msg)
+            self.logger.warning("Total backup size is 0 bytes. Nothing to back up.")
+            return False
+        success: bool = self._run_backup_process(total_size)
         if success:
             self._save_backup_info(total_size)
-
         return success
 
     def _calculate_total_size(self) -> int:
+        """Calculate total size of all directories to back up.
+
+        Returns:
+            int: Total size in bytes.
+
+        """
         calculator = SizeCalculator(self.config.dirs_to_backup, self.config.ignore_list)
         return calculator.calculate_total_size()
 
     def _run_backup_process(self, total_size: int) -> bool:
-        """Run the backup process and return success status."""
-        # Check is there any file exist with same name
+        """Run the backup process and return success status.
+
+        Args:
+            total_size (int): Total size of files to back up, in bytes.
+
+        Returns:
+            bool: True if backup succeeded, False otherwise.
+
+        """
         if os.path.exists(self.config.backup_path):
-            print(f"File already exist: {self.config.backup_path}")
+            print(f"File already exists: {self.config.backup_path}")
+            self.logger.warning("Backup file already exists: %s", self.config.backup_path)
             if input("Do you want to remove it? (y/n): ").lower() == "y":
-                os.remove(self.config.backup_path)
+                try:
+                    os.remove(self.config.backup_path)
+                    self.logger.info("Removed existing backup file: %s", self.config.backup_path)
+                except Exception as e:
+                    print(f"Failed to remove existing backup: {e}")
+                    self.logger.error("Failed to remove existing backup: %s", e)
+                    return False
             else:
+                print("Backup aborted by user.")
+                self.logger.info("Backup aborted by user due to existing file.")
                 return False
 
-        exclude_options = " ".join([f"--exclude={path}" for path in self.config.ignore_list])
-
-        # TODO: need to fix this exclude option
-        # TEST: without os.path.basename which it is not working
-        # exclude_options += f" --exclude={self.config.backup_folder}"
+        exclude_options = " ".join(f"--exclude={path}" for path in self.config.ignore_list)
 
         dir_paths = [os.path.expanduser(path) for path in self.config.dirs_to_backup]
 
@@ -73,13 +105,14 @@ class BackupCommand(Command):
 
         # HACK: h option is used to follow symlinks
         cmd = (
-            f"tar -chf - --one-file-system {exclude_options} {' '.join(quoted_paths)} | "
+            f"tar -chf - --one-file-system {exclude_options} "
+            f"{' '.join(quoted_paths)} | "
             f"xz --threads={threads} > {self.config.backup_path}"
         )
         total_size_gb = total_size / 1024**3
 
         self.logger.info(f"Starting backup to {self.config.backup_path}")
-        self.logger.info(f"Total size: {total_size_gb} GB")
+        self.logger.info(f"Total size: {total_size_gb:.2f} GB")
 
         try:
             # FIX: later spinner not working for now
@@ -88,8 +121,10 @@ class BackupCommand(Command):
             # self._show_spinner(subprocess.Popen(cmd, shell=True))
             subprocess.run(cmd, shell=True, check=True)
             self.logger.info("Backup completed successfully")
+            print("Backup completed successfully.")
             return True
         except subprocess.CalledProcessError as e:
+            print(f"Backup failed: {e}")
             self.logger.error(f"Backup failed: {e}")
             return False
 

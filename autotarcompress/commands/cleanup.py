@@ -14,25 +14,24 @@ from autotarcompress.config import BackupConfig
 
 
 class CleanupCommand(Command):
-    """Concrete command to perform cleanup of old backups."""
+    """Command to clean up old backup, encrypted, and decrypted files."""
 
-    def __init__(self, config: BackupConfig):
-        """Initialize CleanupCommand with backup configuration.
+    def __init__(self, config: BackupConfig) -> None:
+        """Initialize CleanupCommand.
 
         Args:
-            config: BackupConfig instance with retention and folder settings.
+            config (BackupConfig): Backup configuration with retention and folder settings.
 
         """
-        self.config = config
-        self.logger = logging.getLogger(__name__)
+        self.config: BackupConfig = config
+        self.logger: logging.Logger = logging.getLogger(__name__)
 
     def execute(self) -> bool:
-        """Execute cleanup process for old backup, encrypted, and decrypted files.
+        """Delete old backup, encrypted, and decrypted files per retention policy.
 
-        Deletes old .tar.xz files (retention: keep_backup),
-        .tar.xz.enc files (retention: keep_enc_backup), and
-        .tar.xz-decrypted files (retention: keep_backup).
-        No separate retention for decrypted files; uses keep_backup.
+        Returns:
+            bool: Always True (cleanup always completes, even if nothing to delete).
+
         """
         self._cleanup_files(".tar.xz", self.config.keep_backup)
         self._cleanup_files(".tar.xz.enc", self.config.keep_enc_backup)
@@ -40,24 +39,24 @@ class CleanupCommand(Command):
         return True
 
     def _cleanup_files(self, ext: str, keep_count: int) -> None:
-        """Delete old backup files based on file extension and retention count.
+        """Delete old files by extension, keeping only the most recent as configured.
 
         Args:
-            ext: File extension to filter for cleanup
-            keep_count: Number of recent files to keep
+            ext (str): File extension to filter for cleanup.
+            keep_count (int): Number of recent files to keep.
 
         """
-        backup_folder = Path(self.config.backup_folder)
-
-        # Get all files with the specified extension
-        files = sorted(
+        backup_folder: Path = Path(self.config.backup_folder)
+        files: list[str] = sorted(
             [f for f in os.listdir(backup_folder) if f.endswith(ext)],
             key=lambda x: datetime.datetime.strptime(x.split(".")[0], "%d-%m-%Y"),
         )
-
-        # Delete files exceeding the retention count
-        files_to_delete = files if keep_count == 0 else files[:-keep_count]
-
+        files_to_delete: list[str] = files if keep_count == 0 else files[:-keep_count]
+        if not files_to_delete:
+            msg = f"No old '{ext}' files to remove."
+            print(msg)
+            self.logger.info("No old '%s' files to remove.", ext)
+            return
         for old_file in files_to_delete:
             file_path = backup_folder / old_file
             try:
