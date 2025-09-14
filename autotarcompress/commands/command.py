@@ -7,8 +7,13 @@ from abc import ABC, abstractmethod
 
 
 class Command(ABC):
-    """Command interface for backup manager"""
+    """Abstract command interface for backup manager operations."""
 
     @abstractmethod
     def execute(self) -> bool:
-        """Execute the command operation"""
+        """Execute the command operation.
+
+        Returns:
+            bool: True if command succeeded, False otherwise.
+
+        """

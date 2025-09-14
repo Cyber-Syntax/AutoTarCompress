@@ -13,36 +13,44 @@ from autotarcompress.config import BackupConfig
 
 
 class ExtractCommand(Command):
-    """Concrete command to perform extraction of tar.xz archives"""
+    """Command to extract tar.xz backup archives securely."""
 
-    def __init__(self, config: BackupConfig, file_path: str):
-        self.config = config
-        self.file_path = file_path
-        self.logger = logging.getLogger(__name__)
+    def __init__(self, config: BackupConfig, file_path: str) -> None:
+        """Initialize ExtractCommand.
+
+        Args:
+            config (BackupConfig): Backup configuration object.
+            file_path (str): Path to the archive to extract.
+
+        """
+        self.config: BackupConfig = config
+        self.file_path: str = file_path
+        self.logger: logging.Logger = logging.getLogger(__name__)
 
     def execute(self) -> bool:
-        """Extract the specified archive to a directory"""
-        file_path = Path(self.file_path)
-        extract_dir = Path(f"{file_path.with_suffix('')}-extracted")
-        extract_dir.mkdir(exist_ok=True)
+        """Extract the specified archive to a directory.
 
+        Returns:
+            bool: True if extraction succeeded, False otherwise.
+
+        """
+        file_path: Path = Path(self.file_path)
+        extract_dir: Path = Path(f"{file_path.with_suffix('')}-extracted")
+        extract_dir.mkdir(exist_ok=True)
         try:
             with tarfile.open(self.file_path, "r:xz") as tar:
-                # Ensure we're not extracting files outside of the target directory
+                # Prevent path traversal attacks by checking extraction target
                 for member in tar.getmembers():
                     target_path = extract_dir / member.name
                     if not str(target_path.absolute()).startswith(str(extract_dir.absolute())):
-                        self.logger.error(f"Attempted path traversal: {member.name}")
+                        self.logger.error("Attempted path traversal: %s", member.name)
                         return False
-
-                # Safe to extract
                 tar.extractall(path=extract_dir)
-
-            self.logger.info(f"Successfully extracted to {extract_dir}")
+            self.logger.info("Successfully extracted to %s", extract_dir)
             return True
         except tarfile.TarError as e:
-            self.logger.error(f"Extraction failed: {e}")
+            self.logger.error("Extraction failed: %s", e)
             return False
         except Exception as e:
-            self.logger.error(f"Unexpected error during extraction: {e}")
+            self.logger.error("Unexpected error during extraction: %s", e)
             return False

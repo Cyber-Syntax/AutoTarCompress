@@ -1,28 +1,39 @@
-"""Facade pattern implementation for backup system.
+"""Provide a simplified interface to backup system components.
 
-This module provides a simplified interface to the backup system components.
+Following the Facade design pattern.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-from autotarcompress.commands import BackupCommand, CleanupCommand, Command, InfoCommand
+from autotarcompress.commands import (
+    BackupCommand,
+    CleanupCommand,
+    Command,
+    InfoCommand,
+)
 from autotarcompress.config import BackupConfig
+
+# Option constants for interactive menus
+ADD_OPTION = 1
+REMOVE_OPTION = 2
+FINISH_OPTION = 3
 
 
 class BackupFacade:
-    """Facade to manage backup manager operations"""
+    """Facade for managing backup operations via a high-level interface."""
 
-    def __init__(self):
-        self.config = BackupConfig.load()
-        self.commands: Dict[str, Command] = {
+    def __init__(self) -> None:
+        """Initialize BackupFacade with loaded config and available commands."""
+        self.config: BackupConfig = BackupConfig.load()
+        self.commands: dict[str, Command] = {
             "backup": BackupCommand(self.config),
             "cleanup": CleanupCommand(self.config),
             "info": InfoCommand(self.config),
         }
 
     def configure(self) -> None:
-        """Interactive configuration wizard"""
+        """Launch interactive configuration wizard for backup settings."""
         print("\n=== Backup Manager Configuration ===")
         self._setup_paths()
         self._setup_retention()
@@ -31,28 +42,41 @@ class BackupFacade:
         print("\nConfiguration saved successfully!")
 
     def execute_command(self, command_name: str) -> Any:
-        """Execute a predefined command"""
+        """Execute a predefined command by name.
+
+        Args:
+            command_name (str): The name of the command to execute.
+
+        Returns:
+            Any: The result of the command's execution.
+
+        Raises:
+            ValueError: If the command name is not recognized.
+
+        """
         if command_name in self.commands:
             return self.commands[command_name].execute()
-        else:
-            raise ValueError(f"Unknown command: {command_name}")
+        raise ValueError(f"Unknown command: {command_name}")
 
     def _setup_paths(self) -> None:
-        """Configure backup storage location"""
+        """Prompt for backup storage location configuration."""
         print("\n=== Backup Storage Location ===")
-        new_path = input(
+        new_path: str = input(
             "Enter backup directory (default: ~/Documents/backup-for-cloud/): "
         ).strip()
         if new_path:
             self.config.backup_folder = str(Path(new_path).expanduser())
-        print(f"Using backup directory: {Path(self.config.backup_folder).expanduser()}")
+        print(
+            f"Using backup directory: {Path(self.config.backup_folder).expanduser()}"
+        )
 
     def _setup_retention(self) -> None:
-        """Configure backup retention policies"""
+        """Prompt for backup retention policy configuration."""
         print("\n=== Backup Retention Settings ===")
         try:
             self.config.keep_backup = int(
-                input("Number of regular backups to keep (default 1): ") or self.config.keep_backup
+                input("Number of regular backups to keep (default 1): ")
+                or self.config.keep_backup
             )
             self.config.keep_enc_backup = int(
                 input("Number of encrypted backups to keep (default 1): ")
@@ -62,7 +86,7 @@ class BackupFacade:
             print("Invalid number format. Using existing values.")
 
     def _setup_directories(self) -> None:
-        """Interactive directory configuration"""
+        """Launch interactive directory configuration for backup and ignore lists."""
         print("\n=== Directory Configuration ===")
         self._manage_path_list(
             "Backup Directories",
@@ -78,7 +102,11 @@ class BackupFacade:
         )
 
     def _manage_path_list(
-        self, title: str, target_list: list, add_prompt: str, list_header: str
+        self,
+        _title: str,  # Unused, kept for interface compatibility
+        target_list: list[str],
+        add_prompt: str,
+        list_header: str,
     ) -> None:
         """Generic interactive list manager"""
         while True:
@@ -92,9 +120,9 @@ class BackupFacade:
                     print(f"  {i}. {path} {status}")
 
             print("\nOptions:")
-            print("1. Add paths")
-            print("2. Remove path")
-            print("3. Finish configuration")
+            print(f"{ADD_OPTION}. Add paths")
+            print(f"{REMOVE_OPTION}. Remove path")
+            print(f"{FINISH_OPTION}. Finish configuration")
 
             try:
                 choice = int(input("Choose an option (1-3): "))
@@ -102,40 +130,38 @@ class BackupFacade:
                 print("Please enter a valid number")
                 continue
 
-            if choice == 1:
+            if choice == ADD_OPTION:
                 new_items = input(add_prompt).split(",")
                 cleaned_paths = self._validate_paths([p.strip() for p in new_items])
-                target_list.extend(p for p in cleaned_paths if p not in target_list)
-            elif choice == 2:
+                # Only add unique, non-empty paths
+                target_list.extend(p for p in cleaned_paths if p and p not in target_list)
+            elif choice == REMOVE_OPTION:
                 self._remove_path(target_list)
-            elif choice == 3:
+            elif choice == FINISH_OPTION:
                 break
             else:
                 print("Invalid choice. Please try again.")
 
-    def _validate_paths(self, paths: List[str]) -> List[str]:
-        """Validate and normalize paths with user confirmation"""
-        valid_paths = []
+    def _validate_paths(self, paths: list[str]) -> list[str]:
+        """Validate and normalize paths, prompting user for confirmation if path does not exist."""
+        valid_paths: list[str] = []
         for path in paths:
             if not path:
                 continue
-
             expanded = Path(path).expanduser()
             if not expanded.exists():
                 print(f"Warning: Path does not exist - {expanded}")
                 if input("Add anyway? (y/N): ").lower() != "y":
                     continue
-
             # Store original path with ~ if provided
             valid_paths.append(path)
         return valid_paths
 
-    def _remove_path(self, target_list: list) -> None:
-        """Safely remove items from list"""
+    def _remove_path(self, target_list: list[str]) -> None:
+        """Remove an item from the target list by user-selected index."""
         if not target_list:
             print("List is empty")
             return
-
         try:
             index = int(input(f"Enter number to remove (1-{len(target_list)}): ")) - 1
             if 0 <= index < len(target_list):

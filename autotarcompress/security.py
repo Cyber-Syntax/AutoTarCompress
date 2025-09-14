@@ -12,32 +12,27 @@ from typing import Union
 
 
 class ContextManager:
-    """Secure context manager for password handling with memory sanitization."""
+    """Secure context manager for password handling and safe cleanup."""
 
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
+    def __init__(self) -> None:
+        """Initialize ContextManager with logger."""
+        self.logger: logging.Logger = logging.getLogger(__name__)
 
     @contextmanager
     def _password_context(self) -> str:
-        """Secure password handling with proper memory sanitization.
-
-        Uses a mutable bytearray to securely handle passwords and overwrite memory
-        before deletion.
+        """Yield password securely, ensuring memory is sanitized after use.
 
         Yields:
-            str: The user's password or None if entry was empty
+            str: The user's password, or None if entry was empty.
 
         """
         try:
-            # Get immutable password from user
-            password = getpass.getpass("Enter file encryption password: ")
+            password: str = getpass.getpass("Enter file encryption password: ")
             if not password:
                 self.logger.error("Empty password rejected")
                 yield None
                 return
-
-            # Convert to mutable bytearray for secure cleanup
-            password_bytes = bytearray(password.encode("utf-8"))
+            password_bytes: bytearray = bytearray(password.encode("utf-8"))
             yield password_bytes.decode("utf-8")
 
         finally:
@@ -50,17 +45,17 @@ class ContextManager:
                 password_bytes = None
                 del password_bytes
 
-    def _safe_cleanup(self, path: Union[str, Path]) -> None:
-        """Securely remove partial files on failure.
+    def _safe_cleanup(self, path: str | Path) -> None:
+        """Remove partial files on failure, logging the result.
 
         Args:
-            path: Path to the file that needs to be cleaned up
+            path (str | Path): Path to the file that needs to be cleaned up.
 
         """
         try:
-            file_path = Path(path)
+            file_path: Path = Path(path)
             if file_path.exists():
                 file_path.unlink()
                 self.logger.info("Cleaned up partial encrypted file")
         except Exception as e:
-            self.logger.error(f"Failed to clean up {path}: {e!s}")
+            self.logger.error("Failed to clean up %s: %s", path, e)

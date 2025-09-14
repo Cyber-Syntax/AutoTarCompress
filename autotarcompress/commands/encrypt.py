@@ -23,48 +23,65 @@ class EncryptCommand(Command):
     after the process is done, the password is deleted from memory
     """
 
-    PBKDF2_ITERATIONS = 600000  # OWASP recommended minimum
+    PBKDF2_ITERATIONS: int = 600000  # OWASP recommended minimum
 
-    def __init__(self, config: BackupConfig, file_to_encrypt: str):
-        self.file_to_encrypt = file_to_encrypt
-        self.logger = logging.getLogger(__name__)
+    def __init__(self, config: BackupConfig, file_to_encrypt: str) -> None:
+        """Initialize EncryptCommand.
+
+        Args:
+            config (BackupConfig): Backup configuration object.
+            file_to_encrypt (str): Path to the file to encrypt.
+
+        """
+        self.file_to_encrypt: str = file_to_encrypt
+        self.logger: logging.Logger = logging.getLogger(__name__)
         self._password_context = ContextManager()._password_context
         self._safe_cleanup = ContextManager()._safe_cleanup
-
-        self.required_openssl_version: Tuple[int, int, int] = (
-            3,
-            0,
-            0,
-        )  # Argon2id requires OpenSSL 3.0+
+        self.required_openssl_version: Tuple[int, int, int] = (3, 0, 0)
 
     def execute(self) -> bool:
-        """Secure PBKDF2 implementation with proper OpenSSL syntax"""
+        """Perform secure PBKDF2 encryption with OpenSSL.
+
+        Returns:
+            bool: True if encryption succeeded, False otherwise.
+
+        """
         if not self._validate_input_file():
             return False
 
         with self._password_context() as password:
             if not password:
                 return False
-
             return self._run_encryption_process(password)
 
     def _validate_input_file(self) -> bool:
-        """Validate input file meets security requirements"""
+        """Validate input file exists and is not empty.
+
+        Returns:
+            bool: True if file is valid, False otherwise.
+
+        """
         if not os.path.isfile(self.file_to_encrypt):
-            self.logger.error(f"File not found: {self.file_to_encrypt}")
+            self.logger.error("File not found: %s", self.file_to_encrypt)
             return False
-
         if os.path.getsize(self.file_to_encrypt) == 0:
-            self.logger.error("Cannot encrypt empty file (potential tampering attempt)")
+            self.logger.error(
+                "Cannot encrypt empty file (potential tampering attempt)")
             return False
-
         return True
 
     def _run_encryption_process(self, password: str) -> bool:
-        """Core encryption process with proper OpenSSL parameters"""
-        output_path = f"{self.file_to_encrypt}.enc"
+        """Run encryption process with OpenSSL PBKDF2 parameters.
 
-        cmd = [
+        Args:
+            password (str): Password for encryption.
+
+        Returns:
+            bool: True if encryption succeeded, False otherwise.
+
+        """
+        output_path: str = f"{self.file_to_encrypt}.enc"
+        cmd: list[str] = [
             "openssl",
             "enc",
             "-aes-256-cbc",

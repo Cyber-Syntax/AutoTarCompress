@@ -7,56 +7,57 @@ and other utility operations.
 import logging
 import os
 from pathlib import Path
-from typing import List, Union
 
 
 class SizeCalculator:
-    """Calculate total size of directories to be backed up and display results."""
+    """Calculate and display total size of backup directories."""
 
-    def __init__(self, directories: List[str], ignore_list: List[str]):
-        # Expand user paths (e.g., ~) and normalize as Path objects
-        self.directories = [Path(os.path.expanduser(d)) for d in directories]
-        self.ignore_list = [Path(os.path.expanduser(p)) for p in ignore_list]
+    def __init__(self, directories: list[str], ignore_list: list[str]) -> None:
+        """Initialize SizeCalculator.
 
-    def calculate_total_size(self) -> int:
-        """Iterate over all directories and sum up their sizes.
-
-        Returns:
-            Total size in bytes.
+        Args:
+            directories (list[str]): Directories to include in size calculation.
+            ignore_list (list[str]): Paths to ignore during calculation.
 
         """
-        print("\n📂 **Backup Size Summary**")
-        print("=" * 40)
+        self.directories: list[Path] = [Path(os.path.expanduser(d)) for d in directories]
+        self.ignore_list: list[Path] = [Path(os.path.expanduser(p)) for p in ignore_list]
 
-        total = 0
+    def calculate_total_size(self) -> int:
+        """Sum the sizes of all directories, printing a summary.
+
+        Returns:
+            int: Total size in bytes.
+
+        """
+        print("\n\U0001F4C2 **Backup Size Summary**")
+        print("=" * 40)
+        total: int = 0
         for directory in self.directories:
-            dir_size = self._calculate_directory_size(directory)
+            dir_size: int = self._calculate_directory_size(directory)
             total += dir_size
-            print(f"📁 {directory}: {self._format_size(dir_size)}")
-
+            print(f"\U0001F4C1 {directory}: {self._format_size(dir_size)}")
         print("=" * 40)
-        print(f"✅ Total Backup Size: {self._format_size(total)}\n")
+        print(f"\u2705 Total Backup Size: {self._format_size(total)}\n")
         return total
 
     def _calculate_directory_size(self, directory: Path) -> int:
-        """Calculate the size of a directory recursively.
+        """Recursively calculate the size of a directory.
 
         Args:
-            directory: The path of the directory to calculate size.
+            directory (Path): Directory to calculate size for.
 
         Returns:
-            The total size in bytes of files within the directory.
+            int: Total size in bytes of files in the directory.
 
         """
-        total = 0
+        total: int = 0
         try:
-            # Walk the directory tree
             for root, dirs, files in os.walk(directory):
                 root_path = Path(root)
                 if self._should_ignore(root_path):
-                    dirs[:] = []  # Prevent descending into subdirectories.
+                    dirs[:] = []
                     continue
-
                 for file in files:
                     file_path = root_path / file
                     if self._should_ignore(file_path):
@@ -64,16 +65,20 @@ class SizeCalculator:
                     try:
                         total += file_path.stat().st_size
                     except OSError as e:
-                        logging.warning(f"⚠️ Error accessing file {file_path}: {e}")
-
+                        logging.warning(
+                            "\u26A0\uFE0F Error accessing file %s: %s", file_path, e
+                        )
         except Exception as e:
-            logging.warning(f"⚠️ Error accessing directory {directory}: {e}")
-
+            logging.warning(
+                "\u26A0\uFE0F Error accessing directory %s: %s", directory, e
+            )
         return total
 
-    def _should_ignore(self, path: Union[Path, str]) -> bool:
-        """Determine whether the given path should be ignored based on the ignore list.
+    def _should_ignore(self, path: Path | str) -> bool:
+        """Return True if path should be ignored based on ignore list.
 
+        Args:
+            path (Path | str): File or directory path to check.
         The check is performed using the normalized path to avoid mismatches due to path formatting.
 
         Args:
