@@ -25,6 +25,7 @@ class BackupConfig:
     config_dir: str = "~/.config/autotarcompress"
     keep_backup: int = 0
     keep_enc_backup: int = 1
+    log_level: str = "INFO"
     # List of directories to include in the backup.
     # These are typically user data, browser profiles, documents, photos,
     # application configs, and dotfiles. Adjust this list to match the
@@ -71,6 +72,34 @@ class BackupConfig:
         self.ignore_list = [str(Path(p).expanduser()) for p in self.ignore_list]
         self.dirs_to_backup = [str(Path(d).expanduser()) for d in self.dirs_to_backup]
         self.config_dir = str(Path(self.config_dir).expanduser())
+        # Validate and normalize log level
+        self.log_level = self._validate_log_level(self.log_level)
+
+    def _validate_log_level(self, level: str) -> str:
+        """Validate and normalize the log level string.
+
+        Args:
+            level (str): The log level string to validate.
+
+        Returns:
+            str: A valid log level string (uppercase).
+
+        """
+        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        level_upper = level.upper()
+        if level_upper not in valid_levels:
+            logging.warning("Invalid log level '%s', defaulting to INFO", level)
+            return "INFO"
+        return level_upper
+
+    def get_log_level(self) -> int:
+        """Convert the string log level to logging module constant.
+
+        Returns:
+            int: The logging level constant.
+
+        """
+        return getattr(logging, self.log_level, logging.INFO)
 
     @property
     def current_date(self) -> str:
@@ -99,6 +128,16 @@ class BackupConfig:
         # Write config with inline comments for each setting
         with open(self.config_path, "w", encoding="utf-8") as f:
             f.write("[DEFAULT]\n")
+
+            # log_level
+            f.write("# Logging level for the application.\n")
+            f.write("#   Valid levels: DEBUG, INFO, WARNING, ERROR, CRITICAL\n")
+            f.write("#   DEBUG: Detailed information for debugging purposes\n")
+            f.write("#   INFO: General information about application flow\n")
+            f.write("#   WARNING: Warning messages for unusual conditions\n")
+            f.write("#   ERROR: Error messages for failure conditions\n")
+            f.write("#   CRITICAL: Critical error messages\n")
+            f.write(f"log_level = {self.log_level}\n\n")
 
             # backup_folder
             f.write("# Directory where backup archives will be stored.\n")
@@ -164,6 +203,7 @@ class BackupConfig:
                 keep_enc_backup = int(
                     section.get("keep_enc_backup", default_config.keep_enc_backup)
                 )
+                log_level = section.get("log_level", default_config.log_level).upper()
                 # Parse multi-line lists
 
                 def parse_multiline_list(val: str) -> list[str]:
@@ -179,6 +219,7 @@ class BackupConfig:
                     config_dir=config_dir,
                     keep_backup=keep_backup,
                     keep_enc_backup=keep_enc_backup,
+                    log_level=log_level,
                     dirs_to_backup=dirs_to_backup,
                     ignore_list=ignore_list,
                 )

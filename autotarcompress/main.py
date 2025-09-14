@@ -9,7 +9,6 @@ import os
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import List
 
 from autotarcompress.commands import DecryptCommand, EncryptCommand, ExtractCommand
 from autotarcompress.facade import BackupFacade
@@ -23,33 +22,35 @@ def get_xdg_state_home() -> Path:
     return Path(xdg_state_home)
 
 
-def setup_logging() -> None:
-    """Configure logging for the application."""
+def setup_logging(log_level: int = logging.INFO) -> None:
+    """Configure logging for the application.
+
+    Args:
+        log_level (int): The logging level to use. Defaults to INFO.
+
+    """
     log_dir_base: Path = get_xdg_state_home()
     log_dir: Path = log_dir_base / "autotarcompress"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file_path: Path = log_dir / "autotarcompress.log"
-    file_handler = RotatingFileHandler(
-        log_file_path, maxBytes=1024 * 1024, backupCount=3
-    )
-    file_formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-    )
+    file_handler = RotatingFileHandler(log_file_path, maxBytes=1024 * 1024, backupCount=3)
+    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
     file_handler.setFormatter(file_formatter)
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(log_level)
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.ERROR)
     console_formatter = logging.Formatter("%(message)s")
     console_handler.setFormatter(console_formatter)
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(log_level)
 
     # Remove any existing handlers (in case this function is called multiple times)
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
-    logging.info("Logging configured with DEBUG level")
+    level_name = logging.getLevelName(log_level)
+    logging.info("Logging configured with %s level", level_name)
 
 
 def select_file(files: list[str], backup_folder: str) -> str:
@@ -71,17 +72,23 @@ def select_file(files: list[str], backup_folder: str) -> str:
 
 def main() -> None:
     """Main application entry point for AutoTarCompress CLI."""
-    setup_logging()
+    # Initialize facade to get config
     facade: BackupFacade = BackupFacade()
-    expanded_backup_dir: str = os.path.expanduser(facade.config.backup_folder)
-    if not os.path.exists(expanded_backup_dir):
-        os.makedirs(expanded_backup_dir)
+
+    # Load config if it exists, otherwise use defaults
     if not os.path.exists(facade.config.config_path):
+        logging.basicConfig(level=logging.INFO)  # Basic logging for initial setup
         logging.info("No configuration found. Starting initial setup.")
         facade.configure()
     else:
-        logging.info("Loading existing configuration")
         facade.config = facade.config.load()
+
+    # Setup logging with configured level
+    setup_logging(facade.config.get_log_level())
+
+    expanded_backup_dir: str = os.path.expanduser(facade.config.backup_folder)
+    if not os.path.exists(expanded_backup_dir):
+        os.makedirs(expanded_backup_dir)
 
     while True:
         print("\n===== Backup Manager =====")

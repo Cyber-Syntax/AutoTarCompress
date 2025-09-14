@@ -1,9 +1,11 @@
 """Tests for BackupConfig class and configuration management.
 
 This module tests configuration loading, saving, validation, and path handling.
+Tests follow modern Python 3.12+ practices with full type annotations.
 """
 
 import configparser
+import logging
 import os
 import sys
 from pathlib import Path
@@ -26,6 +28,7 @@ class TestBackupConfig:
         assert config.config_dir.endswith(".config/autotarcompress")
         assert config.keep_backup == 0
         assert config.keep_enc_backup == 1
+        assert config.log_level == "INFO"
         assert isinstance(config.dirs_to_backup, list)
         assert isinstance(config.ignore_list, list)
 
@@ -107,6 +110,7 @@ class TestBackupConfig:
             "config_dir": "~/.config/test",
             "keep_backup": "2",
             "keep_enc_backup": "3",
+            "log_level": "DEBUG",
             "dirs_to_backup": "~/Documents",
             "ignore_list": "node_modules",
         }
@@ -119,6 +123,7 @@ class TestBackupConfig:
 
         assert loaded.keep_backup == 2
         assert loaded.keep_enc_backup == 3
+        assert loaded.log_level == "DEBUG"
         assert loaded.dirs_to_backup == [os.path.expanduser("~/Documents")]
         assert "node_modules" in loaded.ignore_list
 
@@ -151,6 +156,7 @@ class TestBackupConfig:
             "config_dir": "~/.config/autotarcompress",
             "keep_backup": "1",
             "keep_enc_backup": "1",
+            "log_level": "WARNING",
             "dirs_to_backup": "~/Documents",
             "ignore_list": "node_modules",
             # Unknown fields are simply ignored by configparser
@@ -199,3 +205,42 @@ class TestBackupConfig:
 
         assert not is_valid
         assert "No backup directories configured" in message
+
+    def test_log_level_validation(self) -> None:
+        """Test log level validation and normalization."""
+        # Test valid log levels
+        config_debug = BackupConfig(log_level="debug")
+        assert config_debug.log_level == "DEBUG"
+
+        config_info = BackupConfig(log_level="INFO")
+        assert config_info.log_level == "INFO"
+
+        config_warning = BackupConfig(log_level="warning")
+        assert config_warning.log_level == "WARNING"
+
+        config_error = BackupConfig(log_level="Error")
+        assert config_error.log_level == "ERROR"
+
+        config_critical = BackupConfig(log_level="CRITICAL")
+        assert config_critical.log_level == "CRITICAL"
+
+        # Test invalid log level defaults to INFO
+        config_invalid = BackupConfig(log_level="INVALID")
+        assert config_invalid.log_level == "INFO"
+
+    def test_get_log_level_method(self) -> None:
+        """Test get_log_level method returns correct logging constants."""
+        config_debug = BackupConfig(log_level="DEBUG")
+        assert config_debug.get_log_level() == logging.DEBUG
+
+        config_info = BackupConfig(log_level="INFO")
+        assert config_info.get_log_level() == logging.INFO
+
+        config_warning = BackupConfig(log_level="WARNING")
+        assert config_warning.get_log_level() == logging.WARNING
+
+        config_error = BackupConfig(log_level="ERROR")
+        assert config_error.get_log_level() == logging.ERROR
+
+        config_critical = BackupConfig(log_level="CRITICAL")
+        assert config_critical.get_log_level() == logging.CRITICAL
