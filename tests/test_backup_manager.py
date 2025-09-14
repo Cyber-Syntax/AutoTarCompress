@@ -3,13 +3,12 @@
 This module contains tests for the backup manager and related components.
 """
 
-import json
 import os
 import shutil
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -133,38 +132,44 @@ class TestBackupConfig:
 
     def test_save_config(self, test_config, temp_dir):
         """Test saving configuration to file"""
+        import configparser
+
         test_config.save()
 
         # Check if the config file was created
-        config_path = os.path.join(test_config.config_dir, "config.json")
+        config_path = os.path.join(test_config.config_dir, "config.conf")
         assert os.path.exists(config_path)
 
         # Verify content
-        with open(config_path) as f:
-            data = json.load(f)
-            assert data["backup_folder"] == test_config.backup_folder
-            assert data["dirs_to_backup"] == test_config.dirs_to_backup
+        config = configparser.ConfigParser()
+        config.read(config_path, encoding="utf-8")
+        section = config["DEFAULT"]
+        assert section["backup_folder"] == test_config.backup_folder
+        dirs_to_backup = [
+            d.strip() for d in section.get("dirs_to_backup", "").split(",") if d.strip()
+        ]
+        assert dirs_to_backup == test_config.dirs_to_backup
 
     def test_load_config(self, test_config):
         """Test loading configuration from file"""
+        import configparser
+
         # Prepare the config data as it would be in the file
-        config_data = {
+        config_path = os.path.join(test_config.config_dir, "config.conf")
+        config = configparser.ConfigParser()
+        config["DEFAULT"] = {
             "backup_folder": test_config.backup_folder,
             "config_dir": test_config.config_dir,
-            "keep_backup": test_config.keep_backup,
-            "keep_enc_backup": test_config.keep_enc_backup,
-            "dirs_to_backup": test_config.dirs_to_backup,
-            "ignore_list": test_config.ignore_list,
+            "keep_backup": str(test_config.keep_backup),
+            "keep_enc_backup": str(test_config.keep_enc_backup),
+            "dirs_to_backup": ",".join(test_config.dirs_to_backup),
+            "ignore_list": ",".join(test_config.ignore_list),
         }
+        with open(config_path, "w", encoding="utf-8") as f:
+            config.write(f)
 
-        # Create a mock file object that returns our config data
-        mock_file = mock_open(read_data=json.dumps(config_data))
-
-        # Patch 'open' to return our mock file
-        with patch("builtins.open", mock_file):
-            # Ensure Path.exists returns True for any config path
-            with patch("pathlib.Path.exists", return_value=True):
-                loaded_config = BackupConfig.load()
+        with patch.object(BackupConfig, "config_path", Path(config_path)):
+            loaded_config = BackupConfig.load()
 
         # Check if loaded correctly
         assert loaded_config.backup_folder == test_config.backup_folder
@@ -172,21 +177,25 @@ class TestBackupConfig:
 
     def test_verify_config_valid(self, test_config, test_data_dir):
         """Test configuration verification when valid"""
+        import configparser
+
         # Prepare the config data as it would be in the file
-        config_data = {
+        config_path = os.path.join(test_config.config_dir, "config.conf")
+        config = configparser.ConfigParser()
+        config["DEFAULT"] = {
             "backup_folder": test_config.backup_folder,
             "config_dir": test_config.config_dir,
-            "keep_backup": test_config.keep_backup,
-            "keep_enc_backup": test_config.keep_enc_backup,
-            "dirs_to_backup": test_config.dirs_to_backup,
-            "ignore_list": test_config.ignore_list,
+            "keep_backup": str(test_config.keep_backup),
+            "keep_enc_backup": str(test_config.keep_enc_backup),
+            "dirs_to_backup": ",".join(test_config.dirs_to_backup),
+            "ignore_list": ",".join(test_config.ignore_list),
         }
+        with open(config_path, "w", encoding="utf-8") as f:
+            config.write(f)
 
-        # Create a mock file object that returns our config data
-        mock_file = mock_open(read_data=json.dumps(config_data))
-
-        # Patch 'open' to return our mock file and ensure paths exist
-        with patch("builtins.open", mock_file), patch("pathlib.Path.exists", return_value=True):
+        with patch.object(BackupConfig, "config_path", Path(config_path)), patch(
+            "pathlib.Path.exists", return_value=True
+        ):
             valid, message = BackupConfig.verify_config()
             assert valid
             assert "valid" in message.lower()
