@@ -1,6 +1,6 @@
 [project]
 name = 'AutoTarCompress'
-version = '0.5.0-beta'
+version = '0.6.0-beta'
 description = 'It downloads/updates appimages via GitHub API. It also validates the appimage with SHA256 and SHA512.'
 requires-python = ">= 3.8"
 dependencies = [

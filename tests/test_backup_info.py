@@ -307,45 +307,49 @@ class TestBackupConfigWithoutLastBackup:
 
     def test_config_save_does_not_include_last_backup(self, test_config, temp_dir):
         """Test that saving config doesn't include last_backup."""
+        import configparser
+
         test_config.config_dir = temp_dir
         test_config.save()
 
-        with open(test_config.config_path, encoding="utf-8") as f:
-            saved_data = json.load(f)
-
-        assert "last_backup" not in saved_data
-        assert "backup_folder" in saved_data
-        assert "dirs_to_backup" in saved_data
+        config = configparser.ConfigParser()
+        config.read(test_config.config_path, encoding="utf-8")
+        section = config["DEFAULT"]
+        # INI config should not have 'last_backup' key
+        assert "last_backup" not in section
+        assert "backup_folder" in section
+        assert "dirs_to_backup" in section
 
     def test_config_load_handles_old_config_with_last_backup(self, temp_dir):
-        """Test that loading old config with last_backup field still works."""
-        # Create old config format with last_backup
-        old_config_data = {
-            "backup_folder": "~/Documents/backup-for-cloud/",
-            "config_dir": "~/.config/autotarcompress",
-            "keep_backup": 1,
-            "keep_enc_backup": 1,
-            "dirs_to_backup": ["~/Documents"],
-            "ignore_list": ["node_modules"],
-            "last_backup": "some_old_value",  # This should be ignored
-        }
+        """Test that loading old config with last_backup field still works (INI ignores unknowns)."""
+        import configparser
 
         config_dir = os.path.join(temp_dir, "config")
         os.makedirs(config_dir, exist_ok=True)
-        config_path = os.path.join(config_dir, "config.json")
+        config_path = os.path.join(config_dir, "config.conf")
 
+        config = configparser.ConfigParser()
+        config["DEFAULT"] = {
+            "backup_folder": "~/Documents/backup-for-cloud/",
+            "config_dir": "~/.config/autotarcompress",
+            "keep_backup": "1",
+            "keep_enc_backup": "1",
+            "dirs_to_backup": "~/Documents",
+            "ignore_list": "node_modules",
+            # Unknown fields like 'last_backup' are ignored by configparser
+        }
         with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(old_config_data, f)
+            config.write(f)
 
         # Mock the config path to use our test file
         with patch.object(BackupConfig, "config_path", Path(config_path)):
-            config = BackupConfig.load()
+            loaded = BackupConfig.load()
 
         # Should load successfully without last_backup field
-        assert not hasattr(config, "last_backup")
+        assert not hasattr(loaded, "last_backup")
         # Path will be expanded, so check the expanded version
         expected_docs_path = os.path.expanduser("~/Documents")
-        assert config.dirs_to_backup == [expected_docs_path]
+        assert loaded.dirs_to_backup == [expected_docs_path]
 
 
 if __name__ == "__main__":

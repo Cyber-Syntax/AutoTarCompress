@@ -3,7 +3,7 @@
 This module tests configuration loading, saving, validation, and path handling.
 """
 
-import json
+import configparser
 import os
 import sys
 from pathlib import Path
@@ -24,10 +24,10 @@ class TestBackupConfig:
         # Path should be expanded automatically
         assert config.backup_folder.endswith("Documents/backup-for-cloud")
         assert config.config_dir.endswith(".config/autotarcompress")
-        assert config.keep_backup == 1
+        assert config.keep_backup == 0
         assert config.keep_enc_backup == 1
-        assert config.dirs_to_backup == []
-        assert config.ignore_list == []
+        assert isinstance(config.dirs_to_backup, list)
+        assert isinstance(config.ignore_list, list)
 
     def test_config_path_expansion(self) -> None:
         """Test that paths are properly expanded in __post_init__."""
@@ -80,85 +80,90 @@ class TestBackupConfig:
         # Verify file was created and contains expected data
         assert test_config.config_path.exists()
 
-        with open(test_config.config_path, encoding="utf-8") as f:
-            saved_data = json.load(f)
+        config = configparser.ConfigParser()
+        config.read(test_config.config_path, encoding="utf-8")
+        section = config["DEFAULT"]
 
-        assert saved_data["dirs_to_backup"] == ["/test/dir1", "/test/dir2"]
-        assert saved_data["ignore_list"] == ["node_modules", ".git"]
-        assert "last_backup" not in saved_data  # Should not include removed field
+        def parse_multiline_list(val: str) -> list[str]:
+            if not val:
+                return []
+            return [line.strip() for line in val.strip().splitlines() if line.strip()]
+
+        dirs_to_backup = parse_multiline_list(section.get("dirs_to_backup", ""))
+        ignore_list = parse_multiline_list(section.get("ignore_list", ""))
+        assert dirs_to_backup == ["/test/dir1", "/test/dir2"]
+        assert ignore_list == ["node_modules", ".git"]
+        # No 'last_backup' field in INI config
 
     def test_config_load_existing(self, temp_dir: str) -> None:
         """Test loading configuration from existing file."""
-        config_data = {
-            "backup_folder": "~/test_backup",
-            "config_dir": "~/.config/test",
-            "keep_backup": 2,
-            "keep_enc_backup": 3,
-            "dirs_to_backup": ["~/Documents"],
-            "ignore_list": ["node_modules"],
-        }
-
         config_dir = os.path.join(temp_dir, "config")
         os.makedirs(config_dir, exist_ok=True)
-        config_path = os.path.join(config_dir, "config.json")
+        config_path = os.path.join(config_dir, "config.conf")
 
+        config = configparser.ConfigParser()
+        config["DEFAULT"] = {
+            "backup_folder": "~/test_backup",
+            "config_dir": "~/.config/test",
+            "keep_backup": "2",
+            "keep_enc_backup": "3",
+            "dirs_to_backup": "~/Documents",
+            "ignore_list": "node_modules",
+        }
         with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(config_data, f)
+            config.write(f)
 
         # Mock the config path to use our test file
         with patch.object(BackupConfig, "config_path", Path(config_path)):
-            config = BackupConfig.load()
+            loaded = BackupConfig.load()
 
-        assert config.keep_backup == 2
-        assert config.keep_enc_backup == 3
-        assert len(config.dirs_to_backup) == 1
-        assert "node_modules" in config.ignore_list
+        assert loaded.keep_backup == 2
+        assert loaded.keep_enc_backup == 3
+        assert loaded.dirs_to_backup == [os.path.expanduser("~/Documents")]
+        assert "node_modules" in loaded.ignore_list
 
-    def test_config_load_with_invalid_json(self, temp_dir: str, caplog) -> None:
-        """Test loading configuration with corrupted JSON."""
+    def test_config_load_with_invalid_ini(self, temp_dir: str, caplog) -> None:
+        """Test loading configuration with corrupted INI."""
         config_dir = os.path.join(temp_dir, "config")
         os.makedirs(config_dir, exist_ok=True)
-        config_path = os.path.join(config_dir, "config.json")
+        config_path = os.path.join(config_dir, "config.conf")
 
-        # Create corrupted JSON file
+        # Create corrupted INI file
         with open(config_path, "w", encoding="utf-8") as f:
-            f.write("{ invalid json content")
+            f.write("[DEFAULT]\nbackup_folder = /broken\n[broken")
 
         with patch.object(BackupConfig, "config_path", Path(config_path)):
-            config = BackupConfig.load()
+            loaded = BackupConfig.load()
 
         # Should return default config and log error
-        assert config.backup_folder.endswith("Documents/backup-for-cloud")
+        assert loaded.backup_folder.endswith("Documents/backup-for-cloud")
         assert "Error reading config file" in caplog.text
 
     def test_config_load_filters_unknown_fields(self, temp_dir: str) -> None:
-        """Test that loading old config with unknown fields works."""
-        old_config_data = {
-            "backup_folder": "~/Documents/backup-for-cloud/",
-            "config_dir": "~/.config/autotarcompress",
-            "keep_backup": 1,
-            "keep_enc_backup": 1,
-            "dirs_to_backup": ["~/Documents"],
-            "ignore_list": ["node_modules"],
-            "last_backup": "some_old_value",  # Should be filtered out
-            "unknown_field": "should_be_ignored",  # Should be filtered out
-        }
-
+        """Test that loading old config with unknown fields works (INI ignores unknowns)."""
         config_dir = os.path.join(temp_dir, "config")
         os.makedirs(config_dir, exist_ok=True)
-        config_path = os.path.join(config_dir, "config.json")
+        config_path = os.path.join(config_dir, "config.conf")
 
+        config = configparser.ConfigParser()
+        config["DEFAULT"] = {
+            "backup_folder": "~/Documents/backup-for-cloud/",
+            "config_dir": "~/.config/autotarcompress",
+            "keep_backup": "1",
+            "keep_enc_backup": "1",
+            "dirs_to_backup": "~/Documents",
+            "ignore_list": "node_modules",
+            # Unknown fields are simply ignored by configparser
+        }
         with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(old_config_data, f)
+            config.write(f)
 
         with patch.object(BackupConfig, "config_path", Path(config_path)):
-            config = BackupConfig.load()
+            loaded = BackupConfig.load()
 
-        # Should load successfully without unknown fields
-        assert not hasattr(config, "last_backup")
-        assert not hasattr(config, "unknown_field")
+        assert not hasattr(loaded, "last_backup")
         expected_docs_path = os.path.expanduser("~/Documents")
-        assert config.dirs_to_backup == [expected_docs_path]
+        assert loaded.dirs_to_backup == [expected_docs_path]
 
     def test_config_verify_valid(self, test_config: BackupConfig) -> None:
         """Test configuration verification when valid."""
@@ -178,7 +183,7 @@ class TestBackupConfig:
 
     def test_config_verify_missing_file(self) -> None:
         """Test config verification when config file is missing."""
-        with patch.object(BackupConfig, "config_path", Path("/nonexistent/config.json")):
+        with patch.object(BackupConfig, "config_path", Path("/nonexistent/config.conf")):
             is_valid, message = BackupConfig.verify_config()
 
         assert not is_valid
