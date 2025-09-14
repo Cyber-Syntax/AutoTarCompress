@@ -14,16 +14,29 @@ from autotarcompress.config import BackupConfig
 
 
 class CleanupCommand(Command):
-    """Concrete command to perform cleanup of old backups"""
+    """Concrete command to perform cleanup of old backups."""
 
     def __init__(self, config: BackupConfig):
+        """Initialize CleanupCommand with backup configuration.
+
+        Args:
+            config: BackupConfig instance with retention and folder settings.
+
+        """
         self.config = config
         self.logger = logging.getLogger(__name__)
 
     def execute(self) -> bool:
-        """Execute cleanup process for old backup files"""
+        """Execute cleanup process for old backup, encrypted, and decrypted files.
+
+        Deletes old .tar.xz files (retention: keep_backup),
+        .tar.xz.enc files (retention: keep_enc_backup), and
+        .tar.xz-decrypted files (retention: keep_backup).
+        No separate retention for decrypted files; uses keep_backup.
+        """
         self._cleanup_files(".tar.xz", self.config.keep_backup)
         self._cleanup_files(".tar.xz.enc", self.config.keep_enc_backup)
+        self._cleanup_files(".tar.xz-decrypted", self.config.keep_backup)
         return True
 
     def _cleanup_files(self, ext: str, keep_count: int) -> None:
