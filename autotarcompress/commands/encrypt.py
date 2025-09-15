@@ -2,6 +2,12 @@
 
 This module contains the EncryptCommand class that handles the secure
 encryption of backup archives using OpenSSL with PBKDF2.
+
+Features:
+- Password confirmation for user safety
+- User-friendly success/failure notifications
+- Secure memory cleanup
+- PBKDF2 encryption with 600,000 iterations
 """
 
 import logging
@@ -52,8 +58,20 @@ class EncryptCommand(Command):
 
         with self._password_context() as password:
             if not password:
+                print("❌ Encryption aborted due to password issues")
+                self.logger.error("Encryption aborted due to password issues")
                 return False
-            return self._run_encryption_process(password)
+
+            result = self._run_encryption_process(password)
+            if result:
+                print("✅ Encryption completed successfully!")
+                print(f"📁 Encrypted file: {self.file_to_encrypt}.enc")
+                self.logger.info("Encryption completed successfully!")
+                self.logger.info("File: %s.enc", self.file_to_encrypt)
+            else:
+                print("❌ Encryption failed. Please check the logs for details.")
+                self.logger.error("Encryption failed for file: %s", self.file_to_encrypt)
+            return result
 
     def _validate_input_file(self) -> bool:
         """Validate input file exists and is not empty.

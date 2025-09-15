@@ -7,6 +7,7 @@ of old backup files according to retention policies.
 import datetime
 import logging
 import os
+import shutil
 from pathlib import Path
 
 from autotarcompress.commands.command import Command
@@ -38,8 +39,9 @@ class CleanupCommand(Command):
 
         """
         self._cleanup_files(".tar.xz", self.config.keep_backup)
-        self._cleanup_files(".tar.xz.enc", self.config.keep_enc_backup)
         self._cleanup_files(".tar.xz-decrypted", self.config.keep_backup)
+        self._cleanup_files(".tar-extracted", self.config.keep_backup)
+        self._cleanup_files(".tar.xz.enc", self.config.keep_enc_backup)
         return True
 
     def _cleanup_files(self, ext: str, keep_count: int) -> None:
@@ -70,18 +72,26 @@ class CleanupCommand(Command):
             [f for f in os.listdir(backup_folder) if f.endswith(ext)],
             key=_extract_date_from_filename,
         )
+
         files_to_delete: list[str] = files if keep_count == 0 else files[:-keep_count]
         if not files_to_delete:
             msg = f"No old '{ext}' files to remove."
             print(msg)
             self.logger.info("No old '%s' files to remove.", ext)
             return None
+
         for old_file in files_to_delete:
             file_path = backup_folder / old_file
             try:
-                file_path.unlink()
-                self.logger.info("Deleted old backup: %s", old_file)
-                print(f"Deleted old backup: {old_file}")
+                if file_path.is_dir():
+                    # Remove directory (recursively if not empty)
+                    shutil.rmtree(file_path)
+                    self.logger.info("Deleted old backup directory: %s", old_file)
+                    print(f"Deleted old backup directory: {old_file}")
+                else:
+                    file_path.unlink()
+                    self.logger.info("Deleted old backup: %s", old_file)
+                    print(f"Deleted old backup: {old_file}")
             except (OSError, PermissionError) as e:
                 self.logger.error("Failed to delete %s: %s", old_file, e)
                 print(f"Failed to delete {old_file}: {e}")

@@ -2,6 +2,12 @@
 
 This module provides security-related functions and classes for handling
 sensitive data like passwords and secure file operations.
+
+Features:
+- Password confirmation to prevent user mistakes
+- Secure memory cleanup
+- User-friendly feedback with emoji indicators
+- Protection against empty passwords
 """
 
 import getpass
@@ -20,30 +26,50 @@ class ContextManager:
 
     @contextmanager
     def _password_context(self) -> Generator[str | None, None, None]:
-        """Yield password securely, ensuring memory is sanitized after use.
+        """Yield password securely with confirmation.
+
+        Ensures memory is sanitized after use.
 
         Yields:
-            str | None: The user's password, or None if entry was empty.
+            str | None: The user's password, or None if entry was empty
+                       or confirmation failed.
 
         """
         password_bytes: bytearray | None = None
+        confirm_bytes: bytearray | None = None
         try:
+            # Get password first time
             password: str = getpass.getpass("Enter file encryption password: ")
             if not password:
                 self.logger.error("Empty password rejected")
+                print("❌ Password cannot be empty")
                 yield None
                 return None
+
+            # Get password confirmation
+            confirm_password: str = getpass.getpass("Confirm encryption password: ")
+            if password != confirm_password:
+                self.logger.error("Password confirmation failed")
+                print("❌ Passwords do not match. Please try again.")
+                yield None
+                return None
+
+            print("✅ Password confirmed successfully")
             password_bytes = bytearray(password.encode("utf-8"))
+            confirm_bytes = bytearray(confirm_password.encode("utf-8"))
             yield password_bytes.decode("utf-8")
 
         finally:
-            # Securely overwrite the memory
+            # Securely overwrite the memory for both passwords
             if password_bytes is not None:
-                # Overwrite each byte with zero
-                for i in range(len(password_bytes)):
-                    password_bytes[i] = 0
-                # Clear reference
+                mv = memoryview(password_bytes)
+                mv[:] = b"\x00" * len(mv)
                 del password_bytes
+
+            if confirm_bytes is not None:
+                mv = memoryview(confirm_bytes)
+                mv[:] = b"\x00" * len(mv)
+                del confirm_bytes
 
     def _safe_cleanup(self, path: str | Path) -> None:
         """Remove partial files on failure, logging the result.

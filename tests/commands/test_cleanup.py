@@ -122,7 +122,7 @@ class TestCleanupCommand:
     def test_execute_calls_cleanup_methods(
         self, mock_cleanup: Mock, cleanup_command: CleanupCommand
     ) -> None:
-        """Test that execute calls cleanup for both file types.
+        """Test that execute calls cleanup for all file types.
 
         Args:
             mock_cleanup: Mock cleanup method.
@@ -132,7 +132,12 @@ class TestCleanupCommand:
         result = cleanup_command.execute()
 
         assert result is True
-        expected_calls = [call(".tar.xz", 5), call(".tar.xz.enc", 3)]
+        expected_calls = [
+            call(".tar.xz", 5),
+            call(".tar.xz-decrypted", 5),
+            call(".tar-extracted", 5),
+            call(".tar.xz.enc", 3),
+        ]
         mock_cleanup.assert_has_calls(expected_calls)
 
     @patch("os.listdir")
