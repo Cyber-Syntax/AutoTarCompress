@@ -153,12 +153,12 @@ class BackupConfig:
             f.write(f"config_dir = {self.config_dir}\n\n")
 
             # keep_backup
-            f.write("# Number of unencrypted backups to keep (0 = unlimited).\n")
+            f.write("# Number of unencrypted backups to keep (0 = disable backup).\n")
             f.write("#   Useful for retention policy and disk space management.\n")
             f.write(f"keep_backup = {self.keep_backup}\n\n")
 
             # keep_enc_backup
-            f.write("# Number of encrypted backups to keep (0 = unlimited).\n")
+            f.write("# Number of encrypted backups to keep (0 = disable backup).\n")
             f.write("#   Applies to encrypted backup retention.\n")
             f.write(f"keep_enc_backup = {self.keep_enc_backup}\n\n")
 
