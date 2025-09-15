@@ -87,7 +87,7 @@ class BackupCommand(Command):
             # NOTE: Broad except is used here to ensure any file removal error
             # is caught during backup overwrite prompt. This is a critical IO
             # operation.
-            except Exception as e:
+            except (OSError, PermissionError) as e:
                 self._print_and_log(f"Failed to remove existing backup: {e}", level="error")
                 return False
 
@@ -158,7 +158,7 @@ class BackupCommand(Command):
 
             # NOTE: Broad except is used here to ensure any error during backup
             # info saving is logged, as this is a non-critical reporting step.
-        except Exception as e:
+        except (OSError, PermissionError, ValueError) as e:
             self.logger.error("Failed to save backup info: %s", e)
 
     def _format_size(self, size_bytes: int) -> str:

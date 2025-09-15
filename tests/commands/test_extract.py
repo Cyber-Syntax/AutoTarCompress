@@ -63,7 +63,7 @@ class TestExtractCommand:
 
         # Mock path operations for security check
         with patch("pathlib.Path.absolute") as mock_absolute:
-            mock_absolute.side_effect = lambda: Path("/safe/extract/dir/test_file.txt")
+            mock_absolute.return_value = Path("/safe/extract/dir/test_file.txt")
 
             result = extract_command.execute()
 
@@ -124,8 +124,8 @@ class TestExtractCommand:
         extract_command: ExtractCommand,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        """Test extraction handles general exceptions."""
-        mock_tarfile_open.side_effect = Exception("Unexpected error")
+        """Test extraction handles OS exceptions."""
+        mock_tarfile_open.side_effect = OSError("Unexpected error")
 
         with caplog.at_level(logging.ERROR):
             result = extract_command.execute()
@@ -175,7 +175,7 @@ class TestExtractCommand:
 
         with patch("pathlib.Path.mkdir"), patch("pathlib.Path.absolute") as mock_absolute:
             # All paths are safe
-            mock_absolute.side_effect = lambda: Path("/safe/extract/dir/file.txt")
+            mock_absolute.return_value = Path("/safe/extract/dir/file.txt")
 
             result = extract_command.execute()
 
@@ -268,7 +268,8 @@ class TestExtractCommand:
             mock_tarfile_open.return_value.__enter__.return_value = mock_tar
 
             # Ensure path is considered safe
-            mock_absolute.side_effect = lambda: Path(f"/safe/extract/dir/{filename}")
+            safe_path = Path(f"/safe/extract/dir/{filename}")
+            mock_absolute.return_value = safe_path
 
             result = extract_command.execute()
 

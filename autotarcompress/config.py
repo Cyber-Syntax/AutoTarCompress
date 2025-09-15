@@ -9,7 +9,48 @@ import datetime
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Tuple
+
+
+def _default_dirs_to_backup() -> list[str]:
+    """Return default list of directories to backup.
+
+    Returns:
+        list[str]: Default directories for backup.
+
+    """
+    return [
+        "~/.zen/qknutvmw.Default Profile/",
+        "~/.config/BraveSoftware/Brave-Browser/Default",
+        "~/Photos",
+        "~/Pictures",
+        "~/Documents",
+        "~/.config/syncthing",
+        "~/.config/my-unicorn/",
+        "~/.config/FreeTube",
+        "~/dotfiles",
+    ]
+
+
+def _default_ignore_list() -> list[str]:
+    """Return default list of directories/patterns to ignore.
+
+    Returns:
+        list[str]: Default ignore patterns.
+
+    """
+    return [
+        "~/Documents/global-repos",
+        "~/Documents/backup-for-cloud",
+        "~/Documents/.stversions",
+        "node_modules",
+        ".venv",
+        "__pycache__",
+        ".ruff_cache",
+        "~/Documents/my-repos/rust-unicorn/target",
+        "lock",
+        "chrome",
+        ".bin",
+    ]
 
 
 @dataclass
@@ -26,34 +67,8 @@ class BackupConfig:
     keep_backup: int = 0
     keep_enc_backup: int = 1
     log_level: str = "INFO"
-    dirs_to_backup: list[str] = field(
-        default_factory=lambda: [
-            "~/.zen/qknutvmw.Default Profile/",
-            "~/.config/BraveSoftware/Brave-Browser/Default",
-            "~/Photos",
-            "~/Pictures",
-            "~/Documents",
-            "~/.config/syncthing",
-            "~/.config/my-unicorn/",
-            "~/.config/FreeTube",
-            "~/dotfiles",
-        ]
-    )
-    ignore_list: list[str] = field(
-        default_factory=lambda: [
-            "~/Documents/global-repos",
-            "~/Documents/backup-for-cloud",
-            "~/Documents/.stversions",
-            "node_modules",
-            ".venv",
-            "__pycache__",
-            ".ruff_cache",
-            "~/Documents/my-repos/rust-unicorn/target",
-            "lock",
-            "chrome",
-            ".bin",
-        ]
-    )
+    dirs_to_backup: list[str] = field(default_factory=_default_dirs_to_backup)
+    ignore_list: list[str] = field(default_factory=_default_ignore_list)
 
     def __post_init__(self) -> None:
         """Expand all configured paths after initialization."""
@@ -211,18 +226,18 @@ class BackupConfig:
                     dirs_to_backup=dirs_to_backup,
                     ignore_list=ignore_list,
                 )
-            except Exception as e:
+            except (OSError, ValueError, configparser.Error) as e:
                 logging.error("Error reading config file: %s", e)
                 logging.warning("Using default configuration")
                 return default_config
         return default_config
 
     @classmethod
-    def verify_config(cls) -> Tuple[bool, str]:
+    def verify_config(cls) -> tuple[bool, str]:
         """Verify if the configuration file exists and is properly set up.
 
         Returns:
-            Tuple containing:
+            tuple containing:
             - bool: True if configuration is valid, False otherwise
             - str: Message describing the verification result
 
@@ -255,5 +270,5 @@ class BackupConfig:
 
             return True, "Configuration is valid"
 
-        except Exception as e:
+        except (OSError, ValueError, configparser.Error) as e:
             return False, f"Configuration validation error: {e!s}"

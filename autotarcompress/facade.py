@@ -24,7 +24,7 @@ class BackupFacade:
     """Facade for managing backup operations via a high-level interface."""
 
     def __init__(self) -> None:
-        """Initialize BackupFacade with loaded config and available commands."""
+        """Initialize BackupFacade with loaded config and commands."""
         self.config: BackupConfig = BackupConfig.load()
         self.commands: dict[str, Command] = {
             "backup": BackupCommand(self.config),
@@ -66,17 +66,14 @@ class BackupFacade:
         ).strip()
         if new_path:
             self.config.backup_folder = str(Path(new_path).expanduser())
-        print(
-            f"Using backup directory: {Path(self.config.backup_folder).expanduser()}"
-        )
+        print(f"Using backup directory: {Path(self.config.backup_folder).expanduser()}")
 
     def _setup_retention(self) -> None:
         """Prompt for backup retention policy configuration."""
         print("\n=== Backup Retention Settings ===")
         try:
             self.config.keep_backup = int(
-                input("Number of regular backups to keep (default 1): ")
-                or self.config.keep_backup
+                input("Number of regular backups to keep (default 1): ") or self.config.keep_backup
             )
             self.config.keep_enc_backup = int(
                 input("Number of encrypted backups to keep (default 1): ")
@@ -86,7 +83,10 @@ class BackupFacade:
             print("Invalid number format. Using existing values.")
 
     def _setup_directories(self) -> None:
-        """Launch interactive directory configuration for backup and ignore lists."""
+        """Launch interactive directory configuration.
+
+        For backup and ignore lists.
+        """
         print("\n=== Directory Configuration ===")
         self._manage_path_list(
             "Backup Directories",
@@ -108,7 +108,7 @@ class BackupFacade:
         add_prompt: str,
         list_header: str,
     ) -> None:
-        """Generic interactive list manager"""
+        """Manage interactive list configuration."""
         while True:
             print(f"\n{list_header}")
             if not target_list:
@@ -143,7 +143,10 @@ class BackupFacade:
                 print("Invalid choice. Please try again.")
 
     def _validate_paths(self, paths: list[str]) -> list[str]:
-        """Validate and normalize paths, prompting user for confirmation if path does not exist."""
+        """Validate and normalize paths.
+
+        Prompting user for confirmation if path does not exist.
+        """
         valid_paths: list[str] = []
         for path in paths:
             if not path:
@@ -161,9 +164,10 @@ class BackupFacade:
         """Remove an item from the target list by user-selected index."""
         if not target_list:
             print("List is empty")
-            return
+            return None
         try:
-            index = int(input(f"Enter number to remove (1-{len(target_list)}): ")) - 1
+            prompt = f"Enter number to remove (1-{len(target_list)}): "
+            index = int(input(prompt)) - 1
             if 0 <= index < len(target_list):
                 removed = target_list.pop(index)
                 print(f"Removed: {removed}")
@@ -171,3 +175,4 @@ class BackupFacade:
                 print("Invalid index number")
         except ValueError:
             print("Please enter a valid number")
+        return None

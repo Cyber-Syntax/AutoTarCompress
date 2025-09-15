@@ -1,7 +1,7 @@
 """Encryption command implementation for securing backup files.
 
-This module contains the EncryptCommand class that handles the secure encryption
-of backup archives using OpenSSL with PBKDF2.
+This module contains the EncryptCommand class that handles the secure
+encryption of backup archives using OpenSSL with PBKDF2.
 """
 
 import logging
@@ -16,11 +16,12 @@ from autotarcompress.security import ContextManager
 
 
 class EncryptCommand(Command):
-    """Concrete command to perform encryption
-    using OpenSSL with secure PBKDF2 implementation
-    fd:0 is used to pass password securely without exposing in process list
-    root user can still see the password in process list
-    after the process is done, the password is deleted from memory
+    """Concrete command to perform encryption.
+
+    Using OpenSSL with secure PBKDF2 implementation.
+    fd:0 is used to pass password securely without exposing in process list.
+    Root user can still see the password in process list.
+    After the process is done, the password is deleted from memory.
     """
 
     PBKDF2_ITERATIONS: int = 600000  # OWASP recommended minimum
@@ -65,8 +66,7 @@ class EncryptCommand(Command):
             self.logger.error("File not found: %s", self.file_to_encrypt)
             return False
         if os.path.getsize(self.file_to_encrypt) == 0:
-            self.logger.error(
-                "Cannot encrypt empty file (potential tampering attempt)")
+            self.logger.error("Cannot encrypt empty file (potential tampering attempt)")
             return False
         return True
 
@@ -107,10 +107,10 @@ class EncryptCommand(Command):
                 timeout=300,
                 shell=False,
             )
-            self.logger.debug(f"Encryption success: {self._sanitize_logs(result.stderr)}")
+            self.logger.debug("Encryption success: %s", self._sanitize_logs(result.stderr))
             return True
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Encryption failed: {self._sanitize_logs(e.stderr)}")
+            self.logger.error("Encryption failed: %s", self._sanitize_logs(e.stderr))
             self._safe_cleanup(output_path)
             return False
         except subprocess.TimeoutExpired:
@@ -122,5 +122,9 @@ class EncryptCommand(Command):
         """Safe log sanitization without modifying bytes."""
         # Replace password=<value> with password=[REDACTED]
         sanitized = re.sub(rb"password=[^\s]*", b"password=[REDACTED]", output)
-        sanitized = re.sub(rb"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", b"[IP_REDACTED]", sanitized)
+        sanitized = re.sub(
+            rb"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
+            b"[IP_REDACTED]",
+            sanitized,
+        )
         return sanitized.decode("utf-8", errors="replace")

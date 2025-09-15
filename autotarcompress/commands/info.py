@@ -61,7 +61,7 @@ class InfoCommand(Command):
         except json.JSONDecodeError as e:
             self.logger.error("Error reading backup info file: %s", e)
             return None
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             self.logger.error("Failed to load backup info: %s", e)
             return None
 
