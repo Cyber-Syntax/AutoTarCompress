@@ -16,8 +16,7 @@ from autotarcompress.security import ContextManager
 
 
 class DecryptCommand(Command):
-    """
-    Command to securely decrypt backup archives using OpenSSL with PBKDF2.
+    """Command to securely decrypt backup archives using OpenSSL with PBKDF2.
 
     This class ensures decryption parameters match those used for encryption and
     verifies file integrity post-decryption. Logging uses %s formatting for performance.
@@ -26,12 +25,12 @@ class DecryptCommand(Command):
     PBKDF2_ITERATIONS: int = 600000  # Must match encryption iterations
 
     def __init__(self, config: BackupConfig, file_path: str) -> None:
-        """
-        Initialize the DecryptCommand.
+        """Initialize the DecryptCommand.
 
         Args:
             config (BackupConfig): The backup configuration object.
             file_path (str): Path to the encrypted file to decrypt.
+
         """
         self.config: BackupConfig = config
         self.file_path: str = file_path
@@ -40,18 +39,18 @@ class DecryptCommand(Command):
         self._safe_cleanup = ContextManager()._safe_cleanup
 
     def execute(self) -> bool:
-        """
-        Perform secure decryption with matched PBKDF2 parameters.
+        """Perform secure decryption with matched PBKDF2 parameters.
 
         Returns:
             bool: True if decryption and integrity check succeed, False otherwise.
+
         """
         output_path: str = os.path.splitext(self.file_path)[0]
         decrypted_path: str = f"{output_path}-decrypted"
 
         # Use password context manager to securely obtain password
-        with self._password_context() as password:
-            if not password:
+        with self._password_context() as password:  # type: ignore[var-annotated]
+            if password is None:
                 return False
 
             cmd: list[str] = [
@@ -81,12 +80,11 @@ class DecryptCommand(Command):
                     timeout=300,
                     shell=False,
                 )
-                self._verify_integrity(decrypted_path)
-                return True
-            except subprocess.CalledProcessError as e:
+            except subprocess.CalledProcessError as exc:
                 # Log sanitized error output to avoid leaking sensitive data
                 self.logger.error(
-                    "Decryption failed: %s", self._sanitize_logs(e.stderr)
+                    "Decryption failed: %s",
+                    self._sanitize_logs(exc.stderr),
                 )
                 self._safe_cleanup(decrypted_path)
                 return False
@@ -95,12 +93,15 @@ class DecryptCommand(Command):
                 self._safe_cleanup(decrypted_path)
                 return False
 
+            self._verify_integrity(decrypted_path)
+            return True
+
     def _verify_integrity(self, decrypted_path: str) -> None:
-        """
-        Verify decrypted file matches original backup checksum.
+        """Verify decrypted file matches original backup checksum.
 
         Args:
             decrypted_path (str): Path to the decrypted file.
+
         """
         original_path: str = os.path.splitext(self.file_path)[0]
         if os.path.exists(original_path):
@@ -117,35 +118,39 @@ class DecryptCommand(Command):
                 self.logger.error("Integrity check failed")
 
     def _calculate_sha256(self, file_path: str) -> str:
-        """
-        Calculate SHA256 checksum for a file.
+        """Calculate SHA256 checksum for a file.
 
         Args:
             file_path (str): Path to the file.
 
         Returns:
             str: SHA256 hex digest of the file contents.
+
         """
         sha256 = hashlib.sha256()
-        with open(file_path, "rb") as f:
+        with open(file_path, "rb") as file_obj:
             while True:
-                data = f.read(65536)
+                data = file_obj.read(65536)
                 if not data:
                     break
                 sha256.update(data)
         return sha256.hexdigest()
 
     def _sanitize_logs(self, output: bytes) -> str:
-        """
-        Sanitize log output to redact sensitive information.
+        """Sanitize log output to redact sensitive information.
 
         Args:
             output (bytes): Raw stderr output from subprocess.
 
         Returns:
             str: Sanitized string safe for logging.
+
         """
         # Redact password and IP addresses from logs for security
         sanitized = re.sub(rb"password=[^\s]*", b"password=[REDACTED]", output)
-        sanitized = re.sub(rb"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", b"[IP_REDACTED]", sanitized)
+        sanitized = re.sub(
+            rb"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
+            b"[IP_REDACTED]",
+            sanitized,
+        )
         return sanitized.decode("utf-8", errors="replace")

@@ -26,11 +26,6 @@ class BackupConfig:
     keep_backup: int = 0
     keep_enc_backup: int = 1
     log_level: str = "INFO"
-    # List of directories to include in the backup.
-    # These are typically user data, browser profiles, documents, photos,
-    # application configs, and dotfiles. Adjust this list to match the
-    # important data you want to preserve. Each path is expanded to an
-    # absolute path at runtime.
     dirs_to_backup: list[str] = field(
         default_factory=lambda: [
             "~/.zen/qknutvmw.Default Profile/",
@@ -44,12 +39,6 @@ class BackupConfig:
             "~/dotfiles",
         ]
     )
-
-    # List of directories or patterns to exclude from the backup.
-    # These are typically large, redundant, or auto-generated folders
-    # such as build artifacts, caches, version control folders, and
-    # backup destinations themselves. Adjust this list to avoid backing
-    # up unnecessary or volatile data.
     ignore_list: list[str] = field(
         default_factory=lambda: [
             "~/Documents/global-repos",
@@ -72,7 +61,6 @@ class BackupConfig:
         self.ignore_list = [str(Path(p).expanduser()) for p in self.ignore_list]
         self.dirs_to_backup = [str(Path(d).expanduser()) for d in self.dirs_to_backup]
         self.config_dir = str(Path(self.config_dir).expanduser())
-        # Validate and normalize log level
         self.log_level = self._validate_log_level(self.log_level)
 
     def _validate_log_level(self, level: str) -> str:
