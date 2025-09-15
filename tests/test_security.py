@@ -30,7 +30,11 @@ class TestContextManager:
 
     @patch("autotarcompress.security.getpass.getpass")
     def test_password_context_functionality(self, mock_getpass: MagicMock) -> None:
-        """Test password context functionality through mocking."""
+        """Test password context functionality with confirmation.
+
+        Uses mocking to verify the behavior.
+        """
+        # Mock getpass to return same password for both calls
         mock_getpass.return_value = "test_password"
 
         context_manager = ContextManager()
@@ -43,6 +47,40 @@ class TestContextManager:
 
             with mock_context() as password:
                 assert password == "test_password"
+
+    @patch("builtins.print")
+    @patch("autotarcompress.security.getpass.getpass")
+    def test_password_confirmation_mismatch(
+        self, mock_getpass: MagicMock, mock_print: MagicMock
+    ) -> None:
+        """Test password confirmation fails when passwords don't match."""
+        # Mock getpass to return different passwords on consecutive calls
+        mock_getpass.side_effect = ["password1", "password2"]
+
+        context_manager = ContextManager()
+
+        # Test password context directly
+        with context_manager._password_context() as password:
+            assert password is None
+
+        # Verify that error message was printed
+        mock_print.assert_called_with("❌ Passwords do not match. Please try again.")
+
+    @patch("builtins.print")
+    @patch("autotarcompress.security.getpass.getpass")
+    def test_password_empty_rejection(self, mock_getpass: MagicMock, mock_print: MagicMock) -> None:
+        """Test that empty passwords are rejected."""
+        # Mock getpass to return empty password
+        mock_getpass.return_value = ""
+
+        context_manager = ContextManager()
+
+        # Test password context directly
+        with context_manager._password_context() as password:
+            assert password is None
+
+        # Verify that error message was printed
+        mock_print.assert_called_with("❌ Password cannot be empty")
 
     def test_context_manager_logger_setup(self) -> None:
         """Test that context manager has proper logging setup."""

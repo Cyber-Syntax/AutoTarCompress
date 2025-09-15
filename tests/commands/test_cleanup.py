@@ -24,6 +24,23 @@ EXPECTED_DELETED_COUNT_ENCRYPTED = 3
 DATE_COMPONENTS_COUNT = 3
 
 
+def _is_valid_date_filename(x: str) -> bool:
+    """Check if filename has valid date format and extension.
+
+    Args:
+        x (str): Filename to validate.
+
+    Returns:
+        bool: True if filename is valid.
+
+    """
+    return (
+        len(x.split("-")) == DATE_COMPONENTS_COUNT
+        and x.endswith(".tar.xz")
+        and all(part.isdigit() for part in x.replace(".tar.xz", "").split("-"))
+    )
+
+
 class TestCleanupCommand:
     """Test suite for CleanupCommand functionality."""
 
@@ -105,7 +122,7 @@ class TestCleanupCommand:
     def test_execute_calls_cleanup_methods(
         self, mock_cleanup: Mock, cleanup_command: CleanupCommand
     ) -> None:
-        """Test that execute calls cleanup for both file types.
+        """Test that execute calls cleanup for all file types.
 
         Args:
             mock_cleanup: Mock cleanup method.
@@ -115,7 +132,12 @@ class TestCleanupCommand:
         result = cleanup_command.execute()
 
         assert result is True
-        expected_calls = [call(".tar.xz", 5), call(".tar.xz.enc", 3)]
+        expected_calls = [
+            call(".tar.xz", 5),
+            call(".tar.xz-decrypted", 5),
+            call(".tar-extracted", 5),
+            call(".tar.xz.enc", 3),
+        ]
         mock_cleanup.assert_has_calls(expected_calls)
 
     @patch("os.listdir")
@@ -360,11 +382,7 @@ class TestCleanupCommand:
 
     @given(
         st.lists(
-            st.text(min_size=10, max_size=15).filter(
-                lambda x: len(x.split("-")) == DATE_COMPONENTS_COUNT
-                and x.endswith(".tar.xz")
-                and all(part.isdigit() for part in x.replace(".tar.xz", "").split("-"))
-            ),
+            st.text(min_size=10, max_size=15).filter(_is_valid_date_filename),
             min_size=0,
             max_size=10,
             unique=True,

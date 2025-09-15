@@ -20,5 +20,5 @@ source .venv/bin/activate
 2. Run pytest with following command to ensure all tests pass:
 
 ```bash
-pytest -v -qa --strict-markers
+pytest -v -q --strict-markers
 ```

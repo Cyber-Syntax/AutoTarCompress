@@ -51,6 +51,6 @@ class ExtractCommand(Command):
         except tarfile.TarError as e:
             self.logger.error("Extraction failed: %s", e)
             return False
-        except Exception as e:
+        except (OSError, PermissionError) as e:
             self.logger.error("Unexpected error during extraction: %s", e)
             return False

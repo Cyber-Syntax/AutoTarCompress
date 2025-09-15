@@ -1,7 +1,7 @@
 """Backup command implementation for creating compressed archives.
 
-This module contains the BackupCommand class that handles the creation of backup archives
-using tar and xz compression.
+This module contains the BackupCommand class that handles the creation of
+backup archives using tar and xz compression.
 """
 
 import datetime
@@ -41,15 +41,15 @@ class BackupCommand(Command):
 
         """
         if not self.config.dirs_to_backup:
-            msg = "No directories configured for backup. Skipping backup."
-            print(msg)
-            self.logger.error("No directories configured for backup. Skipping backup.")
+            self._print_and_log(
+                "No directories configured for backup. Skipping backup.", level="error"
+            )
             return False
         total_size: int = self._calculate_total_size()
         if total_size == 0:
-            msg = "Total backup size is 0 bytes. Nothing to back up."
-            print(msg)
-            self.logger.warning("Total backup size is 0 bytes. Nothing to back up.")
+            self._print_and_log(
+                "Total backup size is 0 bytes. Nothing to back up.", level="warning"
+            )
             return False
         success: bool = self._run_backup_process(total_size)
         if success:
@@ -77,56 +77,64 @@ class BackupCommand(Command):
 
         """
         if os.path.exists(self.config.backup_path):
-            print(f"File already exists: {self.config.backup_path}")
-            self.logger.warning("Backup file already exists: %s", self.config.backup_path)
-            if input("Do you want to remove it? (y/n): ").lower() == "y":
-                try:
-                    os.remove(self.config.backup_path)
-                    self.logger.info("Removed existing backup file: %s", self.config.backup_path)
-                except Exception as e:
-                    print(f"Failed to remove existing backup: {e}")
-                    self.logger.error("Failed to remove existing backup: %s", e)
-                    return False
-            else:
-                print("Backup aborted by user.")
-                self.logger.info("Backup aborted by user due to existing file.")
+            self._print_and_log(f"File already exists: {self.config.backup_path}", level="warning")
+            if not self._prompt_overwrite():
+                self._print_and_log("Backup aborted by user due to existing file.", level="info")
+                return False
+            try:
+                os.remove(self.config.backup_path)
+                self.logger.info("Removed existing backup file: %s", self.config.backup_path)
+            # NOTE: Broad except is used here to ensure any file removal error
+            # is caught during backup overwrite prompt. This is a critical IO
+            # operation.
+            except (OSError, PermissionError) as e:
+                self._print_and_log(f"Failed to remove existing backup: {e}", level="error")
                 return False
 
+        cmd = self._build_tar_command()
+        total_size_gb = total_size / 1024**3
+
+        self.logger.info("Starting backup to %s", self.config.backup_path)
+        self.logger.info("Total size: %.2f GB", total_size_gb)
+
+        try:
+            subprocess.run(cmd, shell=True, check=True)
+            self.logger.info("Backup completed successfully")
+            self._print_and_log("Backup completed successfully.", level="info")
+            return True
+        except subprocess.CalledProcessError as e:
+            self._print_and_log(f"Backup failed: {e}", level="error")
+            return False
+
+    def _build_tar_command(self) -> str:
+        """Build the tar+xz command string for backup."""
         exclude_options = " ".join(f"--exclude={path}" for path in self.config.ignore_list)
-
         dir_paths = [os.path.expanduser(path) for path in self.config.dirs_to_backup]
-
-        # Properly quote directory paths to handle spaces and special characters
         quoted_paths = [shlex.quote(path) for path in dir_paths]
-
-        # Get CPU count safely
         cpu_count = os.cpu_count() or 1
         threads = max(1, cpu_count - 1)
-
-        # HACK: h option is used to follow symlinks
-        cmd = (
+        return (
             f"tar -chf - --one-file-system {exclude_options} "
             f"{' '.join(quoted_paths)} | "
             f"xz --threads={threads} > {self.config.backup_path}"
         )
-        total_size_gb = total_size / 1024**3
 
-        self.logger.info(f"Starting backup to {self.config.backup_path}")
-        self.logger.info(f"Total size: {total_size_gb:.2f} GB")
+    def _prompt_overwrite(self) -> bool:
+        """Prompt user to overwrite existing backup file."""
+        response = input("Do you want to remove it? (y/n): ").strip().lower()
+        return response == "y"
 
-        try:
-            # FIX: later spinner not working for now
-            # FAILED: not work as expected because of
-            # "| tar: Removing leading `/' from member names" outputs
-            # self._show_spinner(subprocess.Popen(cmd, shell=True))
-            subprocess.run(cmd, shell=True, check=True)
-            self.logger.info("Backup completed successfully")
-            print("Backup completed successfully.")
-            return True
-        except subprocess.CalledProcessError as e:
-            print(f"Backup failed: {e}")
-            self.logger.error(f"Backup failed: {e}")
-            return False
+    def _print_and_log(self, message: str, level: str = "info") -> None:
+        """Print and log a message at the specified level."""
+        print(message)
+        if level == "info":
+            self.logger.info(message)
+        elif level == "warning":
+            self.logger.warning(message)
+        elif level == "error":
+            self.logger.error(message)
+        else:
+            self.logger.debug(message)
 
     def _save_backup_info(self, total_size: int) -> None:
         """Save backup information to last-backup-info.json."""
@@ -146,10 +154,12 @@ class BackupCommand(Command):
             with open(info_file_path, "w", encoding="utf-8") as f:
                 json.dump(backup_info, f, indent=2)
 
-            self.logger.info(f"Backup info saved to {info_file_path}")
+            self.logger.info("Backup info saved to %s", info_file_path)
 
-        except Exception as e:
-            self.logger.error(f"Failed to save backup info: {e}")
+            # NOTE: Broad except is used here to ensure any error during backup
+            # info saving is logged, as this is a non-critical reporting step.
+        except (OSError, PermissionError, ValueError) as e:
+            self.logger.error("Failed to save backup info: %s", e)
 
     def _format_size(self, size_bytes: int) -> str:
         """Format size in bytes to human readable format."""

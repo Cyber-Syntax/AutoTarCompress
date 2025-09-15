@@ -99,10 +99,11 @@ def handle_encrypt_operation(facade: BackupFacade) -> None:
     backup_files: list[str] = get_backup_files(facade.config.backup_folder)
     if not backup_files:
         print("No backup files available for encryption")
-        return
+        return None
 
     selected: str = select_file(backup_files, facade.config.backup_folder)
     EncryptCommand(facade.config, selected).execute()
+    return None
 
 
 def handle_decrypt_operation(facade: BackupFacade) -> None:
@@ -115,10 +116,11 @@ def handle_decrypt_operation(facade: BackupFacade) -> None:
     enc_files: list[str] = get_encrypted_files(facade.config.backup_folder)
     if not enc_files:
         print("No encrypted backups found")
-        return
+        return None
 
     selected: str = select_file(enc_files, facade.config.backup_folder)
     DecryptCommand(facade.config, selected).execute()
+    return None
 
 
 def handle_extract_operation(facade: BackupFacade) -> None:
@@ -131,10 +133,11 @@ def handle_extract_operation(facade: BackupFacade) -> None:
     backup_files: list[str] = get_backup_files(facade.config.backup_folder)
     if not backup_files:
         print("No backup files found")
-        return
+        return None
 
     selected: str = select_file(backup_files, facade.config.backup_folder)
     ExtractCommand(facade.config, selected).execute()
+    return None
 
 
 def process_menu_choice(choice: int, facade: BackupFacade) -> None:
@@ -180,10 +183,8 @@ def run_main_loop(facade: BackupFacade) -> None:
             process_menu_choice(choice, facade)
         except KeyboardInterrupt:
             print("\nOperation cancelled by user")
-        except (OSError, FileNotFoundError, PermissionError) as e:
-            logging.error("File operation failed: %s", e)
-        except Exception as e:
-            logging.error("Unexpected error: %s", e)
+        except (OSError, FileNotFoundError, PermissionError, ValueError) as e:
+            logging.error("Operation failed: %s", e)
 
 
 def main() -> None:
