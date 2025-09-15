@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 
+BYTES_IN_KB = 1024.0
 
 class SizeCalculator:
     """Calculate and display total size of backup directories."""
@@ -30,13 +31,13 @@ class SizeCalculator:
             int: Total size in bytes.
 
         """
-        print("\n\U0001F4C2 **Backup Size Summary**")
+        print("\n\U0001f4c2 **Backup Size Summary**")
         print("=" * 40)
         total: int = 0
         for directory in self.directories:
             dir_size: int = self._calculate_directory_size(directory)
             total += dir_size
-            print(f"\U0001F4C1 {directory}: {self._format_size(dir_size)}")
+            print(f"\U0001f4c1 {directory}: {self._format_size(dir_size)}")
         print("=" * 40)
         print(f"\u2705 Total Backup Size: {self._format_size(total)}\n")
         return total
@@ -62,16 +63,33 @@ class SizeCalculator:
                     file_path = root_path / file
                     if self._should_ignore(file_path):
                         continue
-                    try:
-                        total += file_path.stat().st_size
-                    except OSError as e:
-                        logging.warning(
-                            "\u26A0\uFE0F Error accessing file %s: %s", file_path, e
-                        )
-        except Exception as e:
-            logging.warning(
-                "\u26A0\uFE0F Error accessing directory %s: %s", directory, e
-            )
+
+                    # Handle symlinks properly
+                    if file_path.is_symlink():
+                        try:
+                            # Check if symlink target exists
+                            if file_path.exists():
+                                # Valid symlink, get size of target
+                                total += file_path.stat().st_size
+                            else:
+                                # Broken symlink, skip silently
+                                logging.debug(
+                                    "Skipping broken symlink: %s -> %s",
+                                    file_path,
+                                    file_path.readlink(),
+                                )
+                        except OSError as e:
+                            logging.debug("Error handling symlink %s: %s", file_path, e)
+                    else:
+                        # Regular file
+                        try:
+                            total += file_path.stat().st_size
+                        except OSError as e:
+                            logging.warning(
+                                "\u26a0\ufe0f Error accessing file %s: %s", file_path, e
+                            )
+        except OSError as e:
+            logging.warning("\u26a0\ufe0f Error accessing directory %s: %s", directory, e)
         return total
 
     def _should_ignore(self, path: Path | str) -> bool:
@@ -79,13 +97,15 @@ class SizeCalculator:
 
         Args:
             path (Path | str): File or directory path to check.
-        The check is performed using the normalized path to avoid mismatches due to path formatting.
+        The check is performed using the normalized path to avoid mismatches
+        due to path formatting.
 
         Args:
             path: The file or directory path to check.
 
         Returns:
-            True if the path starts with any of the ignore paths, False otherwise.
+            True if the path starts with any of the ignore paths,
+            False otherwise.
 
         """
         if isinstance(path, str):
@@ -108,8 +128,10 @@ class SizeCalculator:
             The formatted size string.
 
         """
+        size = float(size_in_bytes)
+
         for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if size_in_bytes < 1024:
-                return f"{size_in_bytes:.2f} {unit}"
-            size_in_bytes /= 1024
-        return f"{size_in_bytes:.2f} PB"
+            if size < BYTES_IN_KB:
+                return f"{size:.2f} {unit}"
+            size /= BYTES_IN_KB
+        return f"{size:.2f} PB"

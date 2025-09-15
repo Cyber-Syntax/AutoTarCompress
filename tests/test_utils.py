@@ -100,8 +100,11 @@ class TestSizeCalculator:
             def __init__(self, size: int):
                 self.st_size = size
 
-        with patch("pathlib.Path.stat") as mock_path_stat:
+        with patch("pathlib.Path.stat") as mock_path_stat, patch(
+            "pathlib.Path.is_symlink"
+        ) as mock_is_symlink:
             mock_path_stat.return_value = MockStat(FILE_SIZE)
+            mock_is_symlink.return_value = False  # Treat all as regular files
 
             dirs = ["/test/dir"]
             ignore_list: list[str] = []
@@ -111,3 +114,24 @@ class TestSizeCalculator:
 
             # Should have some size from mocked files
             assert total_size >= 0
+
+    def test_symlink_handling(self, tmp_path) -> None:
+        """Test that broken symlinks are handled gracefully."""
+        # Create test files and symlinks
+        regular_file = tmp_path / "regular.txt"
+        regular_file.write_text("test content")
+
+        # Create a valid symlink
+        valid_symlink = tmp_path / "valid_symlink"
+        valid_symlink.symlink_to(regular_file)
+
+        # Create a broken symlink
+        broken_symlink = tmp_path / "broken_symlink"
+        broken_symlink.symlink_to("nonexistent_target")
+
+        calculator = SizeCalculator([str(tmp_path)], [])
+
+        # Should not raise an exception and should return size > 0
+        # (from regular file and valid symlink)
+        total_size = calculator.calculate_total_size()
+        assert total_size > 0
