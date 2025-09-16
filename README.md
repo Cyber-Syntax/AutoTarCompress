@@ -10,16 +10,28 @@ Turkish: [README.tr.md](https://github.com/Cyber-Syntax/AutoTarCompress/blob/mai
 
 ---
 
-# **About AutoTarCompress**
+# **AutoTarCompress**
 
 > [!NOTE]
-> AutoTarCompress is a command-line tool for Linux that simplifies the process of creating and managing compressed backups of your important directories. It offers features like compressing, encryption, decryption.
+> AutoTarCompress is a robust backup and archive management tool that provides both command-line interface (CLI) and interactive menu functionality for creating, encrypting, and managing backup archives.
 >
 > - Detailed information: [wiki.md](docs/wiki.md)
 
+## **✨ Features**
+
+- **Create compressed backups** using tar and xz compression
+- **Encrypt/decrypt backups** with GPG encryption
+- **Extract backup archives** to restore files
+- **Clean up old backups** with configurable retention policies
+- **Backup information display** showing file details and metadata
+- **🆕 Command-line interface** for scriptable automation
+- **Interactive menu** for user-friendly operation
+- **Configurable backup directories** and ignore patterns
+- **Logging and error handling** for reliable operation
+
 ---
 
-## **💡 How to Use**
+## **💡 Installation**
 
 1. Open a terminal and clone this repo (make sure you have git installed):
 
@@ -33,10 +45,6 @@ git clone https://github.com/Cyber-Syntax/AutoTarCompress.git
 cd AutoTarCompress
 ```
 
-cd AutoTarCompress
-chmod +x install.sh
-./install.sh
-
 3. Make executable and run the install script:
 
 ```bash
@@ -49,27 +57,94 @@ chmod +x install.sh && ./install.sh
 source ~/.bashrc   # or ~/.zshrc
 ```
 
-5. Configure
-
-Copy the example config and edit as needed:
+5. Go to configuration file and set your preferences:
 
 ```bash
-mkdir -p ~/.config/autotarcompress
-cp config_files_example/config.json ~/.config/autotarcompress/config.json
-# Edit ~/.config/autotarcompress/config.json to match your needs
+vim ~/.config/autotarcompress/config.conf
 ```
 
-Or, just run the tool and follow the prompts to generate a config interactively.
+---
 
-## Run the script
+## **🚀 Usage**
+
+AutoTarCompress now offers two ways to use it:
+
+### **🔥 New: Command-Line Interface (Recommended for automation)**
+
+The CLI provides scriptable access to all backup operations:
+
+```bash
+# Show all available commands
+autotarcompress --help
+
+# Create a backup
+autotarcompress backup
+
+# Encrypt the latest backup
+autotarcompress encrypt --latest
+
+# Encrypt a backup from a specific date
+autotarcompress encrypt --date 15-01-2024
+
+# Encrypt a specific backup file
+autotarcompress encrypt backup_15-01-2024_10-30-45.tar.xz
+
+# Decrypt the latest encrypted backup
+autotarcompress decrypt --latest
+
+# Extract the latest backup
+autotarcompress extract --latest
+
+# Clean up old backups (uses config defaults)
+autotarcompress cleanup
+
+# Clean up keeping only 5 most recent backups
+autotarcompress cleanup --keep 5
+
+# Show last backup information
+autotarcompress info
+```
+
+### **📋 Interactive Menu (Original experience)**
+
+For users who prefer an interactive experience:
+
+```bash
+autotarcompress interactive
+```
+
+Or simply run without arguments (default behavior):
 
 ```bash
 autotarcompress
 ```
 
-Follow the on-screen instructions to create, encrypt, or extract backups.
-
 ---
+
+## **📚 CLI Commands Overview**
+
+AutoTarCompress provides the following commands:
+
+- `backup` — Create a backup archive
+- `encrypt` — Encrypt a backup file
+- `decrypt` — Decrypt an encrypted backup file
+- `extract` — Extract a backup archive
+- `cleanup` — Remove old backups
+- `info` — Show information about the last backup
+- `interactive` — Launch the interactive menu (legacy mode)
+
+For detailed options, usage examples, configuration, and migration notes, see [docs/wiki.md](docs/wiki.md).
+
+### Quick Example
+
+```bash
+autotarcompress backup
+autotarcompress encrypt --latest
+autotarcompress cleanup --keep 7
+autotarcompress info
+```
+
+See the [wiki](docs/wiki.md) for advanced usage and full documentation.
 
 ## **🙏 Support This Project**
 
