@@ -1,0 +1,108 @@
+#!/bin/bash
+
+# AutoTarCompress bash completion script
+# Source this file to enable tab completion for autotarcompress command
+
+_autotarcompress_completion() {
+    local cur prev commands
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    
+    # Available commands
+    commands="backup encrypt decrypt extract cleanup info interactive"
+    
+    # Global options
+    local global_opts="--help --version"
+    
+    # Command-specific options
+    local encrypt_opts="--latest --date --help"
+    local decrypt_opts="--latest --date --help"
+    local extract_opts="--latest --date --help"
+    local cleanup_opts="--all --older-than --keep --help"
+    
+    # If we're completing the first argument (command)
+    if [[ ${COMP_CWORD} -eq 1 ]]; then
+        mapfile -t COMPREPLY < <(compgen -W "${commands} ${global_opts}" -- "${cur}")
+        return 0
+    fi
+    
+    # Get the command being used
+    local command="${COMP_WORDS[1]}"
+    
+    case "${command}" in
+        backup)
+            mapfile -t COMPREPLY < <(compgen -W "--help" -- "${cur}")
+            ;;
+        encrypt)
+            case "${prev}" in
+                --date)
+                    # Date format completion hint (no actual completion)
+                    COMPREPLY=()
+                    ;;
+                *)
+                    if [[ ${cur} == -* ]]; then
+                        mapfile -t COMPREPLY < <(compgen -W "${encrypt_opts}" -- "${cur}")
+                    else
+                        # Complete with backup files if available
+                        _filedir
+                    fi
+                    ;;
+            esac
+            ;;
+        decrypt)
+            case "${prev}" in
+                --date)
+                    # Date format completion hint (no actual completion)
+                    COMPREPLY=()
+                    ;;
+                *)
+                    if [[ ${cur} == -* ]]; then
+                        mapfile -t COMPREPLY < <(compgen -W "${decrypt_opts}" -- "${cur}")
+                    else
+                        # Complete with encrypted files if available
+                        _filedir
+                    fi
+                    ;;
+            esac
+            ;;
+        extract)
+            case "${prev}" in
+                --date)
+                    # Date format completion hint (no actual completion)
+                    COMPREPLY=()
+                    ;;
+                *)
+                    if [[ ${cur} == -* ]]; then
+                        mapfile -t COMPREPLY < <(compgen -W "${extract_opts}" -- "${cur}")
+                    else
+                        # Complete with backup files if available
+                        _filedir
+                    fi
+                    ;;
+            esac
+            ;;
+        cleanup)
+            case "${prev}" in
+                --older-than|--keep)
+                    # Numeric value expected
+                    COMPREPLY=()
+                    ;;
+                *)
+                    mapfile -t COMPREPLY < <(compgen -W "${cleanup_opts}" -- "${cur}")
+                    ;;
+            esac
+            ;;
+        info|interactive)
+            mapfile -t COMPREPLY < <(compgen -W "--help" -- "${cur}")
+            ;;
+        *)
+            COMPREPLY=()
+            ;;
+    esac
+    
+    return 0
+}
+
+# Register the completion function
+complete -F _autotarcompress_completion autotarcompress
