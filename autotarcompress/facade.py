@@ -41,11 +41,12 @@ class BackupFacade:
         self.config.save()
         print("\nConfiguration saved successfully!")
 
-    def execute_command(self, command_name: str) -> Any:
+    def execute_command(self, command_name: str, **kwargs: Any) -> Any:
         """Execute a predefined command by name.
 
         Args:
             command_name (str): The name of the command to execute.
+            **kwargs: Additional parameters to pass to the command constructor.
 
         Returns:
             Any: The result of the command's execution.
@@ -54,7 +55,12 @@ class BackupFacade:
             ValueError: If the command name is not recognized.
 
         """
-        if command_name in self.commands:
+        if command_name == "cleanup":
+            # Handle cleanup command with potential parameters
+            cleanup_all = kwargs.get("cleanup_all", False)
+            command = CleanupCommand(self.config, cleanup_all=cleanup_all)
+            return command.execute()
+        elif command_name in self.commands:
             return self.commands[command_name].execute()
         raise ValueError(f"Unknown command: {command_name}")
 
