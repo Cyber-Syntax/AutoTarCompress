@@ -118,6 +118,23 @@ class TestCleanupCommand:
         assert isinstance(command.logger, logging.Logger)
         assert command.logger.name == "autotarcompress.commands.cleanup"
 
+    def test_initialization_with_cleanup_all(self, mock_config: BackupConfig) -> None:
+        """Test CleanupCommand initialization with cleanup_all parameter.
+
+        Args:
+            mock_config: Mock backup configuration.
+
+        """
+        command = CleanupCommand(mock_config, cleanup_all=True)
+
+        assert command.config is mock_config
+        assert command.cleanup_all is True
+        assert isinstance(command.logger, logging.Logger)
+
+        # Test default value
+        command_default = CleanupCommand(mock_config)
+        assert command_default.cleanup_all is False
+
     @patch.object(CleanupCommand, "_cleanup_files")
     def test_execute_calls_cleanup_methods(
         self, mock_cleanup: Mock, cleanup_command: CleanupCommand
@@ -475,3 +492,65 @@ class TestCleanupCommand:
 
             # Should only process the 2 .tar.xz files and delete 1 (oldest)
             assert mock_unlink.call_count == 1
+
+    def test_cleanup_all_files_functionality(self, mock_config: BackupConfig) -> None:
+        """Test that cleanup_all deletes all files regardless of retention policy.
+
+        Args:
+            mock_config: Mock backup configuration.
+
+        """
+        command = CleanupCommand(mock_config, cleanup_all=True)
+
+        # Mock files for different extensions
+        test_files = [
+            "15-12-2024.tar.xz",
+            "14-12-2024.tar.xz",
+            "13-12-2024.tar.xz-decrypted",
+            "12-12-2024.tar-extracted",
+            "11-12-2024.tar.xz.enc",
+        ]
+
+        with patch("os.listdir", return_value=test_files), patch(
+            "pathlib.Path.unlink"
+        ) as mock_unlink, patch("pathlib.Path.is_dir", return_value=False):
+            command._cleanup_all_files()
+
+            # Should delete all files (4 calls for 4 different extensions)
+            # Each extension will be processed, but only matching files deleted
+            assert mock_unlink.call_count == len(test_files)
+
+    def test_execute_with_cleanup_all_calls_cleanup_all_files(
+        self, mock_config: BackupConfig
+    ) -> None:
+        """Test that execute() calls _cleanup_all_files when cleanup_all is True.
+
+        Args:
+            mock_config: Mock backup configuration.
+
+        """
+        command = CleanupCommand(mock_config, cleanup_all=True)
+
+        with patch.object(command, "_cleanup_all_files") as mock_cleanup_all:
+            result = command.execute()
+
+            assert result is True
+            mock_cleanup_all.assert_called_once()
+
+    def test_execute_without_cleanup_all_calls_regular_cleanup(
+        self, mock_config: BackupConfig
+    ) -> None:
+        """Test that execute() calls regular cleanup when cleanup_all is False.
+
+        Args:
+            mock_config: Mock backup configuration.
+
+        """
+        command = CleanupCommand(mock_config, cleanup_all=False)
+
+        with patch.object(command, "_cleanup_files") as mock_cleanup_files:
+            result = command.execute()
+
+            assert result is True
+            # Should be called 4 times for different file extensions
+            assert mock_cleanup_files.call_count == 4

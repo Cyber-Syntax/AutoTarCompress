@@ -236,7 +236,18 @@ class TestCLICommands:
 
         result = self.runner.invoke(app, ["cleanup"])
         assert result.exit_code == 0
-        mock_facade.execute_command.assert_called_once_with("cleanup")
+        mock_facade.execute_command.assert_called_once_with("cleanup", cleanup_all=False)
+
+    @patch("autotarcompress.runner.initialize_config")
+    def test_cleanup_command_all_success(self, mock_init_config: MagicMock) -> None:
+        """Test successful cleanup --all command execution."""
+        mock_facade = MagicMock()
+        mock_facade.execute_command.return_value = True
+        mock_init_config.return_value = mock_facade
+
+        result = self.runner.invoke(app, ["cleanup", "--all"])
+        assert result.exit_code == 0
+        mock_facade.execute_command.assert_called_once_with("cleanup", cleanup_all=True)
 
     @patch("autotarcompress.runner.run_main_loop")
     @patch("autotarcompress.runner.initialize_config")

@@ -185,7 +185,7 @@ def cleanup(
         raise typer.Exit(1)
 
     facade: BackupFacade = runner.initialize_config()
-    success = facade.execute_command("cleanup")
+    success = facade.execute_command("cleanup", cleanup_all=all_backups)
     if not success:
         raise typer.Exit(1)
 

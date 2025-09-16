@@ -17,31 +17,37 @@ from autotarcompress.config import BackupConfig
 class CleanupCommand(Command):
     """Command to clean up old backup, encrypted, and decrypted files."""
 
-    def __init__(self, config: BackupConfig) -> None:
+    def __init__(self, config: BackupConfig, cleanup_all: bool = False) -> None:
         """Initialize CleanupCommand.
 
         Args:
             config (BackupConfig): Backup configuration with retention and
                 folder settings.
+            cleanup_all (bool): If True, delete all backup files regardless
+                of retention policy.
 
         """
         self.config: BackupConfig = config
+        self.cleanup_all: bool = cleanup_all
         self.logger: logging.Logger = logging.getLogger(__name__)
 
     def execute(self) -> bool:
         """Delete old backup, encrypted, and decrypted files.
 
-        Per retention policy.
+        Per retention policy or all files if cleanup_all is True.
 
         Returns:
             bool: Always True (cleanup always completes, even if nothing
                 to delete).
 
         """
-        self._cleanup_files(".tar.xz", self.config.keep_backup)
-        self._cleanup_files(".tar.xz-decrypted", self.config.keep_backup)
-        self._cleanup_files(".tar-extracted", self.config.keep_backup)
-        self._cleanup_files(".tar.xz.enc", self.config.keep_enc_backup)
+        if self.cleanup_all:
+            self._cleanup_all_files()
+        else:
+            self._cleanup_files(".tar.xz", self.config.keep_backup)
+            self._cleanup_files(".tar.xz-decrypted", self.config.keep_backup)
+            self._cleanup_files(".tar-extracted", self.config.keep_backup)
+            self._cleanup_files(".tar.xz.enc", self.config.keep_enc_backup)
         return True
 
     def _cleanup_files(self, ext: str, keep_count: int) -> None:
@@ -96,3 +102,15 @@ class CleanupCommand(Command):
                 self.logger.error("Failed to delete %s: %s", old_file, e)
                 print(f"Failed to delete {old_file}: {e}")
         return None
+
+    def _cleanup_all_files(self) -> None:
+        """Delete all backup files regardless of retention policy.
+
+        This method removes all backup files of all types without
+        respecting the keep_count configuration.
+
+        """
+        extensions = [".tar.xz", ".tar.xz-decrypted", ".tar-extracted", ".tar.xz.enc"]
+
+        for ext in extensions:
+            self._cleanup_files(ext, 0)  # keep_count=0 means delete all
