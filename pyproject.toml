@@ -1,13 +1,22 @@
 [project]
 name = 'AutoTarCompress'
 version = '0.7.0-beta'
+maintainers = [{ name = "Cyber-Syntax" }]
 description = 'It downloads/updates appimages via GitHub API. It also validates the appimage with SHA256 and SHA512.'
+keywords = ["tar", "compress", "autotarcompress", "backup"]
 requires-python = ">= 3.8"
 dependencies = [
     "typer>=0.15.1",
+    "typing_extensions>=4.12.0",
 ]
-maintainers = [
-  {name = "Cyber-Syntax"}
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "hypothesis>=6.14.0",
+    "ruff>=0.12.1",
 ]
 
 [project.scripts]
