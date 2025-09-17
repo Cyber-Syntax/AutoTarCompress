@@ -63,6 +63,17 @@ source ~/.bashrc   # or ~/.zshrc
 vim ~/.config/autotarcompress/config.conf
 ```
 
+6. (Optional) Enable shell autocompletion for bash or zsh:
+
+```bash
+# Auto detect your shell and install autocomplete
+sh install.sh autocomplete
+
+# Or manually install for bash/zsh
+sh install.sh autocomplete bash
+sh install.sh autocomplete zsh
+```
+
 ---
 
 ## **🚀 Usage**
