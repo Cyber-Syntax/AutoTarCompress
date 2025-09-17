@@ -4,7 +4,7 @@ version = '0.7.0-beta'
 description = 'It downloads/updates appimages via GitHub API. It also validates the appimage with SHA256 and SHA512.'
 requires-python = ">= 3.8"
 dependencies = [
-    "typer[all]>=0.9.0",
+    "typer>=0.15.1",
 ]
 maintainers = [
   {name = "Cyber-Syntax"}
@@ -12,6 +12,11 @@ maintainers = [
 
 [project.scripts]
 autotarcompress = "autotarcompress.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["autotarcompress*"]
+exclude = ["autocomplete*", "tests*", "scripts*", "docs*", "examples*"]
 [tool.ruff]
 include = ["pyproject.toml", "src/**/*.py", "scripts/**/*.py", "commands/**/*.py"]
 # Exclude a variety of commonly ignored directories.
