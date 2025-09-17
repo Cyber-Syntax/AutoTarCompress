@@ -1,0 +1,77 @@
+#compdef autotarcompress
+
+# AutoTarCompress zsh completion script
+# Add this to your zsh completions directory or source it in your .zshrc
+
+_autotarcompress() {
+    local -a commands
+    local state line
+    
+    # Define available commands
+    commands=(
+        'backup:Create a backup archive of configured directories'
+        'encrypt:Encrypt a backup file'
+        'decrypt:Decrypt an encrypted backup file'
+        'extract:Extract a backup archive'
+        'cleanup:Clean up old backup files'
+        'info:Show information about the last backup'
+        'interactive:Launch the interactive menu (legacy mode)'
+    )
+
+    _arguments -C \
+        '1: :->command' \
+        '*: :->args' \
+        && return 0
+
+    case $state in
+        command)
+            _describe 'autotarcompress commands' commands
+            _values 'global options' \
+                '--help[Show help information]' \
+                '--version[Show version information]'
+            ;;
+        args)
+            case ${line[1]} in
+                backup)
+                    _arguments \
+                        '--help[Show help information]'
+                    ;;
+                encrypt)
+                    _arguments \
+                        '(--latest --date)--latest[Encrypt the latest backup file]' \
+                        '(--latest --date)--date[Encrypt backup from specific date (dd-mm-yyyy)]:date:' \
+                        '--help[Show help information]' \
+                        '1:backup file:_files'
+                    ;;
+                decrypt)
+                    _arguments \
+                        '(--latest --date)--latest[Decrypt the latest encrypted backup]' \
+                        '(--latest --date)--date[Decrypt backup from specific date (dd-mm-yyyy)]:date:' \
+                        '--help[Show help information]' \
+                        '1:encrypted file:_files'
+                    ;;
+                extract)
+                    _arguments \
+                        '(--latest --date)--latest[Extract the latest backup]' \
+                        '(--latest --date)--date[Extract backup from specific date (dd-mm-yyyy)]:date:' \
+                        '--help[Show help information]' \
+                        '1:backup file:_files'
+                    ;;
+                cleanup)
+                    _arguments \
+                        '(--all --older-than --keep)--all[Remove all old backups]' \
+                        '(--all --older-than --keep)--older-than[Remove backups older than N days]:days:' \
+                        '(--all --older-than --keep)--keep[Keep only the N most recent backups]:count:' \
+                        '--help[Show help information]' \
+                        '1:cleanup file:_files'
+                    ;;
+                info|interactive)
+                    _arguments \
+                        '--help[Show help information]'
+                    ;;
+            esac
+            ;;
+    esac
+
+    return 0
+}
