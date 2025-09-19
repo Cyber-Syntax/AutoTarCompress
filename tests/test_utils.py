@@ -8,9 +8,15 @@ import sys
 from unittest.mock import patch
 
 # Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 
-from autotarcompress.utils import SizeCalculator
+from autotarcompress.utils import (
+    SizeCalculator,
+    ensure_backup_folder,
+    validate_and_expand_paths,
+)
 
 
 class TestSizeCalculator:
@@ -30,7 +36,9 @@ class TestSizeCalculator:
         assert str(calculator.directories[1]) == "/test/dir2"
         assert len(calculator.ignore_list) == EXPECTED_IGNORE_COUNT
 
-    def test_calculate_total_size_with_test_data(self, test_data_dir: str) -> None:
+    def test_calculate_total_size_with_test_data(
+        self, test_data_dir: str
+    ) -> None:
         """Test size calculation with actual test data."""
         dirs = [test_data_dir]
         ignore_list: list[str] = []
@@ -41,10 +49,14 @@ class TestSizeCalculator:
         # Should have some size from test files
         assert total_size > 0
 
-    def test_calculate_total_size_with_ignore_list(self, test_data_dir: str) -> None:
+    def test_calculate_total_size_with_ignore_list(
+        self, test_data_dir: str
+    ) -> None:
         """Test size calculation respects ignore list."""
         dirs = [test_data_dir]
-        ignore_list: list[str] = ["ignored"]  # Should ignore the "ignored" directory
+        ignore_list: list[str] = [
+            "ignored"
+        ]  # Should ignore the "ignored" directory
 
         calculator = SizeCalculator(dirs, ignore_list)
         size_with_ignore = calculator.calculate_total_size()
@@ -58,7 +70,9 @@ class TestSizeCalculator:
         assert size_with_ignore <= size_without_ignore
 
     @patch("autotarcompress.utils.os.walk")
-    def test_calculate_total_size_handles_permission_errors(self, mock_walk) -> None:
+    def test_calculate_total_size_handles_permission_errors(
+        self, mock_walk
+    ) -> None:
         """Test that size calculator handles permission errors gracefully."""
         # Mock os.walk to raise PermissionError
         mock_walk.side_effect = PermissionError("Permission denied")
@@ -135,3 +149,83 @@ class TestSizeCalculator:
         # (from regular file and valid symlink)
         total_size = calculator.calculate_total_size()
         assert total_size > 0
+
+
+def test_validate_and_expand_paths(tmp_path) -> None:
+    """Test validate_and_expand_paths returns existing and missing lists."""
+    existing_dir = tmp_path / "exists"
+    existing_dir.mkdir()
+
+    missing_dir = tmp_path / "does_not_exist"
+
+    # include an empty string which should be skipped
+    inputs = [str(existing_dir), str(missing_dir), ""]
+
+    existing, missing = validate_and_expand_paths(inputs)
+
+    # Ensure the existing directory is returned and the missing one is reported
+    assert str(existing_dir) in existing
+    assert str(missing_dir) in missing
+
+
+def test_ensure_backup_folder_creates_and_returns_path(tmp_path) -> None:
+    """Test ensure_backup_folder creates nested folders and returns a Path."""
+    nested = tmp_path / "a" / "b" / "c"
+    # Pass as a string (function will expanduser internally)
+    result = ensure_backup_folder(str(nested))
+
+    assert result.exists()
+    assert result.is_dir()
+    # The returned path should match the expanded input path
+    from pathlib import Path
+
+    assert result == Path(str(nested)).expanduser()
+
+
+def test_validate_and_expand_paths_handles_none() -> None:
+    """validate_and_expand_paths should handle a None input gracefully."""
+    existing, missing = validate_and_expand_paths(None)
+    assert existing == []
+    assert missing == []
+
+
+def test_validate_and_expand_paths_with_file_and_trailing_slash(
+    tmp_path,
+) -> None:
+    """A trailing slash on an existing file should still be reported as existing."""
+    file = tmp_path / "afile.txt"
+    file.write_text("content")
+
+    inputs = [str(file) + "/"]
+    existing, missing = validate_and_expand_paths(inputs)
+
+    assert str(file) in existing
+    assert missing == []
+
+
+def test_ensure_backup_folder_idempotent(tmp_path) -> None:
+    """ensure_backup_folder should be safe to call multiple times."""
+    nested = tmp_path / "already" / "exists"
+    nested.mkdir(parents=True)
+
+    first = ensure_backup_folder(str(nested))
+    second = ensure_backup_folder(str(nested))
+
+    assert first == second
+
+
+def test_ensure_backup_folder_permission_error(monkeypatch, tmp_path) -> None:
+    """If the folder cannot be created due to permissions, an OSError is raised."""
+    from pathlib import Path
+
+    import pytest
+
+    nested = tmp_path / "no_perms"
+
+    def fake_mkdir(self, parents=True, exist_ok=True):
+        raise PermissionError("Permission denied")
+
+    monkeypatch.setattr(Path, "mkdir", fake_mkdir)
+
+    with pytest.raises(OSError):
+        ensure_backup_folder(str(nested))
