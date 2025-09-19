@@ -1,6 +1,6 @@
 [project]
 name = 'AutoTarCompress'
-version = '0.7.0-beta'
+version = '0.7.1-beta'
 maintainers = [{ name = "Cyber-Syntax" }]
 description = 'It downloads/updates appimages via GitHub API. It also validates the appimage with SHA256 and SHA512.'
 keywords = ["tar", "compress", "autotarcompress", "backup"]
@@ -59,7 +59,7 @@ exclude = [
     "__init__.py",
 ]
 
-line-length = 100
+line-length = 79
 indent-width = 4
 # target-version = [
 #     'py38',
