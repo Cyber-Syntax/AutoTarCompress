@@ -8,7 +8,87 @@ import logging
 import os
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
+
+def validate_and_expand_paths(
+    paths_to_check: list[str],
+) -> tuple[list[str], list[str]]:
+    """Validate and expand a list of candidate backup paths.
+
+    Args:
+        paths_to_check (list[str]): Candidate paths which may contain
+            shell user-expansions such as ``~``.
+
+    Returns:
+        tuple[list[str], list[str]]: A tuple ``(existing_paths,
+        missing_paths)``. ``existing_paths`` contains expanded absolute
+        paths that exist on disk. ``missing_paths`` contains expanded
+        absolute paths that do not exist.
+
+    Notes:
+        This function does not raise; the caller decides whether to
+        abort or proceed. Existing paths are returned as strings to
+        simplify insertion into shell commands.
+
+    """
+    existing: list[str] = []
+    missing: list[str] = []
+
+    # Iterate over the provided list, handling a possible ``None`` by
+    # falling back to an empty sequence.
+    for candidate in paths_to_check or []:
+        if not candidate:
+            continue
+        candidate_path = Path(candidate).expanduser()
+        if candidate_path.exists():
+            existing.append(str(candidate_path))
+        else:
+            missing.append(str(candidate_path))
+
+    if missing:
+        print(f"Some configured backup paths do not exist: {missing}")
+        logger.warning(
+            "Some configured backup paths do not exist: %s",
+            missing,
+        )
+
+    print("Proceeding with existing directories only.")
+    logger.info(
+        "Proceeding with existing directories only: %s",
+        existing,
+    )
+    return existing, missing
+
+
+def ensure_backup_folder(folder: str) -> Path:
+    """Ensure the backup folder exists, creating it if necessary.
+
+    Args:
+        folder (str): Path to the backup folder. May contain shell
+            user-expansions such as ``~``.
+
+    Returns:
+        pathlib.Path: Expanded ``Path`` pointing to the ensured folder.
+
+    Raises:
+        OSError: If the folder cannot be created due to permission or
+            filesystem errors.
+
+    """
+    path = Path(folder).expanduser()
+    if not path.exists():
+        print(f"Creating backup folder at {path}")
+        logger.info(
+            "Creating backup folder at %s",
+            path,
+        )
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 BYTES_IN_KB = 1024.0
+
 
 class SizeCalculator:
     """Calculate and display total size of backup directories."""
@@ -17,12 +97,18 @@ class SizeCalculator:
         """Initialize SizeCalculator.
 
         Args:
-            directories (list[str]): Directories to include in size calculation.
-            ignore_list (list[str]): Paths to ignore during calculation.
+            directories (list[str]): Directories to include in size
+                calculation.
+            ignore_list (list[str]): Paths to ignore during
+                calculation.
 
         """
-        self.directories: list[Path] = [Path(os.path.expanduser(d)) for d in directories]
-        self.ignore_list: list[Path] = [Path(os.path.expanduser(p)) for p in ignore_list]
+        self.directories: list[Path] = [
+            Path(os.path.expanduser(d)) for d in directories
+        ]
+        self.ignore_list: list[Path] = [
+            Path(os.path.expanduser(p)) for p in ignore_list
+        ]
 
     def calculate_total_size(self) -> int:
         """Sum the sizes of all directories, printing a summary.
@@ -31,7 +117,7 @@ class SizeCalculator:
             int: Total size in bytes.
 
         """
-        print("\n\U0001f4c2 **Backup Size Summary**")
+        print("\n\U0001f4c2 Backup Directories (Exist Only)")
         print("=" * 40)
         total: int = 0
         for directory in self.directories:
@@ -73,23 +159,33 @@ class SizeCalculator:
                                 total += file_path.stat().st_size
                             else:
                                 # Broken symlink, skip silently
-                                logging.debug(
+                                logger.debug(
                                     "Skipping broken symlink: %s -> %s",
                                     file_path,
                                     file_path.readlink(),
                                 )
                         except OSError as e:
-                            logging.debug("Error handling symlink %s: %s", file_path, e)
+                            logger.debug(
+                                "Error handling symlink %s: %s",
+                                file_path,
+                                e,
+                            )
                     else:
                         # Regular file
                         try:
                             total += file_path.stat().st_size
                         except OSError as e:
-                            logging.warning(
-                                "\u26a0\ufe0f Error accessing file %s: %s", file_path, e
+                            logger.warning(
+                                "\u26a0\ufe0f Error accessing file %s: %s",
+                                file_path,
+                                e,
                             )
         except OSError as e:
-            logging.warning("\u26a0\ufe0f Error accessing directory %s: %s", directory, e)
+            logger.warning(
+                "\u26a0\ufe0f Error accessing directory %s: %s",
+                directory,
+                e,
+            )
         return total
 
     def _should_ignore(self, path: Path | str) -> bool:
@@ -114,8 +210,11 @@ class SizeCalculator:
         # Convert to absolute path for consistent comparison
         absolute_path = path.absolute()
 
+        # Return True if the absolute path starts with any of the
+        # ignored paths. Normalize both sides for reliable comparison.
         return any(
-            str(absolute_path).startswith(str(ignored.absolute())) for ignored in self.ignore_list
+            str(absolute_path).startswith(str(ignored.absolute()))
+            for ignored in self.ignore_list
         )
 
     def _format_size(self, size_in_bytes: int) -> str:

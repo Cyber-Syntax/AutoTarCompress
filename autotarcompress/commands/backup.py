@@ -17,7 +17,11 @@ from pathlib import Path
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
-from autotarcompress.utils import SizeCalculator
+from autotarcompress.utils import (
+    SizeCalculator,
+    ensure_backup_folder,
+    validate_and_expand_paths,
+)
 
 
 class BackupCommand(Command):
@@ -40,15 +44,49 @@ class BackupCommand(Command):
             bool: True if backup succeeded, False otherwise.
 
         """
+        # Validate and ensure backup directories
+        existing_dirs, missing_dirs = validate_and_expand_paths(
+            self.config.dirs_to_backup
+        )
+        if missing_dirs:
+            # Log missing directories; no need to print to stdout here.
+            self.logger.warning(
+                "Some configured backup directories do not exist: %s",
+                missing_dirs,
+            )
+
+        # Use equality comparison instead of identity; lists with the same
+        # contents should be compared by value.
+        if existing_dirs != self.config.dirs_to_backup:
+            self.logger.info(
+                "Proceeding with existing directories only: %s",
+                existing_dirs,
+            )
+            self.config.dirs_to_backup = existing_dirs
+
+        # Ensure backup folder exists
+        try:
+            backup_folder_path = ensure_backup_folder(
+                self.config.backup_folder
+            )
+            self.config.backup_folder = str(backup_folder_path)
+            self.logger.info(
+                "Backup folder ensured at: %s",
+                self.config.backup_folder,
+            )
+        except (OSError, PermissionError) as e:
+            self.logger.error("Failed to ensure backup folder: %s", e)
+            return False
+
         if not self.config.dirs_to_backup:
-            self._print_and_log(
-                "No directories configured for backup. Skipping backup.", level="error"
+            self.logger.error(
+                "No directories configured for backup. Skipping backup."
             )
             return False
         total_size: int = self._calculate_total_size()
         if total_size == 0:
-            self._print_and_log(
-                "Total backup size is 0 bytes. Nothing to back up.", level="warning"
+            self.logger.warning(
+                "Total backup size is 0 bytes. Nothing to back up."
             )
             return False
         success: bool = self._run_backup_process(total_size)
@@ -63,7 +101,10 @@ class BackupCommand(Command):
             int: Total size in bytes.
 
         """
-        calculator = SizeCalculator(self.config.dirs_to_backup, self.config.ignore_list)
+        calculator = SizeCalculator(
+            self.config.dirs_to_backup,
+            self.config.ignore_list,
+        )
         return calculator.calculate_total_size()
 
     def _run_backup_process(self, total_size: int) -> bool:
@@ -77,39 +118,56 @@ class BackupCommand(Command):
 
         """
         if os.path.exists(self.config.backup_path):
-            self._print_and_log(f"File already exists: {self.config.backup_path}", level="warning")
+            print(f"File already exists: {self.config.backup_path}")
+            self.logger.warning(
+                "File already exists: %s",
+                self.config.backup_path,
+            )
             if not self._prompt_overwrite():
-                self._print_and_log("Backup aborted by user due to existing file.", level="info")
+                msg = "Backup aborted by user due to existing file."
+                self.logger.info("%s", msg)
                 return False
             try:
                 os.remove(self.config.backup_path)
-                self.logger.info("Removed existing backup file: %s", self.config.backup_path)
+                self.logger.info(
+                    "Removed existing backup file: %s",
+                    self.config.backup_path,
+                )
             # NOTE: Broad except is used here to ensure any file removal error
             # is caught during backup overwrite prompt. This is a critical IO
             # operation.
             except (OSError, PermissionError) as e:
-                self._print_and_log(f"Failed to remove existing backup: {e}", level="error")
+                self.logger.error("Failed to remove existing backup: %s", e)
                 return False
 
         cmd = self._build_tar_command()
         total_size_gb = total_size / 1024**3
 
-        self.logger.info("Starting backup to %s", self.config.backup_path)
-        self.logger.info("Total size: %.2f GB", total_size_gb)
+        self.logger.info(
+            "Starting backup to %s",
+            self.config.backup_path,
+        )
+        self.logger.info(
+            "Total size: %.2f GB",
+            total_size_gb,
+        )
 
         try:
             subprocess.run(cmd, shell=True, check=True)
             self.logger.info("Backup completed successfully")
-            self._print_and_log("Backup completed successfully.", level="info")
             return True
         except subprocess.CalledProcessError as e:
-            self._print_and_log(f"Backup failed: {e}", level="error")
+            self.logger.error("Backup failed: %s", e)
             return False
 
     def _build_tar_command(self) -> str:
         """Build the tar+xz command string for backup."""
-        exclude_options = " ".join(f"--exclude={path}" for path in self.config.ignore_list)
-        dir_paths = [os.path.expanduser(path) for path in self.config.dirs_to_backup]
+        exclude_options = " ".join(
+            f"--exclude={path}" for path in self.config.ignore_list
+        )
+        dir_paths = [
+            os.path.expanduser(path) for path in self.config.dirs_to_backup
+        ]
         quoted_paths = [shlex.quote(path) for path in dir_paths]
         cpu_count = os.cpu_count() or 1
         threads = max(1, cpu_count - 1)
@@ -124,18 +182,6 @@ class BackupCommand(Command):
         response = input("Do you want to remove it? (y/n): ").strip().lower()
         return response == "y"
 
-    def _print_and_log(self, message: str, level: str = "info") -> None:
-        """Print and log a message at the specified level."""
-        print(message)
-        if level == "info":
-            self.logger.info(message)
-        elif level == "warning":
-            self.logger.warning(message)
-        elif level == "error":
-            self.logger.error(message)
-        else:
-            self.logger.debug(message)
-
     def _save_backup_info(self, total_size: int) -> None:
         """Save backup information to last-backup-info.json."""
         try:
@@ -149,7 +195,9 @@ class BackupCommand(Command):
             }
 
             # Save the info file in the backup folder
-            info_file_path = Path(self.config.backup_folder) / "last-backup-info.json"
+            info_file_path = (
+                Path(self.config.backup_folder) / "last-backup-info.json"
+            )
 
             with open(info_file_path, "w", encoding="utf-8") as f:
                 json.dump(backup_info, f, indent=2)
