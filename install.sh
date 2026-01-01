@@ -130,6 +130,75 @@ ensure_path_for_shells() {
   ensure_path_in_file "$zshrc" append
 }
 
+# Install with uv tool in development mode
+install_uv_dev() {
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Error: uv is not installed. Please install uv first."
+    exit 1
+  fi
+
+  echo "Installing autotarcompress in development mode with uv..."
+  uv tool install --editable .
+}
+
+# Install with uv tool in production mode from URL
+install_uv_production() {
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Error: uv is not installed. Please install uv first."
+    exit 1
+  fi
+
+  echo "Installing autotarcompress from GitHub with uv..."
+  uv tool install git+https://github.com/Cyber-Syntax/AutoTarCompress
+}
+
+# Remove legacy installations interactively with dry-run support
+remove_legacy_install() {
+  local dry_run=false
+  if [ $# -gt 0 ] && [ "$1" = "--dry-run" ]; then
+    dry_run=true
+    echo "=== Dry-run mode: Simulating removal ==="
+  else
+    echo "=== Removing legacy installations ==="
+  fi
+
+  # Check and remove installation directory
+  if [ -d "$INSTALL_DIR" ]; then
+    echo "Found installation directory: $INSTALL_DIR"
+    if [ "$dry_run" = true ]; then
+      echo "Would remove: $INSTALL_DIR"
+    else
+      read -p "Remove $INSTALL_DIR? (y/N): " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf "$INSTALL_DIR"
+        echo "Removed $INSTALL_DIR"
+      fi
+    fi
+  fi
+
+  # Check and remove wrapper script
+  if [ -f "$WRAPPER_DST" ]; then
+    echo "Found wrapper script: $WRAPPER_DST"
+    if [ "$dry_run" = true ]; then
+      echo "Would remove: $WRAPPER_DST"
+    else
+      read -p "Remove $WRAPPER_DST? (y/N): " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -f "$WRAPPER_DST"
+        echo "Removed $WRAPPER_DST"
+      fi
+    fi
+  fi
+
+  if [ "$dry_run" = true ]; then
+    echo "=== Dry-run complete ==="
+  else
+    echo "=== Legacy install removal complete ==="
+  fi
+}
+
 # Copy source files to install directory
 copy_source_to_install_dir() {
   echo "📁 Copying source files to $INSTALL_DIR..."
@@ -362,22 +431,35 @@ install_autocomplete() {
 case "${1-}" in
   install|"") install_autotarcompress ;;
   update) update_autotarcompress ;;
+  uv-dev) install_uv_dev ;;
+  uv-prod) install_uv_production ;;
+  remove)
+    shift
+    remove_legacy_install "$@"
+    ;;
   autocomplete) 
     shift
     install_autocomplete "$@" 
     ;;
   *)
     cat <<EOF
-Usage: $(basename "$0") [install|update|autocomplete]
+Usage: $(basename "$0") [install|update|uv-dev|uv-prod|remove|autocomplete]
 
 Commands:
   install       Copy source, setup venv, install wrapper, configure PATH
   update        Update venv only
+  uv-dev        Install with uv tool in development mode
+  uv-prod       Install with uv tool in production mode from GitHub
+  remove        Remove legacy installations interactively [--dry-run]
   autocomplete  Install shell completion [bash|zsh|both]
 
 Examples:
   $(basename "$0") install                    # Full installation
   $(basename "$0") update                     # Update virtual environment
+  $(basename "$0") uv-dev                     # Install in development mode
+  $(basename "$0") uv-prod                    # Install from GitHub
+  $(basename "$0") remove                     # Remove legacy installations interactively
+  $(basename "$0") remove --dry-run           # Dry-run removal
   $(basename "$0") autocomplete               # Auto-detect shell and install completion
   $(basename "$0") autocomplete bash          # Install bash completion only
   $(basename "$0") autocomplete zsh           # Install zsh completion only
