@@ -34,6 +34,7 @@ class TestBackupCommand:
         """Create a mock BackupConfig for testing."""
         config = BackupConfig()
         config.backup_folder = str(tmp_path / "backups")
+        config.config_dir = str(tmp_path / "config")
         config.dirs_to_backup = [
             str(tmp_path / "source1"),
             str(tmp_path / "source2"),
@@ -42,6 +43,7 @@ class TestBackupCommand:
 
         # Create necessary directories
         os.makedirs(config.backup_folder, exist_ok=True)
+        os.makedirs(config.config_dir, exist_ok=True)
         for dir_path in config.dirs_to_backup:
             os.makedirs(dir_path, exist_ok=True)
 

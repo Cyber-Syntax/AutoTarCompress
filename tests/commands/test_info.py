@@ -7,9 +7,10 @@ file existence validation.
 
 import json
 import logging
+import tempfile
 from pathlib import Path
-from typing import Any, Dict
-from unittest.mock import Mock, mock_open, patch
+from typing import Any
+from unittest.mock import Mock, call, mock_open, patch
 
 import pytest
 from hypothesis import given
@@ -23,7 +24,7 @@ class TestInfoCommand:
     """Test suite for InfoCommand functionality."""
 
     @pytest.fixture
-    def mock_config(self) -> BackupConfig:
+    def mock_config(self, tmp_path: Path) -> BackupConfig:
         """Create a mock configuration for testing.
 
         Returns:
@@ -32,7 +33,8 @@ class TestInfoCommand:
 
         """
         config = Mock(spec=BackupConfig)
-        config.backup_folder = "/test/backup/folder"
+        config.backup_folder = str(tmp_path / "backup")
+        config.config_dir = str(tmp_path / "config")
         return config
 
     @pytest.fixture
@@ -51,7 +53,7 @@ class TestInfoCommand:
         return InfoCommand(mock_config)
 
     @pytest.fixture
-    def sample_backup_info(self) -> Dict[str, Any]:
+    def sample_backup_info(self) -> dict[str, Any]:
         """Create sample backup information for testing.
 
         Returns:
@@ -64,7 +66,10 @@ class TestInfoCommand:
             "backup_path": "/test/backup/folder/backup_20241215_120000.tar.xz",
             "backup_date": "2024-12-15 12:00:00",
             "backup_size_human": "156.8 MB",
-            "directories_backed_up": ["/home/user/documents", "/home/user/projects"],
+            "directories_backed_up": [
+                "/home/user/documents",
+                "/home/user/projects",
+            ],
         }
 
     def test_initialization(self, mock_config: BackupConfig) -> None:
@@ -90,7 +95,7 @@ class TestInfoCommand:
         mock_load: Mock,
         mock_print: Mock,
         info_command: InfoCommand,
-        sample_backup_info: Dict[str, Any],
+        sample_backup_info: dict[str, Any],
     ) -> None:
         """Test execute when backup info is available.
 
@@ -115,7 +120,11 @@ class TestInfoCommand:
     @patch.object(InfoCommand, "_load_backup_info")
     @patch.object(InfoCommand, "_display_backup_info")
     def test_execute_no_backup_info(
-        self, mock_display: Mock, mock_load: Mock, mock_print: Mock, info_command: InfoCommand
+        self,
+        mock_display: Mock,
+        mock_load: Mock,
+        mock_print: Mock,
+        info_command: InfoCommand,
     ) -> None:
         """Test execute when no backup info is available.
 
@@ -137,9 +146,10 @@ class TestInfoCommand:
             (("No backup information found.",), {}),
             (("This usually means no backups have been created yet.",), {}),
         ]
-        from unittest.mock import call
 
-        mock_print.assert_has_calls([call(*args, **kwargs) for args, kwargs in expected_calls])
+        mock_print.assert_has_calls(
+            [call(*args, **kwargs) for args, kwargs in expected_calls]
+        )
 
     @patch("pathlib.Path.exists")
     @patch("builtins.open", new_callable=mock_open)
@@ -148,7 +158,7 @@ class TestInfoCommand:
         mock_file: Mock,
         mock_exists: Mock,
         info_command: InfoCommand,
-        sample_backup_info: Dict[str, Any],
+        sample_backup_info: dict[str, Any],
     ) -> None:
         """Test successful backup info loading.
 
@@ -161,12 +171,14 @@ class TestInfoCommand:
 
         """
         mock_exists.return_value = True
-        mock_file.return_value.read.return_value = json.dumps(sample_backup_info)
+        mock_file.return_value.read.return_value = json.dumps(
+            sample_backup_info
+        )
 
         result = info_command._load_backup_info()
 
         assert result == sample_backup_info
-        expected_path = Path("/test/backup/folder") / "last-backup-info.json"
+        expected_path = Path(info_command.config.config_dir) / "metadata.json"
         mock_exists.assert_called_once()
         mock_file.assert_called_once_with(expected_path, encoding="utf-8")
 
@@ -251,7 +263,7 @@ class TestInfoCommand:
         mock_exists: Mock,
         mock_print: Mock,
         info_command: InfoCommand,
-        sample_backup_info: Dict[str, Any],
+        sample_backup_info: dict[str, Any],
     ) -> None:
         """Test display with complete backup information.
 
@@ -271,7 +283,9 @@ class TestInfoCommand:
         print_calls = [call[0][0] for call in mock_print.call_args_list]
 
         assert any("Last Backup Information" in call for call in print_calls)
-        assert any("backup_20241215_120000.tar.xz" in call for call in print_calls)
+        assert any(
+            "backup_20241215_120000.tar.xz" in call for call in print_calls
+        )
         assert any("2024-12-15 12:00:00" in call for call in print_calls)
         assert any("156.8 MB" in call for call in print_calls)
         assert any("/home/user/documents" in call for call in print_calls)
@@ -285,7 +299,7 @@ class TestInfoCommand:
         mock_exists: Mock,
         mock_print: Mock,
         info_command: InfoCommand,
-        sample_backup_info: Dict[str, Any],
+        sample_backup_info: dict[str, Any],
     ) -> None:
         """Test display when backup file doesn't exist.
 
@@ -327,7 +341,9 @@ class TestInfoCommand:
         info_command._display_backup_info(backup_info)
 
         print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("Directories Backed Up: None" in call for call in print_calls)
+        assert any(
+            "Directories Backed Up: None" in call for call in print_calls
+        )
         assert any("Status: Unknown" in call for call in print_calls)
 
     @patch("builtins.print")
@@ -342,7 +358,7 @@ class TestInfoCommand:
             info_command: InfoCommand instance.
 
         """
-        backup_info: Dict[str, Any] = {}
+        backup_info: dict[str, Any] = {}
 
         info_command._display_backup_info(backup_info)
 
@@ -352,23 +368,35 @@ class TestInfoCommand:
     @given(
         st.dictionaries(
             keys=st.sampled_from(
-                ["backup_file", "backup_path", "backup_date", "backup_size_human"]
+                [
+                    "backup_file",
+                    "backup_path",
+                    "backup_date",
+                    "backup_size_human",
+                ]
             ),
             values=st.text(min_size=1, max_size=100),
             min_size=0,
             max_size=4,
         )
     )
-    def test_display_backup_info_property(self, backup_info: Dict[str, str]) -> None:
+    def test_display_backup_info_property(
+        self, backup_info: dict[str, str]
+    ) -> None:
         """Property-based test for backup info display.
 
         Args:
             backup_info: Random backup information dictionary.
 
         """
-        info_command = InfoCommand(BackupConfig())
+        config = BackupConfig()
+        config.config_dir = tempfile.mkdtemp()
+        info_command = InfoCommand(config)
 
-        with patch("builtins.print") as mock_print, patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("builtins.print") as mock_print,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             # Add required structure
             full_backup_info = {"directories_backed_up": [], **backup_info}
 
@@ -379,17 +407,27 @@ class TestInfoCommand:
             assert mock_print.called
 
     @given(st.lists(st.text(min_size=1, max_size=50), min_size=0, max_size=10))
-    def test_directories_display_property(self, directories: list[str]) -> None:
+    def test_directories_display_property(
+        self, directories: list[str]
+    ) -> None:
         """Property-based test for directories display.
 
         Args:
             directories: Random list of directory paths.
 
         """
-        info_command = InfoCommand(BackupConfig())
-        backup_info = {"backup_file": "test.tar.xz", "directories_backed_up": directories}
+        config = BackupConfig()
+        config.config_dir = tempfile.mkdtemp()
+        info_command = InfoCommand(config)
+        backup_info = {
+            "backup_file": "test.tar.xz",
+            "directories_backed_up": directories,
+        }
 
-        with patch("builtins.print") as mock_print, patch("pathlib.Path.exists", return_value=True):
+        with (
+            patch("builtins.print") as mock_print,
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             info_command._display_backup_info(backup_info)
 
             print_calls = [call[0][0] for call in mock_print.call_args_list]
@@ -397,7 +435,12 @@ class TestInfoCommand:
             if directories:
                 # Should show count
                 count_line = next(
-                    (call for call in print_calls if f"({len(directories)})" in call), None
+                    (
+                        call
+                        for call in print_calls
+                        if f"({len(directories)})" in call
+                    ),
+                    None,
                 )
                 assert count_line is not None
 
@@ -406,38 +449,51 @@ class TestInfoCommand:
                     assert any(directory in call for call in print_calls)
             else:
                 # Should show "None"
-                assert any("Directories Backed Up: None" in call for call in print_calls)
+                assert any(
+                    "Directories Backed Up: None" in call
+                    for call in print_calls
+                )
 
-    def test_backup_info_file_path_construction(self, info_command: InfoCommand) -> None:
+    def test_backup_info_file_path_construction(
+        self, info_command: InfoCommand
+    ) -> None:
         """Test that backup info file path is constructed correctly.
 
         Args:
             info_command: InfoCommand instance.
 
         """
-        with patch("pathlib.Path.exists", return_value=False) as mock_exists:
+        checked_paths = []
+
+        def mock_exists(self: Path) -> bool:
+            checked_paths.append(self)
+            return False
+
+        with patch.object(Path, "exists", mock_exists):
             info_command._load_backup_info()
 
             # Verify the expected path was checked
-            expected_path = Path("/test/backup/folder/last-backup-info.json")
-            mock_exists.assert_called_once()
-            # Get the path that was actually checked
-            if mock_exists.call_args and mock_exists.call_args.args:
-                checked_path = mock_exists.call_args.args[0]
-                assert str(checked_path) == str(expected_path)
+            config_dir = info_command.config.config_dir
+            expected_path = Path(config_dir) / "metadata.json"
+            assert checked_paths == [expected_path]
 
     @given(st.text(min_size=1, max_size=200))
-    def test_json_loading_with_various_content(self, json_content: str) -> None:
+    def test_json_loading_with_various_content(
+        self, json_content: str
+    ) -> None:
         """Property-based test for JSON loading robustness.
 
         Args:
             json_content: Random JSON-like content.
 
         """
-        info_command = InfoCommand(BackupConfig())
+        config = BackupConfig()
+        config.config_dir = tempfile.mkdtemp()
+        info_command = InfoCommand(config)
 
-        with patch("pathlib.Path.exists", return_value=True), patch(
-            "builtins.open", mock_open(read_data=json_content)
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("builtins.open", mock_open(read_data=json_content)),
         ):
             # Should handle any content gracefully
             result = info_command._load_backup_info()

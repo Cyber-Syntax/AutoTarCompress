@@ -13,7 +13,9 @@ from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
 # Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 
 from autotarcompress.cli import app
 from autotarcompress.config import BackupConfig
@@ -34,10 +36,11 @@ class TestMainModule:
 
     def test_initialize_config_no_existing_config(self) -> None:
         """Test initialize_config when no config file exists."""
-        with patch.object(BackupFacade, "__init__", return_value=None), patch.object(
-            os.path, "exists", return_value=False
-        ), patch("autotarcompress.logger.setup_basic_logging"), patch(
-            "autotarcompress.logger.setup_application_logging"
+        with (
+            patch.object(BackupFacade, "__init__", return_value=None),
+            patch.object(os.path, "exists", return_value=False),
+            patch("autotarcompress.logger.setup_basic_logging"),
+            patch("autotarcompress.logger.setup_application_logging"),
         ):
             facade_mock = MagicMock()
             facade_mock.config = MagicMock()
@@ -45,25 +48,33 @@ class TestMainModule:
             facade_mock.config.get_log_level.return_value = "INFO"
             facade_mock.configure = MagicMock()
 
-            with patch.object(BackupFacade, "__new__", return_value=facade_mock):
+            with patch.object(
+                BackupFacade, "__new__", return_value=facade_mock
+            ):
                 result = initialize_config()
                 assert result is not None
                 facade_mock.configure.assert_called_once()
 
     def test_initialize_config_existing_config(self) -> None:
         """Test initialize_config when config file exists."""
-        with patch.object(BackupFacade, "__init__", return_value=None), patch.object(
-            os.path, "exists", return_value=True
-        ), patch("autotarcompress.logger.setup_application_logging"):
+        with (
+            patch.object(BackupFacade, "__init__", return_value=None),
+            patch.object(os.path, "exists", return_value=True),
+            patch("autotarcompress.logger.setup_application_logging"),
+        ):
             facade_mock = MagicMock()
             facade_mock.config = MagicMock()
             facade_mock.config.config_path = "/fake/path"
-            facade_mock.config.get_log_level.return_value = 20  # INFO level integer
+            facade_mock.config.get_log_level.return_value = (
+                20  # INFO level integer
+            )
             loaded_config_mock = MagicMock()
             loaded_config_mock.get_log_level.return_value = 20
             facade_mock.config.load.return_value = loaded_config_mock
 
-            with patch.object(BackupFacade, "__new__", return_value=facade_mock):
+            with patch.object(
+                BackupFacade, "__new__", return_value=facade_mock
+            ):
                 result = initialize_config()
                 assert result is not None
                 # Just check that the result is the facade, not internal behavior
@@ -71,22 +82,34 @@ class TestMainModule:
 
     def test_get_backup_files(self) -> None:
         """Test get_backup_files returns correct file list."""
-        test_files = ["backup1.tar.xz", "backup2.tar.xz", "backup3.enc", "other.txt"]
+        test_files = [
+            "backup1.tar.xz",
+            "backup2.tar.xz",
+            "backup3.enc",
+            "other.txt",
+        ]
         expected_files = ["backup1.tar.xz", "backup2.tar.xz"]
 
-        with patch("os.listdir", return_value=test_files), patch(
-            "os.path.expanduser", return_value="/expanded/path"
+        with (
+            patch("os.listdir", return_value=test_files),
+            patch("os.path.expanduser", return_value="/expanded/path"),
         ):
             result = get_backup_files("/test/path")
             assert result == expected_files
 
     def test_get_encrypted_files(self) -> None:
         """Test get_encrypted_files returns correct file list."""
-        test_files = ["backup1.tar.xz", "backup2.enc", "backup3.enc", "other.txt"]
+        test_files = [
+            "backup1.tar.xz",
+            "backup2.enc",
+            "backup3.enc",
+            "other.txt",
+        ]
         expected_files = ["backup2.enc", "backup3.enc"]
 
-        with patch("os.listdir", return_value=test_files), patch(
-            "os.path.expanduser", return_value="/expanded/path"
+        with (
+            patch("os.listdir", return_value=test_files),
+            patch("os.path.expanduser", return_value="/expanded/path"),
         ):
             result = get_encrypted_files("/test/path")
             assert result == expected_files
@@ -96,21 +119,25 @@ class TestMainModule:
         facade_mock = MagicMock()
         facade_mock.config.backup_folder = "/test/folder"
 
-        with patch("autotarcompress.runner.get_backup_files", return_value=[]), patch(
-            "builtins.print"
-        ) as mock_print:
+        with (
+            patch("autotarcompress.runner.get_backup_files", return_value=[]),
+            patch("builtins.print") as mock_print,
+        ):
             result = handle_encrypt_operation(facade_mock)
             assert result is None
-            mock_print.assert_called_with("No backup files available for encryption")
+            mock_print.assert_called_with(
+                "No backup files available for encryption"
+            )
 
     def test_handle_extract_operation_no_files(self) -> None:
         """Test handle_extract_operation when no backup files are available."""
         facade_mock = MagicMock()
         facade_mock.config.backup_folder = "/test/folder"
 
-        with patch("autotarcompress.runner.get_backup_files", return_value=[]), patch(
-            "builtins.print"
-        ) as mock_print:
+        with (
+            patch("autotarcompress.runner.get_backup_files", return_value=[]),
+            patch("builtins.print") as mock_print,
+        ):
             result = handle_extract_operation(facade_mock)
             assert result is None
             mock_print.assert_called_with("No backup files found")
@@ -130,6 +157,7 @@ class TestCLICommands:
         self.runner = CliRunner()
         self.test_config = BackupConfig()
         self.test_config.backup_folder = "/tmp/test_backups"
+        self.test_config.config_dir = tempfile.mkdtemp()
 
     def test_cli_help(self) -> None:
         """Test CLI help command."""
@@ -163,15 +191,21 @@ class TestCLICommands:
         with patch("autotarcompress.runner.initialize_config"):
             result = self.runner.invoke(app, ["encrypt"])
             assert result.exit_code == 1
-            assert "Must specify one of --latest, --date, or file argument" in result.stdout
+            assert (
+                "Must specify one of --latest, --date, or file argument"
+                in result.stdout
+            )
 
     def test_encrypt_multiple_options_error(self) -> None:
         """Test encrypt command with multiple options shows error."""
         with patch("autotarcompress.runner.initialize_config"):
-            result = self.runner.invoke(app, ["encrypt", "--latest", "--date", "01-01-2023"])
+            result = self.runner.invoke(
+                app, ["encrypt", "--latest", "--date", "01-01-2023"]
+            )
             assert result.exit_code == 1
             assert (
-                "Only one of --latest, --date, or file argument can be specified" in result.stdout
+                "Only one of --latest, --date, or file argument can be specified"
+                in result.stdout
             )
 
     def test_decrypt_no_options_error(self) -> None:
@@ -179,21 +213,32 @@ class TestCLICommands:
         with patch("autotarcompress.runner.initialize_config"):
             result = self.runner.invoke(app, ["decrypt"])
             assert result.exit_code == 1
-            assert "Must specify one of --latest, --date, or file argument" in result.stdout
+            assert (
+                "Must specify one of --latest, --date, or file argument"
+                in result.stdout
+            )
 
     def test_extract_no_options_error(self) -> None:
         """Test extract command without any options shows error."""
         with patch("autotarcompress.runner.initialize_config"):
             result = self.runner.invoke(app, ["extract"])
             assert result.exit_code == 1
-            assert "Must specify one of --latest, --date, or file argument" in result.stdout
+            assert (
+                "Must specify one of --latest, --date, or file argument"
+                in result.stdout
+            )
 
     def test_cleanup_multiple_options_error(self) -> None:
         """Test cleanup command with multiple options shows error."""
         with patch("autotarcompress.runner.initialize_config"):
-            result = self.runner.invoke(app, ["cleanup", "--all", "--keep", "5"])
+            result = self.runner.invoke(
+                app, ["cleanup", "--all", "--keep", "5"]
+            )
             assert result.exit_code == 1
-            assert "Only one of --all, --older-than, or --keep can be specified" in result.stdout
+            assert (
+                "Only one of --all, --older-than, or --keep can be specified"
+                in result.stdout
+            )
 
     @patch("autotarcompress.runner.initialize_config")
     def test_backup_command_success(self, mock_init_config: MagicMock) -> None:
@@ -228,7 +273,9 @@ class TestCLICommands:
         mock_facade.execute_command.assert_called_once_with("info")
 
     @patch("autotarcompress.runner.initialize_config")
-    def test_cleanup_command_success(self, mock_init_config: MagicMock) -> None:
+    def test_cleanup_command_success(
+        self, mock_init_config: MagicMock
+    ) -> None:
         """Test successful cleanup command execution."""
         mock_facade = MagicMock()
         mock_facade.execute_command.return_value = True
@@ -236,10 +283,14 @@ class TestCLICommands:
 
         result = self.runner.invoke(app, ["cleanup"])
         assert result.exit_code == 0
-        mock_facade.execute_command.assert_called_once_with("cleanup", cleanup_all=False)
+        mock_facade.execute_command.assert_called_once_with(
+            "cleanup", cleanup_all=False
+        )
 
     @patch("autotarcompress.runner.initialize_config")
-    def test_cleanup_command_all_success(self, mock_init_config: MagicMock) -> None:
+    def test_cleanup_command_all_success(
+        self, mock_init_config: MagicMock
+    ) -> None:
         """Test successful cleanup --all command execution."""
         mock_facade = MagicMock()
         mock_facade.execute_command.return_value = True
@@ -247,7 +298,9 @@ class TestCLICommands:
 
         result = self.runner.invoke(app, ["cleanup", "--all"])
         assert result.exit_code == 0
-        mock_facade.execute_command.assert_called_once_with("cleanup", cleanup_all=True)
+        mock_facade.execute_command.assert_called_once_with(
+            "cleanup", cleanup_all=True
+        )
 
     @patch("autotarcompress.runner.run_main_loop")
     @patch("autotarcompress.runner.initialize_config")
@@ -279,7 +332,10 @@ class TestUtilityFunctions:
 
     def test_find_file_by_date_not_found(self) -> None:
         """Test find_file_by_date when file doesn't exist."""
-        files = ["backup_01-01-2023_10-30-45.tar.xz", "backup_03-01-2023_14-20-15.tar.xz"]
+        files = [
+            "backup_01-01-2023_10-30-45.tar.xz",
+            "backup_03-01-2023_14-20-15.tar.xz",
+        ]
 
         with patch("typer.echo") as mock_echo:
             result = find_file_by_date(files, "02-01-2023")
@@ -304,7 +360,9 @@ class TestUtilityFunctions:
         with patch("typer.echo") as mock_echo:
             result = find_file_by_date(files, "01-01")
             assert result is None
-            mock_echo.assert_called_once_with("Error: Invalid date format '01-01'. Use dd-mm-yyyy")
+            mock_echo.assert_called_once_with(
+                "Error: Invalid date format '01-01'. Use dd-mm-yyyy"
+            )
 
 
 class TestMainFunctionality:
@@ -312,15 +370,18 @@ class TestMainFunctionality:
 
     def test_initialize_config_no_existing_config(self) -> None:
         """Test initialize_config when no config file exists."""
-        with patch("os.path.exists", return_value=False), patch(
-            "autotarcompress.logger.setup_basic_logging"
-        ), patch("autotarcompress.logger.setup_application_logging"), patch(
-            "autotarcompress.runner.BackupFacade"
-        ) as mock_facade_class:
+        with (
+            patch("os.path.exists", return_value=False),
+            patch("autotarcompress.logger.setup_basic_logging"),
+            patch("autotarcompress.logger.setup_application_logging"),
+            patch("autotarcompress.runner.BackupFacade") as mock_facade_class,
+        ):
             mock_facade = MagicMock()
             mock_facade.config.config_path = "/fake/path"
             mock_facade.config.get_log_level.return_value = 20  # INFO level
-            mock_facade.configure = MagicMock()  # Mock configure to prevent user input
+            mock_facade.configure = (
+                MagicMock()
+            )  # Mock configure to prevent user input
             mock_facade_class.return_value = mock_facade
 
             result = initialize_config()
@@ -330,8 +391,9 @@ class TestMainFunctionality:
 
     def test_initialize_config_existing_config(self) -> None:
         """Test initialize_config when config file exists."""
-        with patch("os.path.exists", return_value=True), patch(
-            "autotarcompress.logger.setup_application_logging"
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("autotarcompress.logger.setup_application_logging"),
         ):
             mock_facade = MagicMock()
             mock_config = MagicMock()
@@ -342,7 +404,9 @@ class TestMainFunctionality:
             mock_config.load.return_value = mock_loaded_config
             mock_loaded_config.get_log_level.return_value = 30  # WARNING level
 
-            with patch("autotarcompress.facade.BackupFacade", return_value=mock_facade):
+            with patch(
+                "autotarcompress.facade.BackupFacade", return_value=mock_facade
+            ):
                 result = initialize_config()
 
                 # Just check it returns something without error
@@ -381,5 +445,9 @@ class TestMainFunctionality:
                 Path(temp_dir, file).touch()
 
             result = get_encrypted_files(temp_dir)
-            expected = ["backup1.tar.xz.enc", "backup2.tar.xz.enc", "other.enc"]
+            expected = [
+                "backup1.tar.xz.enc",
+                "backup2.tar.xz.enc",
+                "other.enc",
+            ]
             assert sorted(result) == sorted(expected)

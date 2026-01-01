@@ -192,6 +192,7 @@ class TestBackupCommandIgnorePatterns:
         """Create BackupConfig with common ignore patterns."""
         config = BackupConfig()
         config.backup_folder = str(tmp_path / "backups")
+        config.config_dir = str(tmp_path / "config")
         config.dirs_to_backup = [str(tmp_path / "source")]
         config.ignore_list = [
             ".stversions",
@@ -209,6 +210,7 @@ class TestBackupCommandIgnorePatterns:
         ]
 
         Path(config.backup_folder).mkdir(parents=True, exist_ok=True)
+        (tmp_path / "config").mkdir(parents=True, exist_ok=True)
         (tmp_path / "source").mkdir(parents=True, exist_ok=True)
 
         return config
@@ -219,9 +221,7 @@ class TestBackupCommandIgnorePatterns:
         """Test tar command includes --exclude flags for patterns."""
         command = BackupCommand(backup_config)
 
-        with patch.object(
-            command, "_calculate_total_size", return_value=1024
-        ):
+        with patch.object(command, "_calculate_total_size", return_value=1024):
             tar_cmd = command._build_tar_command(1024)
 
             for pattern in backup_config.ignore_list:
@@ -236,9 +236,7 @@ class TestBackupCommandIgnorePatterns:
         backup_config.ignore_list.append("test dir with spaces")
         command = BackupCommand(backup_config)
 
-        with patch.object(
-            command, "_calculate_total_size", return_value=1024
-        ):
+        with patch.object(command, "_calculate_total_size", return_value=1024):
             tar_cmd = command._build_tar_command(1024)
 
             assert (
@@ -246,15 +244,11 @@ class TestBackupCommandIgnorePatterns:
                 or '--exclude="test dir with spaces"' in tar_cmd
             )
 
-    def test_tar_command_structure(
-        self, backup_config: BackupConfig
-    ) -> None:
+    def test_tar_command_structure(self, backup_config: BackupConfig) -> None:
         """Test tar command has correct structure."""
         command = BackupCommand(backup_config)
 
-        with patch.object(
-            command, "_calculate_total_size", return_value=1024
-        ):
+        with patch.object(command, "_calculate_total_size", return_value=1024):
             tar_cmd = command._build_tar_command(1024)
 
             assert tar_cmd.startswith("tar -chf -")
@@ -278,9 +272,9 @@ class TestIntegrationBackupWithIgnores:
             parents=True
         )
         (source_dir / "project1" / "src").mkdir(parents=True)
-        (
-            source_dir / "project2" / ".venv" / "lib" / "python3.12"
-        ).mkdir(parents=True)
+        (source_dir / "project2" / ".venv" / "lib" / "python3.12").mkdir(
+            parents=True
+        )
         (source_dir / "project2" / "app").mkdir(parents=True)
         (source_dir / "project3" / "__pycache__").mkdir(parents=True)
         (source_dir / ".stversions").mkdir(parents=True)
@@ -303,14 +297,9 @@ class TestIntegrationBackupWithIgnores:
             / "python3.12"
             / "site.py"
         ).write_text("# Venv\n" * 500)
-        (source_dir / "project3" / "script.py").write_text(
-            "# Script\n" * 50
-        )
+        (source_dir / "project3" / "script.py").write_text("# Script\n" * 50)
         (
-            source_dir
-            / "project3"
-            / "__pycache__"
-            / "script.cpython-312.pyc"
+            source_dir / "project3" / "__pycache__" / "script.cpython-312.pyc"
         ).write_text("binary" * 200)
         (source_dir / ".stversions" / "old_version.txt").write_text(
             "old data\n" * 500
@@ -364,7 +353,10 @@ class TestIntegrationBackupWithIgnores:
         mock_subprocess.return_value = Mock(returncode=0)
 
         command = BackupCommand(config)
-        result = command.execute()
+
+        # Mock _save_backup_info to prevent writing metadata with temp paths
+        with patch.object(command, "_save_backup_info"):
+            result = command.execute()
 
         assert result is True
         assert mock_subprocess.called
@@ -397,9 +389,7 @@ class TestIntegrationBackupWithIgnores:
 
         assert total_size == 1000
 
-    def test_multiple_patterns_same_directory(
-        self, tmp_path: Path
-    ) -> None:
+    def test_multiple_patterns_same_directory(self, tmp_path: Path) -> None:
         """Test directory matching multiple patterns is excluded."""
         multi_match = tmp_path / "project" / "__pycache__"
         multi_match.mkdir(parents=True)

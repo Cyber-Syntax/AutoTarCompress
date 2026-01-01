@@ -10,7 +10,9 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 
 from autotarcompress.commands import (
     BackupCommand,
@@ -24,12 +26,16 @@ from autotarcompress.config import BackupConfig
 class TestBackupCommand:
     """Test BackupCommand functionality."""
 
-    def test_backup_command_initialization(self, test_config: BackupConfig) -> None:
+    def test_backup_command_initialization(
+        self, test_config: BackupConfig
+    ) -> None:
         """Test that BackupCommand initializes correctly."""
         command = BackupCommand(test_config)
         assert command.config == test_config
 
-    def test_backup_command_no_directories(self, test_config: BackupConfig) -> None:
+    def test_backup_command_no_directories(
+        self, test_config: BackupConfig
+    ) -> None:
         """Test backup command fails when no directories are configured."""
         test_config.dirs_to_backup = []
         command = BackupCommand(test_config)
@@ -37,7 +43,9 @@ class TestBackupCommand:
         result = command.execute()
         assert result is False
 
-    def test_calculate_total_size(self, test_config: BackupConfig, test_data_dir: str) -> None:
+    def test_calculate_total_size(
+        self, test_config: BackupConfig, test_data_dir: str
+    ) -> None:
         """Test that backup command calculates total size correctly."""
         test_config.dirs_to_backup = [test_data_dir]
         command = BackupCommand(test_config)
@@ -64,7 +72,10 @@ class TestBackupCommand:
     @patch("autotarcompress.commands.backup.subprocess.run")
     @patch("autotarcompress.commands.backup.os.path.exists")
     def test_backup_success_saves_info(
-        self, mock_exists: MagicMock, mock_subprocess: MagicMock, test_config: BackupConfig
+        self,
+        mock_exists: MagicMock,
+        mock_subprocess: MagicMock,
+        test_config: BackupConfig,
     ) -> None:
         """Test that backup command saves info when backup succeeds."""
         # Setup mocks
@@ -77,8 +88,9 @@ class TestBackupCommand:
         for dir_path in test_config.dirs_to_backup:
             os.makedirs(dir_path, exist_ok=True)
 
-        with patch.object(command, "_save_backup_info") as mock_save_info, patch.object(
-            command, "_calculate_total_size", return_value=1000
+        with (
+            patch.object(command, "_save_backup_info") as mock_save_info,
+            patch.object(command, "_calculate_total_size", return_value=1000),
         ):
             result = command.execute()
 
@@ -88,12 +100,17 @@ class TestBackupCommand:
     @patch("autotarcompress.commands.backup.subprocess.run")
     @patch("autotarcompress.commands.backup.os.path.exists")
     def test_backup_failure_no_info_saved(
-        self, mock_exists: MagicMock, mock_subprocess: MagicMock, test_config: BackupConfig
+        self,
+        mock_exists: MagicMock,
+        mock_subprocess: MagicMock,
+        test_config: BackupConfig,
     ) -> None:
         """Test that backup command doesn't save info when backup fails."""
         # Setup mocks
         mock_exists.return_value = False  # Backup file doesn't exist
-        mock_subprocess.side_effect = subprocess.CalledProcessError(1, "backup failed")
+        mock_subprocess.side_effect = subprocess.CalledProcessError(
+            1, "backup failed"
+        )
 
         command = BackupCommand(test_config)
 
@@ -101,8 +118,9 @@ class TestBackupCommand:
         for dir_path in test_config.dirs_to_backup:
             os.makedirs(dir_path, exist_ok=True)
 
-        with patch.object(command, "_save_backup_info") as mock_save_info, patch.object(
-            command, "_calculate_total_size", return_value=1000
+        with (
+            patch.object(command, "_save_backup_info") as mock_save_info,
+            patch.object(command, "_calculate_total_size", return_value=1000),
         ):
             result = command.execute()
 
@@ -113,12 +131,16 @@ class TestBackupCommand:
 class TestInfoCommand:
     """Test InfoCommand functionality."""
 
-    def test_info_command_initialization(self, test_config: BackupConfig) -> None:
+    def test_info_command_initialization(
+        self, test_config: BackupConfig
+    ) -> None:
         """Test that InfoCommand initializes correctly."""
         command = InfoCommand(test_config)
         assert command.config == test_config
 
-    def test_info_command_no_backup_info(self, test_config: BackupConfig, capsys) -> None:
+    def test_info_command_no_backup_info(
+        self, test_config: BackupConfig, capsys
+    ) -> None:
         """Test InfoCommand when no backup info file exists."""
         command = InfoCommand(test_config)
         command.execute()
@@ -138,10 +160,12 @@ class TestInfoCommand:
     ) -> None:
         """Test that InfoCommand displays backup information correctly."""
         # Update mock_backup_info to use temp directory paths
-        mock_backup_info["backup_path"] = os.path.join(temp_dir, "backups", "13-09-2025.tar.xz")
+        mock_backup_info["backup_path"] = os.path.join(
+            temp_dir, "backups", "13-09-2025.tar.xz"
+        )
 
         # Create the info file
-        info_file_path = Path(test_config.backup_folder) / "last-backup-info.json"
+        info_file_path = Path(test_config.config_dir) / "metadata.json"
         import json
 
         with open(info_file_path, "w", encoding="utf-8") as f:
@@ -167,11 +191,14 @@ class TestInfoCommand:
         assert "✓ Backup file exists" in output
 
     def test_info_command_missing_backup_file(
-        self, test_config: BackupConfig, mock_backup_info: dict[str, str | int | list[str]], capsys
+        self,
+        test_config: BackupConfig,
+        mock_backup_info: dict[str, str | int | list[str]],
+        capsys,
     ) -> None:
         """Test InfoCommand when backup file doesn't exist."""
         # Create the info file but not the actual backup file
-        info_file_path = Path(test_config.backup_folder) / "last-backup-info.json"
+        info_file_path = Path(test_config.config_dir) / "metadata.json"
         import json
 
         with open(info_file_path, "w", encoding="utf-8") as f:
@@ -185,10 +212,12 @@ class TestInfoCommand:
 
         assert "✗ Backup file not found" in output
 
-    def test_load_backup_info_corrupted_json(self, test_config: BackupConfig, caplog) -> None:
+    def test_load_backup_info_corrupted_json(
+        self, test_config: BackupConfig, caplog
+    ) -> None:
         """Test InfoCommand with corrupted JSON file."""
         # Create a corrupted info file
-        info_file_path = Path(test_config.backup_folder) / "last-backup-info.json"
+        info_file_path = Path(test_config.config_dir) / "metadata.json"
         with open(info_file_path, "w", encoding="utf-8") as f:
             f.write("{ invalid json content")
 
@@ -202,7 +231,9 @@ class TestInfoCommand:
 class TestCleanupCommand:
     """Test CleanupCommand functionality."""
 
-    def test_cleanup_command_initialization(self, test_config: BackupConfig) -> None:
+    def test_cleanup_command_initialization(
+        self, test_config: BackupConfig
+    ) -> None:
         """Test that CleanupCommand initializes correctly."""
         command = CleanupCommand(test_config)
         assert command.config == test_config
@@ -244,7 +275,9 @@ class TestCleanupCommand:
 class TestEncryptCommand:
     """Test EncryptCommand functionality."""
 
-    def test_encrypt_command_initialization(self, test_config: BackupConfig) -> None:
+    def test_encrypt_command_initialization(
+        self, test_config: BackupConfig
+    ) -> None:
         """Test that EncryptCommand initializes correctly."""
         test_file = "/path/to/test.tar.xz"
         command = EncryptCommand(test_config, test_file)
@@ -254,7 +287,10 @@ class TestEncryptCommand:
     @patch("autotarcompress.commands.encrypt.subprocess.run")
     @patch("getpass.getpass")
     def test_encrypt_command_execution(
-        self, mock_getpass: MagicMock, mock_subprocess: MagicMock, test_config: BackupConfig
+        self,
+        mock_getpass: MagicMock,
+        mock_subprocess: MagicMock,
+        test_config: BackupConfig,
     ) -> None:
         """Test that encrypt command executes correctly."""
         # Create a test backup file

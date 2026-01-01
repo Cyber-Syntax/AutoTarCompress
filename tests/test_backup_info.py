@@ -7,13 +7,17 @@ import json
 import os
 import sys
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 # Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 
 from autotarcompress.commands.backup import BackupCommand
 from autotarcompress.commands.info import InfoCommand
@@ -22,7 +26,7 @@ from autotarcompress.config import BackupConfig
 
 # Fixtures
 @pytest.fixture
-def temp_dir():
+def temp_dir() -> Generator[str, None, None]:
     """Create a temporary directory for testing that gets cleaned up afterwards."""
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
@@ -32,7 +36,7 @@ def temp_dir():
 
 
 @pytest.fixture
-def test_config(temp_dir):
+def test_config(temp_dir: str) -> BackupConfig:
     """Create a test configuration for backup manager."""
     config = BackupConfig()
     config.backup_folder = os.path.join(temp_dir, "backups")
@@ -48,7 +52,7 @@ def test_config(temp_dir):
 
 
 @pytest.fixture
-def mock_backup_info():
+def mock_backup_info() -> dict[str, Any]:
     """Create mock backup info data."""
     return {
         "backup_file": "13-09-2025.tar.xz",
@@ -56,14 +60,19 @@ def mock_backup_info():
         "backup_date": "2025-09-13T10:30:45.123456",
         "backup_size_bytes": 1073741824,  # 1 GB
         "backup_size_human": "1.00 GB",
-        "directories_backed_up": ["/home/user/Documents", "/home/user/Pictures"],
+        "directories_backed_up": [
+            "/home/user/Documents",
+            "/home/user/Pictures",
+        ],
     }
 
 
 class TestBackupInfoSaving:
     """Test backup info saving functionality in BackupCommand."""
 
-    def test_save_backup_info_success(self, test_config, temp_dir):
+    def test_save_backup_info_success(
+        self, test_config: BackupConfig, temp_dir: str
+    ) -> None:
         """Test successful saving of backup info."""
         backup_command = BackupCommand(test_config)
 
@@ -76,46 +85,58 @@ class TestBackupInfoSaving:
         fixed_datetime.isoformat.return_value = "2025-09-13T10:30:45"
         fixed_datetime.strftime.return_value = "13-09-2025"
 
-        with patch("autotarcompress.commands.backup.datetime.datetime") as mock_datetime:
+        with patch(
+            "autotarcompress.commands.backup.datetime.datetime"
+        ) as mock_datetime:
             mock_datetime.now.return_value = fixed_datetime
 
             # Also mock it for the config's current_date property
-            with patch("autotarcompress.config.datetime.datetime") as mock_config_datetime:
+            with patch(
+                "autotarcompress.config.datetime.datetime"
+            ) as mock_config_datetime:
                 mock_config_datetime.now.return_value = fixed_datetime
 
                 # Call the private method directly for testing
                 backup_command._save_backup_info(1073741824)  # 1 GB
 
         # Verify the info file was created
-        info_file_path = Path(test_config.backup_folder) / "last-backup-info.json"
+        info_file_path = Path(test_config.config_dir) / "metadata.json"
         assert info_file_path.exists()
 
         # Verify the content
         with open(info_file_path, encoding="utf-8") as f:
             saved_info = json.load(f)
 
-        expected_backup_path = Path(test_config.backup_folder) / "13-09-2025.tar.xz"
+        expected_backup_path = (
+            Path(test_config.backup_folder) / "13-09-2025.tar.xz"
+        )
 
         assert saved_info["backup_file"] == "13-09-2025.tar.xz"
         assert saved_info["backup_path"] == str(expected_backup_path)
         assert saved_info["backup_date"] == "2025-09-13T10:30:45"
         assert saved_info["backup_size_bytes"] == 1073741824
         assert saved_info["backup_size_human"] == "1.00 GB"
-        assert saved_info["directories_backed_up"] == test_config.dirs_to_backup
+        assert (
+            saved_info["directories_backed_up"] == test_config.dirs_to_backup
+        )
 
-    def test_save_backup_info_handles_errors(self, test_config, caplog):
+    def test_save_backup_info_handles_errors(
+        self, test_config: BackupConfig, caplog: Any
+    ) -> None:
         """Test that backup info saving handles errors gracefully."""
         backup_command = BackupCommand(test_config)
 
-        # Create an invalid backup folder path
-        test_config.backup_folder = "/invalid/path/that/does/not/exist"
+        # Create an invalid config dir path
+        test_config.config_dir = "/invalid/path/that/does/not/exist"
 
         # This should not raise an exception but should log an error
         backup_command._save_backup_info(1000)
 
         assert "Failed to save backup info" in caplog.text
 
-    def test_format_size_various_sizes(self, test_config):
+    def test_format_size_various_sizes(
+        self, test_config: BackupConfig
+    ) -> None:
         """Test size formatting with various byte sizes."""
         backup_command = BackupCommand(test_config)
 
@@ -133,7 +154,12 @@ class TestBackupInfoSaving:
 
     @patch("autotarcompress.commands.backup.subprocess.run")
     @patch("autotarcompress.commands.backup.os.path.exists")
-    def test_backup_command_saves_info_on_success(self, mock_exists, mock_subprocess, test_config):
+    def test_backup_command_saves_info_on_success(
+        self,
+        mock_exists: MagicMock,
+        mock_subprocess: MagicMock,
+        test_config: BackupConfig,
+    ) -> None:
         """Test that backup command saves info when backup succeeds."""
         # Setup mocks
         mock_exists.return_value = False  # Backup file doesn't exist
@@ -145,22 +171,35 @@ class TestBackupInfoSaving:
         for dir_path in test_config.dirs_to_backup:
             os.makedirs(dir_path, exist_ok=True)
 
-        with patch.object(backup_command, "_save_backup_info") as mock_save_info:
-            with patch.object(backup_command, "_calculate_total_size", return_value=1000):
-                result = backup_command.execute()
+        with (
+            patch.object(
+                backup_command, "_save_backup_info"
+            ) as mock_save_info,
+            patch.object(
+                backup_command, "_calculate_total_size", return_value=1000
+            ),
+        ):
+            result = backup_command.execute()
 
         assert result is True
         mock_save_info.assert_called_once_with(1000)
 
     @patch("autotarcompress.commands.backup.subprocess.run")
     @patch("autotarcompress.commands.backup.os.path.exists")
-    def test_backup_command_no_info_on_failure(self, mock_exists, mock_subprocess, test_config):
+    def test_backup_command_no_info_on_failure(
+        self,
+        mock_exists: MagicMock,
+        mock_subprocess: MagicMock,
+        test_config: BackupConfig,
+    ) -> None:
         """Test that backup command doesn't save info when backup fails."""
         # Setup mocks
         mock_exists.return_value = False  # Backup file doesn't exist
         from subprocess import CalledProcessError
 
-        mock_subprocess.side_effect = CalledProcessError(1, "backup failed")  # Failure
+        mock_subprocess.side_effect = CalledProcessError(
+            1, "backup failed"
+        )  # Failure
 
         backup_command = BackupCommand(test_config)
 
@@ -168,8 +207,13 @@ class TestBackupInfoSaving:
         for dir_path in test_config.dirs_to_backup:
             os.makedirs(dir_path, exist_ok=True)
 
-        with patch.object(backup_command, "_save_backup_info") as mock_save_info, patch.object(
-            backup_command, "_calculate_total_size", return_value=1000
+        with (
+            patch.object(
+                backup_command, "_save_backup_info"
+            ) as mock_save_info,
+            patch.object(
+                backup_command, "_calculate_total_size", return_value=1000
+            ),
         ):
             result = backup_command.execute()
 
@@ -180,25 +224,32 @@ class TestBackupInfoSaving:
 class TestInfoCommand:
     """Test InfoCommand functionality."""
 
-    def test_info_command_displays_existing_backup_info(self, test_config, temp_dir, capsys):
+    def test_info_command_displays_existing_backup_info(
+        self, test_config: BackupConfig, temp_dir: str, capsys: Any
+    ) -> None:
         """Test that InfoCommand displays existing backup information correctly."""
         # Create mock backup info with paths in our temp directory
         mock_backup_info = {
             "backup_file": "13-09-2025.tar.xz",
-            "backup_path": os.path.join(temp_dir, "backups", "13-09-2025.tar.xz"),
+            "backup_path": os.path.join(
+                temp_dir, "backups", "13-09-2025.tar.xz"
+            ),
             "backup_date": "2025-09-13T10:30:45.123456",
             "backup_size_bytes": 1073741824,  # 1 GB
             "backup_size_human": "1.00 GB",
-            "directories_backed_up": ["/home/user/Documents", "/home/user/Pictures"],
+            "directories_backed_up": [
+                "/home/user/Documents",
+                "/home/user/Pictures",
+            ],
         }
 
         # Create the info file
-        info_file_path = Path(test_config.backup_folder) / "last-backup-info.json"
+        info_file_path = Path(test_config.config_dir) / "metadata.json"
         with open(info_file_path, "w", encoding="utf-8") as f:
             json.dump(mock_backup_info, f)
 
         # Create the backup file to simulate it exists
-        backup_file_path = Path(mock_backup_info["backup_path"])
+        backup_file_path = Path(str(mock_backup_info["backup_path"]))
         backup_file_path.parent.mkdir(parents=True, exist_ok=True)
         backup_file_path.touch()
 
@@ -216,10 +267,15 @@ class TestInfoCommand:
         assert "/home/user/Pictures" in output
         assert "✓ Backup file exists" in output
 
-    def test_info_command_handles_missing_backup_file(self, test_config, mock_backup_info, capsys):
+    def test_info_command_handles_missing_backup_file(
+        self,
+        test_config: BackupConfig,
+        mock_backup_info: dict[str, Any],
+        capsys: Any,
+    ) -> None:
         """Test InfoCommand when backup file doesn't exist."""
         # Create the info file but not the actual backup file
-        info_file_path = Path(test_config.backup_folder) / "last-backup-info.json"
+        info_file_path = Path(test_config.config_dir) / "metadata.json"
         with open(info_file_path, "w", encoding="utf-8") as f:
             json.dump(mock_backup_info, f)
 
@@ -231,7 +287,9 @@ class TestInfoCommand:
 
         assert "✗ Backup file not found" in output
 
-    def test_info_command_handles_no_backup_info(self, test_config, capsys):
+    def test_info_command_handles_no_backup_info(
+        self, test_config: BackupConfig, capsys: Any
+    ) -> None:
         """Test InfoCommand when no backup info file exists."""
         info_command = InfoCommand(test_config)
         info_command.execute()
@@ -242,10 +300,12 @@ class TestInfoCommand:
         assert "No backup information found." in output
         assert "This usually means no backups have been created yet." in output
 
-    def test_info_command_handles_corrupted_json(self, test_config, capsys, caplog):
+    def test_info_command_handles_corrupted_json(
+        self, test_config: BackupConfig, capsys: Any, caplog: Any
+    ) -> None:
         """Test InfoCommand with corrupted JSON file."""
         # Create a corrupted info file
-        info_file_path = Path(test_config.backup_folder) / "last-backup-info.json"
+        info_file_path = Path(test_config.config_dir) / "metadata.json"
         with open(info_file_path, "w", encoding="utf-8") as f:
             f.write("{ invalid json content")
 
@@ -258,16 +318,20 @@ class TestInfoCommand:
         assert "No backup information found." in output
         assert "Error reading backup info file" in caplog.text
 
-    def test_load_backup_info_returns_none_for_missing_file(self, test_config):
+    def test_load_backup_info_returns_none_for_missing_file(
+        self, test_config: BackupConfig
+    ) -> None:
         """Test _load_backup_info returns None when file doesn't exist."""
         info_command = InfoCommand(test_config)
         result = info_command._load_backup_info()
         assert result is None
 
-    def test_load_backup_info_returns_data_for_valid_file(self, test_config, mock_backup_info):
+    def test_load_backup_info_returns_data_for_valid_file(
+        self, test_config: BackupConfig, mock_backup_info: dict[str, Any]
+    ) -> None:
         """Test _load_backup_info returns data for valid file."""
         # Create the info file
-        info_file_path = Path(test_config.backup_folder) / "last-backup-info.json"
+        info_file_path = Path(test_config.config_dir) / "metadata.json"
         with open(info_file_path, "w", encoding="utf-8") as f:
             json.dump(mock_backup_info, f)
 
@@ -278,7 +342,9 @@ class TestInfoCommand:
         assert result["backup_file"] == "13-09-2025.tar.xz"
         assert result["backup_size_bytes"] == 1073741824
 
-    def test_display_backup_info_with_empty_directories(self, test_config, capsys):
+    def test_display_backup_info_with_empty_directories(
+        self, test_config: BackupConfig, capsys: Any
+    ) -> None:
         """Test display of backup info with empty directories list."""
         backup_info = {
             "backup_file": "test.tar.xz",
@@ -300,12 +366,14 @@ class TestInfoCommand:
 class TestBackupConfigWithoutLastBackup:
     """Test that BackupConfig no longer includes last_backup field."""
 
-    def test_config_does_not_have_last_backup_field(self):
+    def test_config_does_not_have_last_backup_field(self) -> None:
         """Test that BackupConfig doesn't have last_backup field."""
         config = BackupConfig()
         assert not hasattr(config, "last_backup")
 
-    def test_config_save_does_not_include_last_backup(self, test_config, temp_dir):
+    def test_config_save_does_not_include_last_backup(
+        self, test_config: BackupConfig, temp_dir: str
+    ) -> None:
         """Test that saving config doesn't include last_backup."""
         import configparser
 
@@ -320,7 +388,9 @@ class TestBackupConfigWithoutLastBackup:
         assert "backup_folder" in section
         assert "dirs_to_backup" in section
 
-    def test_config_load_handles_old_config_with_last_backup(self, temp_dir):
+    def test_config_load_handles_old_config_with_last_backup(
+        self, temp_dir: str
+    ) -> None:
         """Test that loading old config with last_backup field still works (INI ignores unknowns)."""
         import configparser
 
