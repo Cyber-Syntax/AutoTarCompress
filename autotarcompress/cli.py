@@ -11,7 +11,7 @@ from typing import Optional
 import typer
 from typing_extensions import Annotated
 
-from autotarcompress import runner
+from autotarcompress import __version__, runner
 from autotarcompress.commands import (
     DecryptCommand,
     EncryptCommand,
@@ -25,6 +25,52 @@ app = typer.Typer(
     help="AutoTarCompress - A robust backup and archive management tool",
     add_completion=False,
 )
+
+
+def get_version() -> str:
+    """Return the application version."""
+    return __version__
+
+
+def _version_callback(ctx: typer.Context, _param, value: bool) -> None:
+    """Typer callback to handle the global --version option.
+
+    This callback is invoked eagerly. When the flag is present we print
+    the version and exit immediately.
+    """
+    if not value or ctx.resilient_parsing:
+        return
+    typer.echo(get_version())
+    raise typer.Exit()
+
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    _show_version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            "-V",
+            is_eager=True,
+            callback=_version_callback,
+            help="Show the application version",
+        ),
+    ] = False,
+) -> None:
+    """Allow a global --version option.
+
+    When invoked with the `--version` flag the callback prints the
+    version and exits. When run without subcommands it is a no-op.
+    """
+    if ctx.invoked_subcommand is None:
+        return
+
+
+@app.command(name="version")
+def version_cmd() -> None:
+    """Print the installed package version."""
+    typer.echo(get_version())
 
 
 @app.command()
@@ -61,10 +107,15 @@ def encrypt(
     # Validate mutually exclusive options
     options_count = sum([latest, date is not None, file is not None])
     if options_count > 1:
-        typer.echo("Error: Only one of --latest, --date, or file argument can be specified")
+        typer.echo(
+            "Error: Only one of --latest, --date, or file argument "
+            "can be specified"
+        )
         raise typer.Exit(1)
     if options_count == 0:
-        typer.echo("Error: Must specify one of --latest, --date, or file argument")
+        typer.echo(
+            "Error: Must specify one of --latest, --date, or file argument"
+        )
         raise typer.Exit(1)
 
     facade: BackupFacade = runner.initialize_config()
@@ -100,10 +151,15 @@ def decrypt(
     # Validate mutually exclusive options
     options_count = sum([latest, date is not None, file is not None])
     if options_count > 1:
-        typer.echo("Error: Only one of --latest, --date, or file argument can be specified")
+        typer.echo(
+            "Error: Only one of --latest, --date, or file argument "
+            "can be specified"
+        )
         raise typer.Exit(1)
     if options_count == 0:
-        typer.echo("Error: Must specify one of --latest, --date, or file argument")
+        typer.echo(
+            "Error: Must specify one of --latest, --date, or file argument"
+        )
         raise typer.Exit(1)
 
     facade: BackupFacade = runner.initialize_config()
@@ -136,10 +192,15 @@ def extract(
     # Validate mutually exclusive options
     options_count = sum([latest, date is not None, file is not None])
     if options_count > 1:
-        typer.echo("Error: Only one of --latest, --date, or file argument can be specified")
+        typer.echo(
+            "Error: Only one of --latest, --date, or file argument "
+            "can be specified"
+        )
         raise typer.Exit(1)
     if options_count == 0:
-        typer.echo("Error: Must specify one of --latest, --date, or file argument")
+        typer.echo(
+            "Error: Must specify one of --latest, --date, or file argument"
+        )
         raise typer.Exit(1)
 
     facade: BackupFacade = runner.initialize_config()
@@ -181,7 +242,10 @@ def cleanup(
         ]
     )
     if options_count > 1:
-        typer.echo("Error: Only one of --all, --older-than, or --keep can be specified")
+        typer.echo(
+            "Error: Only one of --all, --older-than, or --keep "
+            "can be specified"
+        )
         raise typer.Exit(1)
 
     facade: BackupFacade = runner.initialize_config()
@@ -221,7 +285,9 @@ def handle_encrypt_operation_cli(
     file: Optional[str],
 ) -> None:
     """Handle backup file encryption operation for CLI."""
-    backup_files: list[str] = runner.get_backup_files(facade.config.backup_folder)
+    backup_files: list[str] = runner.get_backup_files(
+        facade.config.backup_folder
+    )
     if not backup_files:
         typer.echo("No backup files available for encryption")
         raise typer.Exit(1)
@@ -264,7 +330,9 @@ def handle_decrypt_operation_cli(
     file: Optional[str],
 ) -> None:
     """Handle backup file decryption operation for CLI."""
-    enc_files: list[str] = runner.get_encrypted_files(facade.config.backup_folder)
+    enc_files: list[str] = runner.get_encrypted_files(
+        facade.config.backup_folder
+    )
     if not enc_files:
         typer.echo("No encrypted backups found")
         raise typer.Exit(1)
@@ -307,7 +375,9 @@ def handle_extract_operation_cli(
     file: Optional[str],
 ) -> None:
     """Handle backup file extraction operation for CLI."""
-    backup_files: list[str] = runner.get_backup_files(facade.config.backup_folder)
+    backup_files: list[str] = runner.get_backup_files(
+        facade.config.backup_folder
+    )
     if not backup_files:
         typer.echo("No backup files found")
         raise typer.Exit(1)
