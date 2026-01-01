@@ -11,17 +11,17 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
-def get_xdg_state_home() -> Path:
-    """Return the XDG state home directory path.
+def get_xdg_config_home() -> Path:
+    """Return the XDG config home directory path.
 
     Returns:
-        Path: XDG state home directory or fallback to ~/.local/state
+        Path: XDG config home directory or fallback to ~/.config
 
     """
-    xdg_state_home: str | None = os.getenv("XDG_STATE_HOME")
-    if not xdg_state_home or not Path(xdg_state_home).is_absolute():
-        return Path.home() / ".local" / "state"
-    return Path(xdg_state_home)
+    xdg_config_home: str | None = os.getenv("XDG_CONFIG_HOME")
+    if not xdg_config_home or not Path(xdg_config_home).is_absolute():
+        return Path.home() / ".config"
+    return Path(xdg_config_home)
 
 
 def setup_application_logging(log_level: int = logging.INFO) -> None:
@@ -35,8 +35,8 @@ def setup_application_logging(log_level: int = logging.INFO) -> None:
 
     """
     # Create log directory
-    log_dir_base: Path = get_xdg_state_home()
-    log_dir: Path = log_dir_base / "autotarcompress"
+    config_home: Path = get_xdg_config_home()
+    log_dir: Path = config_home / "autotarcompress" / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # Configure file handler with rotation
@@ -46,7 +46,9 @@ def setup_application_logging(log_level: int = logging.INFO) -> None:
         maxBytes=1024 * 1024,  # 1MB
         backupCount=3,
     )
-    file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+    file_formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    )
     file_handler.setFormatter(file_formatter)
     file_handler.setLevel(log_level)
 
@@ -69,7 +71,8 @@ def setup_application_logging(log_level: int = logging.INFO) -> None:
     logger.addHandler(console_handler)
 
     level_name = logging.getLevelName(log_level)
-    logging.info("Logging configured with %s level", level_name)
+    logger = logging.getLogger(__name__)
+    logger.info("Logging configured with %s level", level_name)
 
 
 def setup_basic_logging() -> None:
