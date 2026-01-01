@@ -34,7 +34,10 @@ class TestBackupCommand:
         """Create a mock BackupConfig for testing."""
         config = BackupConfig()
         config.backup_folder = str(tmp_path / "backups")
-        config.dirs_to_backup = [str(tmp_path / "source1"), str(tmp_path / "source2")]
+        config.dirs_to_backup = [
+            str(tmp_path / "source1"),
+            str(tmp_path / "source2"),
+        ]
         config.ignore_list = [".git", "*.pyc", "__pycache__"]
 
         # Create necessary directories
@@ -49,7 +52,9 @@ class TestBackupCommand:
         """Create a BackupCommand instance for testing."""
         return BackupCommand(mock_config)
 
-    def test_backup_command_initialization(self, mock_config: BackupConfig) -> None:
+    def test_backup_command_initialization(
+        self, mock_config: BackupConfig
+    ) -> None:
         """Test BackupCommand initialization."""
         command = BackupCommand(mock_config)
 
@@ -57,7 +62,9 @@ class TestBackupCommand:
         assert isinstance(command.logger, logging.Logger)
         assert command.logger.name == "autotarcompress.commands.backup"
 
-    def test_execute_no_directories_configured(self, backup_command: BackupCommand) -> None:
+    def test_execute_no_directories_configured(
+        self, backup_command: BackupCommand
+    ) -> None:
         """Test execute fails when no directories are configured for backup."""
         backup_command.config.dirs_to_backup = []
 
@@ -138,7 +145,9 @@ class TestBackupCommand:
             result = backup_command.execute()
 
             assert result is True
-            mock_remove.assert_called_once_with(backup_command.config.backup_path)
+            mock_remove.assert_called_once_with(
+                backup_command.config.backup_path
+            )
 
     @patch("autotarcompress.commands.backup.SizeCalculator")
     @patch("subprocess.run")
@@ -163,7 +172,9 @@ class TestBackupCommand:
 
     def test_calculate_total_size(self, backup_command: BackupCommand) -> None:
         """Test _calculate_total_size method."""
-        with patch("autotarcompress.commands.backup.SizeCalculator") as mock_size_calc:
+        with patch(
+            "autotarcompress.commands.backup.SizeCalculator"
+        ) as mock_size_calc:
             mock_calc_instance = Mock()
             mock_calc_instance.calculate_total_size.return_value = TWO_GB
             mock_size_calc.return_value = mock_calc_instance
@@ -172,7 +183,8 @@ class TestBackupCommand:
 
             assert total_size == TWO_GB
             mock_size_calc.assert_called_once_with(
-                backup_command.config.dirs_to_backup, backup_command.config.ignore_list
+                backup_command.config.dirs_to_backup,
+                backup_command.config.ignore_list,
             )
 
     @patch("os.cpu_count")
@@ -203,7 +215,9 @@ class TestBackupCommand:
         backup_command: BackupCommand,
     ) -> None:
         """Test successful saving of backup information."""
-        mock_datetime.now().isoformat.return_value = "2025-09-13T10:30:45.123456"
+        mock_datetime.now().isoformat.return_value = (
+            "2025-09-13T10:30:45.123456"
+        )
 
         backup_command._save_backup_info(ONE_GB)
 
@@ -222,7 +236,10 @@ class TestBackupCommand:
 
     @patch("builtins.open", side_effect=OSError("Permission denied"))
     def test_save_backup_info_error(
-        self, mock_file_open: Mock, backup_command: BackupCommand, caplog: pytest.LogCaptureFixture
+        self,
+        mock_file_open: Mock,
+        backup_command: BackupCommand,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test error handling in _save_backup_info method."""
         with caplog.at_level(logging.ERROR):
@@ -239,7 +256,9 @@ class TestBackupCommand:
 
         # Should always return a string with size and unit
         assert isinstance(result, str)
-        assert any(unit in result for unit in ["B", "KB", "MB", "GB", "TB", "PB"])
+        assert any(
+            unit in result for unit in ["B", "KB", "MB", "GB", "TB", "PB"]
+        )
 
         # Should be properly formatted (decimal number + space + unit)
         parts = result.split()
@@ -265,28 +284,43 @@ class TestBackupCommand:
         result = backup_command._format_size(size_bytes)
         assert result == expected
 
-    @patch("sys.stdout")
-    @patch("time.sleep")
-    def test_show_spinner(
-        self, mock_sleep: Mock, mock_stdout: Mock, backup_command: BackupCommand
+    @patch("autotarcompress.commands.backup.is_pv_available")
+    def test_build_tar_command_with_pv(
+        self, mock_pv_available: Mock, backup_command: BackupCommand
     ) -> None:
-        """Test _show_spinner method with mocked process."""
-        mock_process = Mock()
-        mock_process.poll.side_effect = [None, None, 0]  # Running, then finished
+        """Test _build_tar_command includes pv when available."""
+        mock_pv_available.return_value = True
+        total_size = 1000000
+        cmd = backup_command._build_tar_command(total_size)
 
-        backup_command._show_spinner(mock_process)
+        assert "pv -s 1000000" in cmd
+        assert "tar -chf -" in cmd
+        assert "xz --threads=" in cmd
 
-        # At least 2 iterations * 2 writes each
-        assert mock_stdout.write.call_count >= MIN_SPINNER_WRITES
-        assert mock_sleep.call_count >= MIN_SPINNER_CALLS
+    @patch("autotarcompress.commands.backup.is_pv_available")
+    def test_build_tar_command_without_pv(
+        self, mock_pv_available: Mock, backup_command: BackupCommand
+    ) -> None:
+        """Test _build_tar_command works without pv."""
+        mock_pv_available.return_value = False
+        total_size = 1000000
+        cmd = backup_command._build_tar_command(total_size)
 
-    def test_backup_command_with_symlinks(self, backup_command: BackupCommand) -> None:
+        assert "pv" not in cmd
+        assert "tar -chf -" in cmd
+        assert "xz --threads=" in cmd
+
+    def test_backup_command_with_symlinks(
+        self, backup_command: BackupCommand
+    ) -> None:
         """Test that backup command properly handles symlinks."""
         # This test verifies the 'h' option is used in tar command
         with (
             patch("subprocess.run") as mock_subprocess,
             patch("os.path.exists", return_value=False),
-            patch("autotarcompress.commands.backup.SizeCalculator") as mock_calc,
+            patch(
+                "autotarcompress.commands.backup.SizeCalculator"
+            ) as mock_calc,
         ):
             mock_calc_instance = Mock()
             mock_calc_instance.calculate_total_size.return_value = ONE_KB
@@ -297,7 +331,9 @@ class TestBackupCommand:
             call_args = mock_subprocess.call_args[0][0]
             assert "-chf" in call_args  # h option for following symlinks
 
-    def test_exclude_options_generation(self, backup_command: BackupCommand) -> None:
+    def test_exclude_options_generation(
+        self, backup_command: BackupCommand
+    ) -> None:
         """Test that exclude options are properly generated."""
         with (
             patch("subprocess.run") as mock_subprocess,
@@ -306,5 +342,10 @@ class TestBackupCommand:
             backup_command._run_backup_process(ONE_KB)
 
             call_args = mock_subprocess.call_args[0][0]
+            # Patterns are now quoted for shell safety
             for ignore_item in backup_command.config.ignore_list:
-                assert f"--exclude={ignore_item}" in call_args
+                # Check pattern is in the command, allowing for quoting
+                assert (
+                    f"--exclude={ignore_item}" in call_args
+                    or f"--exclude='{ignore_item}'" in call_args
+                )
