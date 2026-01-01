@@ -7,7 +7,7 @@ the last backup operation.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
@@ -33,7 +33,7 @@ class InfoCommand(Command):
             bool: True if info displayed, False otherwise.
 
         """
-        backup_info: Optional[dict[str, Any]] = self._load_backup_info()
+        backup_info: dict[str, Any] | None = self._load_backup_info()
         if backup_info:
             self._display_backup_info(backup_info)
             return True
@@ -41,7 +41,7 @@ class InfoCommand(Command):
         print("This usually means no backups have been created yet.")
         return False
 
-    def _load_backup_info(self) -> Optional[dict[str, Any]]:
+    def _load_backup_info(self) -> dict[str, Any] | None:
         """Load backup information from last-backup-info.json.
 
         Returns:
@@ -49,14 +49,19 @@ class InfoCommand(Command):
 
         """
         try:
-            info_file_path: Path = Path(self.config.backup_folder) / "last-backup-info.json"
+            info_file_path: Path = (
+                Path(self.config.backup_folder).expanduser()
+                / "last-backup-info.json"
+            )
             if not info_file_path.exists():
                 return None
             with open(info_file_path, encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, dict):
                     return data
-                self.logger.error("Backup info file does not contain a valid JSON object")
+                self.logger.error(
+                    "Backup info file does not contain a valid JSON object"
+                )
                 return None
         except json.JSONDecodeError as e:
             self.logger.error("Error reading backup info file: %s", e)
@@ -76,7 +81,9 @@ class InfoCommand(Command):
         print(f"Backup File: {backup_info.get('backup_file', 'Unknown')}")
         print(f"Full Path: {backup_info.get('backup_path', 'Unknown')}")
         print(f"Backup Date: {backup_info.get('backup_date', 'Unknown')}")
-        print(f"Backup Size: {backup_info.get('backup_size_human', 'Unknown')}")
+        print(
+            f"Backup Size: {backup_info.get('backup_size_human', 'Unknown')}"
+        )
         dirs = backup_info.get("directories_backed_up", [])
         if dirs:
             print(f"Directories Backed Up ({len(dirs)}):")

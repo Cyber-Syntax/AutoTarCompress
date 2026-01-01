@@ -12,7 +12,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 # Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 
 from autotarcompress.config import BackupConfig
 
@@ -23,10 +25,10 @@ class TestBackupConfig:
     def test_config_initialization(self) -> None:
         """Test that BackupConfig initializes with proper defaults."""
         config = BackupConfig()
-        # Path should be expanded automatically
-        assert config.backup_folder.endswith("Documents/backup-for-cloud")
-        assert config.config_dir.endswith(".config/autotarcompress")
-        assert config.keep_backup == 0
+        # Paths are kept as ~ for config file compatibility
+        assert config.backup_folder == "~/Documents/backup-for-cloud/"
+        assert config.config_dir == "~/.config/autotarcompress"
+        assert config.keep_backup == 1
         assert config.keep_enc_backup == 1
         assert config.log_level == "INFO"
         assert isinstance(config.dirs_to_backup, list)
@@ -48,11 +50,11 @@ class TestBackupConfig:
             config_dir="~/.config/test",
         )
 
-        # Paths should be expanded
-        assert not config.backup_folder.startswith("~")
+        # backup_folder and config_dir are kept as ~, dirs_to_backup expanded, ignore_list expanded if ~ or /
+        assert config.backup_folder == "~/test_backup"
         assert all(not path.startswith("~") for path in config.dirs_to_backup)
         assert all(not path.startswith("~") for path in config.ignore_list)
-        assert not config.config_dir.startswith("~")
+        assert config.config_dir == "~/.config/test"
 
     def test_current_date_property(self) -> None:
         """Test that current_date returns expected format."""
@@ -90,9 +92,15 @@ class TestBackupConfig:
         def parse_multiline_list(val: str) -> list[str]:
             if not val:
                 return []
-            return [line.strip() for line in val.strip().splitlines() if line.strip()]
+            return [
+                line.strip()
+                for line in val.strip().splitlines()
+                if line.strip()
+            ]
 
-        dirs_to_backup = parse_multiline_list(section.get("dirs_to_backup", ""))
+        dirs_to_backup = parse_multiline_list(
+            section.get("dirs_to_backup", "")
+        )
         ignore_list = parse_multiline_list(section.get("ignore_list", ""))
         assert dirs_to_backup == ["/test/dir1", "/test/dir2"]
         assert ignore_list == ["node_modules", ".git"]
@@ -141,7 +149,7 @@ class TestBackupConfig:
             loaded = BackupConfig.load()
 
         # Should return default config and log error
-        assert loaded.backup_folder.endswith("Documents/backup-for-cloud")
+        assert loaded.backup_folder == "~/Documents/backup-for-cloud/"
         assert "Error reading config file" in caplog.text
 
     def test_config_load_filters_unknown_fields(self, temp_dir: str) -> None:
@@ -181,7 +189,9 @@ class TestBackupConfig:
         Path(test_config.backup_folder).mkdir(parents=True, exist_ok=True)
 
         # Mock the config_path to point to our test config
-        with patch.object(BackupConfig, "config_path", test_config.config_path):
+        with patch.object(
+            BackupConfig, "config_path", test_config.config_path
+        ):
             is_valid, message = BackupConfig.verify_config()
 
         assert is_valid
@@ -189,18 +199,24 @@ class TestBackupConfig:
 
     def test_config_verify_missing_file(self) -> None:
         """Test config verification when config file is missing."""
-        with patch.object(BackupConfig, "config_path", Path("/nonexistent/config.conf")):
+        with patch.object(
+            BackupConfig, "config_path", Path("/nonexistent/config.conf")
+        ):
             is_valid, message = BackupConfig.verify_config()
 
         assert not is_valid
         assert "Configuration file not found" in message
 
-    def test_config_verify_no_backup_dirs(self, test_config: BackupConfig) -> None:
+    def test_config_verify_no_backup_dirs(
+        self, test_config: BackupConfig
+    ) -> None:
         """Test config verification when no backup directories are configured."""
         test_config.dirs_to_backup = []
         test_config.save()
 
-        with patch.object(BackupConfig, "config_path", test_config.config_path):
+        with patch.object(
+            BackupConfig, "config_path", test_config.config_path
+        ):
             is_valid, message = BackupConfig.verify_config()
 
         assert not is_valid

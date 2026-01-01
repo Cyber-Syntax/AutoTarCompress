@@ -19,15 +19,13 @@ def _default_dirs_to_backup() -> list[str]:
 
     """
     return [
-        "~/.zen/qknutvmw.Default Profile/",
-        "~/.config/BraveSoftware/Brave-Browser/Default",
+        "~/.zen/qknutvmw.Default Profile",
         "~/Photos",
         "~/Pictures",
         "~/Documents",
-        "~/.config/syncthing",
-        "~/.config/my-unicorn/",
-        "~/.config/FreeTube",
         "~/dotfiles",
+        "~/.config/syncthing",
+        "~/.config/FreeTube",
     ]
 
 
@@ -41,12 +39,15 @@ def _default_ignore_list() -> list[str]:
     return [
         "~/Documents/global-repos",
         "~/Documents/backup-for-cloud",
-        "~/Documents/.stversions",
+        ".stversions",
         "node_modules",
         ".venv",
         "__pycache__",
         ".ruff_cache",
-        "~/Documents/my-repos/rust-unicorn/target",
+        ".mypy_cache",
+        ".pytest_cache",
+        "*.egg-info",
+        "*target",
         "lock",
         "chrome",
         ".bin",
@@ -64,7 +65,7 @@ class BackupConfig:
 
     backup_folder: str = "~/Documents/backup-for-cloud/"
     config_dir: str = "~/.config/autotarcompress"
-    keep_backup: int = 0
+    keep_backup: int = 1
     keep_enc_backup: int = 1
     log_level: str = "INFO"
     dirs_to_backup: list[str] = field(default_factory=_default_dirs_to_backup)
@@ -72,16 +73,16 @@ class BackupConfig:
 
     def __post_init__(self) -> None:
         """Expand all configured paths after initialization."""
-        self.backup_folder = str(Path(self.backup_folder).expanduser())
+        # Keep backup_folder and config_dir as ~ for config saving
+        # Expand dirs_to_backup to absolute paths
+        self.dirs_to_backup = [
+            str(Path(d).expanduser()) for d in self.dirs_to_backup
+        ]
         # Keep ignore_list as patterns, only expand if it starts with ~ or /
         self.ignore_list = [
             str(Path(p).expanduser()) if p.startswith(("~", "/")) else p
             for p in self.ignore_list
         ]
-        self.dirs_to_backup = [
-            str(Path(d).expanduser()) for d in self.dirs_to_backup
-        ]
-        self.config_dir = str(Path(self.config_dir).expanduser())
         self.log_level = self._validate_log_level(self.log_level)
 
     def _validate_log_level(self, level: str) -> str:
@@ -120,12 +121,29 @@ class BackupConfig:
     @property
     def config_path(self) -> Path:
         """Return the full path to the config file (INI format)."""
-        return Path(self.config_dir) / "config.conf"
+        return Path(self.config_dir).expanduser() / "config.conf"
 
     @property
     def backup_path(self) -> Path:
         """Return the full path to the backup file."""
-        return Path(self.backup_folder) / f"{self.current_date}.tar.xz"
+        return (
+            Path(self.backup_folder).expanduser()
+            / f"{self.current_date}.tar.xz"
+        )
+
+    def _unexpand_path(self, path: str) -> str:
+        """Convert an expanded path back to tilde notation if it starts with home.
+
+        Args:
+            path: The path to unexpand
+
+        Returns:
+            The path with ~ if it was under home, otherwise unchanged
+        """
+        home = str(Path.home())
+        if path.startswith(home):
+            return path.replace(home, "~", 1)
+        return path
 
     def save(self) -> None:
         """Save current configuration to the config file in INI format.
@@ -134,7 +152,7 @@ class BackupConfig:
         Lists are saved as INI multi-line values for user-friendly editing.
         Explanatory comments are written to the config file for user guidance.
         """
-        Path(self.config_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.config_dir).expanduser().mkdir(parents=True, exist_ok=True)
 
         # Write config with inline comments for each setting
         with open(self.config_path, "w", encoding="utf-8") as f:
@@ -191,7 +209,10 @@ class BackupConfig:
             )
             f.write("#   to an absolute path at runtime.\n")
             f.write("dirs_to_backup =\n")
-            f.writelines(f"\t{dir_path}\n" for dir_path in self.dirs_to_backup)
+            f.writelines(
+                f"\t{self._unexpand_path(dir_path)}\n"
+                for dir_path in self.dirs_to_backup
+            )
             f.write("\n")
 
             # ignore_list
@@ -210,7 +231,8 @@ class BackupConfig:
             f.write("#   volatile data.\n")
             f.write("ignore_list =\n")
             f.writelines(
-                f"\t{ignore_path}\n" for ignore_path in self.ignore_list
+                f"\t{self._unexpand_path(ignore_path)}\n"
+                for ignore_path in self.ignore_list
             )
 
         logging.info("Configuration saved to %s", self.config_path)

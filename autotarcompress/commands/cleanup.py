@@ -17,7 +17,9 @@ from autotarcompress.config import BackupConfig
 class CleanupCommand(Command):
     """Command to clean up old backup, encrypted, and decrypted files."""
 
-    def __init__(self, config: BackupConfig, cleanup_all: bool = False) -> None:
+    def __init__(
+        self, config: BackupConfig, cleanup_all: bool = False
+    ) -> None:
         """Initialize CleanupCommand.
 
         Args:
@@ -71,20 +73,24 @@ class CleanupCommand(Command):
                 datetime.datetime: Parsed datetime object.
 
             """
-            return datetime.datetime.strptime(filename.split(".")[0], "%d-%m-%Y")
+            return datetime.datetime.strptime(
+                filename.split(".")[0], "%d-%m-%Y"
+            )
 
-        backup_folder: Path = Path(self.config.backup_folder)
+        backup_folder: Path = Path(self.config.backup_folder).expanduser()
         files: list[str] = sorted(
             [f for f in os.listdir(backup_folder) if f.endswith(ext)],
             key=_extract_date_from_filename,
         )
 
-        files_to_delete: list[str] = files if keep_count == 0 else files[:-keep_count]
+        files_to_delete: list[str] = (
+            files if keep_count == 0 else files[:-keep_count]
+        )
         if not files_to_delete:
             msg = f"No old '{ext}' files to remove."
             print(msg)
             self.logger.info("No old '%s' files to remove.", ext)
-            return None
+            return
 
         for old_file in files_to_delete:
             file_path = backup_folder / old_file
@@ -92,7 +98,9 @@ class CleanupCommand(Command):
                 if file_path.is_dir():
                     # Remove directory (recursively if not empty)
                     shutil.rmtree(file_path)
-                    self.logger.info("Deleted old backup directory: %s", old_file)
+                    self.logger.info(
+                        "Deleted old backup directory: %s", old_file
+                    )
                     print(f"Deleted old backup directory: {old_file}")
                 else:
                     file_path.unlink()
@@ -101,7 +109,7 @@ class CleanupCommand(Command):
             except (OSError, PermissionError) as e:
                 self.logger.error("Failed to delete %s: %s", old_file, e)
                 print(f"Failed to delete {old_file}: {e}")
-        return None
+        return
 
     def _cleanup_all_files(self) -> None:
         """Delete all backup files regardless of retention policy.
@@ -110,7 +118,12 @@ class CleanupCommand(Command):
         respecting the keep_count configuration.
 
         """
-        extensions = [".tar.xz", ".tar.xz-decrypted", ".tar-extracted", ".tar.xz.enc"]
+        extensions = [
+            ".tar.xz",
+            ".tar.xz-decrypted",
+            ".tar-extracted",
+            ".tar.xz.enc",
+        ]
 
         for ext in extensions:
             self._cleanup_files(ext, 0)  # keep_count=0 means delete all

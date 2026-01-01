@@ -221,7 +221,8 @@ class BackupCommand(Command):
 
             # Save the info file in the backup folder
             info_file_path = (
-                Path(self.config.backup_folder) / "last-backup-info.json"
+                Path(self.config.backup_folder).expanduser()
+                / "last-backup-info.json"
             )
 
             with open(info_file_path, "w", encoding="utf-8") as f:
