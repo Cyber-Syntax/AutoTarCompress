@@ -34,7 +34,7 @@ class InfoCommand(Command):
 
         """
         backup_info: dict[str, Any] | None = self._load_backup_info()
-        if backup_info:
+        if backup_info and backup_info.get("backup_file"):
             self._display_backup_info(backup_info)
             return True
         print("No backup information found.")
@@ -42,7 +42,7 @@ class InfoCommand(Command):
         return False
 
     def _load_backup_info(self) -> dict[str, Any] | None:
-        """Load backup information from last-backup-info.json.
+        """Load backup information from metadata.json.
 
         Returns:
             Optional[dict[str, Any]]: Backup info dict if found, else None.
@@ -50,11 +50,11 @@ class InfoCommand(Command):
         """
         try:
             info_file_path: Path = (
-                Path(self.config.backup_folder).expanduser()
-                / "last-backup-info.json"
+                Path(self.config.config_dir).expanduser() / "metadata.json"
             )
             if not info_file_path.exists():
                 return None
+
             with open(info_file_path, encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, dict):

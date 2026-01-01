@@ -6,6 +6,7 @@ Comments are supported in the config file.
 
 import configparser
 import datetime
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -153,6 +154,12 @@ class BackupConfig:
         Explanatory comments are written to the config file for user guidance.
         """
         Path(self.config_dir).expanduser().mkdir(parents=True, exist_ok=True)
+
+        # Create empty metadata.json if it doesn't exist
+        metadata_path = Path(self.config_dir).expanduser() / "metadata.json"
+        if not metadata_path.exists():
+            with metadata_path.open("w", encoding="utf-8") as f:
+                json.dump({}, f)
 
         # Write config with inline comments for each setting
         with open(self.config_path, "w", encoding="utf-8") as f:

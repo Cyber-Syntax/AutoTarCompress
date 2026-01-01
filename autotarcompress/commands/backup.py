@@ -208,7 +208,7 @@ class BackupCommand(Command):
         return response == "y"
 
     def _save_backup_info(self, total_size: int) -> None:
-        """Save backup information to last-backup-info.json."""
+        """Save backup information to metadata.json."""
         try:
             backup_info = {
                 "backup_file": Path(self.config.backup_path).name,
@@ -219,10 +219,9 @@ class BackupCommand(Command):
                 "directories_backed_up": self.config.dirs_to_backup,
             }
 
-            # Save the info file in the backup folder
+            # Save the info file in the config directory
             info_file_path = (
-                Path(self.config.backup_folder).expanduser()
-                / "last-backup-info.json"
+                Path(self.config.config_dir).expanduser() / "metadata.json"
             )
 
             with open(info_file_path, "w", encoding="utf-8") as f:
