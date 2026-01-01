@@ -1,21 +1,21 @@
-Turkish: [README.tr.md](https://github.com/Cyber-Syntax/AutoTarCompress/blob/main/README.tr.md)
-
----
+# **AutoTarCompress**
 
 > [!CAUTION]
 >
 > - This project is in a **beta phase** due to limited testing at this time.
 > - **Important:** Follow the instructions in the **Releases section** when updating the script.
 > - **Supported OS:** Currently, only Linux is supported.
+>
 
----
-
-# **AutoTarCompress**
+## **📖 Overview**
 
 > [!NOTE]
+>
 > AutoTarCompress is a robust backup and archive management tool that provides both command-line interface (CLI) and interactive menu functionality for creating, encrypting, and managing backup archives.
 >
 > - Detailed information: [wiki.md](docs/wiki.md)
+
+Turkish: [README.tr.md](README.tr.md)
 
 ## **✨ Features**
 
@@ -39,31 +39,36 @@ Turkish: [README.tr.md](https://github.com/Cyber-Syntax/AutoTarCompress/blob/mai
 git clone https://github.com/Cyber-Syntax/AutoTarCompress.git
 ```
 
-2. Navigate to the project directory:
+1. Navigate to the project directory:
 
 ```bash
 cd AutoTarCompress
 ```
 
-3. Make executable and run the install script:
+1. Make executable and run the install script:
 
 ```bash
-chmod +x install.sh && ./install.sh
+chmod +x install.sh
+
+# for production use
+./install.sh uv-prod
+# for development use
+./install.sh uv-dev
 ```
 
-4. After installation, restart your shell or run:
+1. After installation, restart your shell or run:
 
 ```bash
 source ~/.bashrc   # or ~/.zshrc
 ```
 
-5. Go to configuration file and set your preferences:
+1. Go to configuration file and set your preferences:
 
 ```bash
 vim ~/.config/autotarcompress/config.conf
 ```
 
-6. (Optional) Enable shell autocompletion for bash or zsh:
+1. (Optional) Enable shell autocompletion for bash or zsh:
 
 ```bash
 # Auto detect your shell and install autocomplete
