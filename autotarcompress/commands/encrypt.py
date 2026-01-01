@@ -14,7 +14,6 @@ import logging
 import os
 import re
 import subprocess
-from typing import Tuple
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
@@ -44,7 +43,7 @@ class EncryptCommand(Command):
         self.logger: logging.Logger = logging.getLogger(__name__)
         self._password_context = ContextManager()._password_context
         self._safe_cleanup = ContextManager()._safe_cleanup
-        self.required_openssl_version: Tuple[int, int, int] = (3, 0, 0)
+        self.required_openssl_version: tuple[int, int, int] = (3, 0, 0)
 
     def execute(self) -> bool:
         """Perform secure PBKDF2 encryption with OpenSSL.
@@ -58,19 +57,19 @@ class EncryptCommand(Command):
 
         with self._password_context() as password:
             if not password:
-                print("❌ Encryption aborted due to password issues")
                 self.logger.error("Encryption aborted due to password issues")
                 return False
 
             result = self._run_encryption_process(password)
             if result:
-                print("✅ Encryption completed successfully!")
-                print(f"📁 Encrypted file: {self.file_to_encrypt}.enc")
                 self.logger.info("Encryption completed successfully!")
-                self.logger.info("File: %s.enc", self.file_to_encrypt)
+                self.logger.info(
+                    "Encrypted file: %s.enc", self.file_to_encrypt
+                )
             else:
-                print("❌ Encryption failed. Please check the logs for details.")
-                self.logger.error("Encryption failed for file: %s", self.file_to_encrypt)
+                self.logger.error(
+                    "Encryption failed. Please check the logs for details."
+                )
             return result
 
     def _validate_input_file(self) -> bool:
@@ -84,7 +83,9 @@ class EncryptCommand(Command):
             self.logger.error("File not found: %s", self.file_to_encrypt)
             return False
         if os.path.getsize(self.file_to_encrypt) == 0:
-            self.logger.error("Cannot encrypt empty file (potential tampering attempt)")
+            self.logger.error(
+                "Cannot encrypt empty file (potential tampering attempt)"
+            )
             return False
         return True
 
@@ -125,14 +126,18 @@ class EncryptCommand(Command):
                 timeout=300,
                 shell=False,
             )
-            self.logger.debug("Encryption success: %s", self._sanitize_logs(result.stderr))
+            self.logger.debug(
+                "Encryption success: %s", self._sanitize_logs(result.stderr)
+            )
             return True
         except subprocess.CalledProcessError as e:
-            self.logger.error("Encryption failed: %s", self._sanitize_logs(e.stderr))
+            self.logger.exception(
+                "Encryption failed: %s", self._sanitize_logs(e.stderr)
+            )
             self._safe_cleanup(output_path)
             return False
         except subprocess.TimeoutExpired:
-            self.logger.error("Encryption timed out")
+            self.logger.exception("Encryption timed out")
             self._safe_cleanup(output_path)
             return False
 

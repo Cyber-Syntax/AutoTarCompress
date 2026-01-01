@@ -3,6 +3,7 @@
 This module tests backup, cleanup, encrypt, decrypt, extract, and info commands.
 """
 
+import logging
 import os
 import subprocess
 import sys
@@ -139,14 +140,14 @@ class TestInfoCommand:
         assert command.config == test_config
 
     def test_info_command_no_backup_info(
-        self, test_config: BackupConfig, capsys
+        self, test_config: BackupConfig, caplog
     ) -> None:
         """Test InfoCommand when no backup info file exists."""
-        command = InfoCommand(test_config)
-        command.execute()
+        with caplog.at_level(logging.INFO):
+            command = InfoCommand(test_config)
+            command.execute()
 
-        captured = capsys.readouterr()
-        output = captured.out
+        output = caplog.text
 
         assert "No backup information found." in output
         assert "This usually means no backups have been created yet." in output
@@ -156,7 +157,7 @@ class TestInfoCommand:
         test_config: BackupConfig,
         mock_backup_info: dict[str, str | int | list[str]],
         temp_dir: str,
-        capsys,
+        caplog,
     ) -> None:
         """Test that InfoCommand displays backup information correctly."""
         # Update mock_backup_info to use temp directory paths
@@ -176,11 +177,11 @@ class TestInfoCommand:
         backup_file_path.parent.mkdir(parents=True, exist_ok=True)
         backup_file_path.touch()
 
-        command = InfoCommand(test_config)
-        command.execute()
+        with caplog.at_level(logging.INFO):
+            command = InfoCommand(test_config)
+            command.execute()
 
-        captured = capsys.readouterr()
-        output = captured.out
+        output = caplog.text
 
         assert "===== Last Backup Information =====" in output
         assert "13-09-2025.tar.xz" in output
@@ -194,7 +195,7 @@ class TestInfoCommand:
         self,
         test_config: BackupConfig,
         mock_backup_info: dict[str, str | int | list[str]],
-        capsys,
+        caplog,
     ) -> None:
         """Test InfoCommand when backup file doesn't exist."""
         # Create the info file but not the actual backup file
@@ -204,11 +205,11 @@ class TestInfoCommand:
         with open(info_file_path, "w", encoding="utf-8") as f:
             json.dump(mock_backup_info, f)
 
-        command = InfoCommand(test_config)
-        command.execute()
+        with caplog.at_level(logging.INFO):
+            command = InfoCommand(test_config)
+            command.execute()
 
-        captured = capsys.readouterr()
-        output = captured.out
+        output = caplog.text
 
         assert "✗ Backup file not found" in output
 

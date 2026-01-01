@@ -4,6 +4,7 @@ This module contains tests for the InfoCommand and backup info tracking features
 """
 
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -228,6 +229,8 @@ class TestInfoCommand:
         self, test_config: BackupConfig, temp_dir: str, capsys: Any
     ) -> None:
         """Test that InfoCommand displays existing backup information correctly."""
+        from autotarcompress.logger import setup_application_logging
+
         # Create mock backup info with paths in our temp directory
         mock_backup_info = {
             "backup_file": "13-09-2025.tar.xz",
@@ -253,6 +256,7 @@ class TestInfoCommand:
         backup_file_path.parent.mkdir(parents=True, exist_ok=True)
         backup_file_path.touch()
 
+        setup_application_logging()
         info_command = InfoCommand(test_config)
         info_command.execute()
 
@@ -274,11 +278,14 @@ class TestInfoCommand:
         capsys: Any,
     ) -> None:
         """Test InfoCommand when backup file doesn't exist."""
+        from autotarcompress.logger import setup_application_logging
+
         # Create the info file but not the actual backup file
         info_file_path = Path(test_config.config_dir) / "metadata.json"
         with open(info_file_path, "w", encoding="utf-8") as f:
             json.dump(mock_backup_info, f)
 
+        setup_application_logging()
         info_command = InfoCommand(test_config)
         info_command.execute()
 
@@ -291,6 +298,9 @@ class TestInfoCommand:
         self, test_config: BackupConfig, capsys: Any
     ) -> None:
         """Test InfoCommand when no backup info file exists."""
+        from autotarcompress.logger import setup_application_logging
+
+        setup_application_logging()
         info_command = InfoCommand(test_config)
         info_command.execute()
 
@@ -304,19 +314,22 @@ class TestInfoCommand:
         self, test_config: BackupConfig, capsys: Any, caplog: Any
     ) -> None:
         """Test InfoCommand with corrupted JSON file."""
+        from autotarcompress.logger import setup_application_logging
+
         # Create a corrupted info file
         info_file_path = Path(test_config.config_dir) / "metadata.json"
         with open(info_file_path, "w", encoding="utf-8") as f:
             f.write("{ invalid json content")
 
-        info_command = InfoCommand(test_config)
-        info_command.execute()
+        setup_application_logging()
+        with caplog.at_level(logging.ERROR):
+            info_command = InfoCommand(test_config)
+            info_command.execute()
 
         captured = capsys.readouterr()
         output = captured.out
 
-        assert "No backup information found." in output
-        assert "Error reading backup info file" in caplog.text
+        assert "Error reading backup info file" in output
 
     def test_load_backup_info_returns_none_for_missing_file(
         self, test_config: BackupConfig
@@ -346,6 +359,8 @@ class TestInfoCommand:
         self, test_config: BackupConfig, capsys: Any
     ) -> None:
         """Test display of backup info with empty directories list."""
+        from autotarcompress.logger import setup_application_logging
+
         backup_info = {
             "backup_file": "test.tar.xz",
             "backup_path": "/path/to/test.tar.xz",
@@ -354,6 +369,7 @@ class TestInfoCommand:
             "directories_backed_up": [],
         }
 
+        setup_application_logging()
         info_command = InfoCommand(test_config)
         info_command._display_backup_info(backup_info)
 

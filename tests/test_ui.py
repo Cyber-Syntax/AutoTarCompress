@@ -6,12 +6,15 @@ Tests follow modern Python 3.12+ practices with full type annotations.
 
 import os
 import sys
+from typing import Any
 from unittest.mock import patch
 
 import pytest
 
 # Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 
 from autotarcompress.ui import (
     display_main_menu,
@@ -39,22 +42,27 @@ class TestUIFunctionality:
         files: list[str] = []
         backup_folder = "/tmp/backups"
 
-        with pytest.raises(ValueError, match="No files available for selection"):
+        with pytest.raises(
+            ValueError, match="No files available for selection"
+        ):
             select_file(files, backup_folder)
 
-    def test_select_file_invalid_input_then_valid(self) -> None:
+    def test_select_file_invalid_input_then_valid(self, capsys: Any) -> None:
         """Test select_file with invalid input followed by valid input."""
+        from autotarcompress.logger import setup_application_logging
+
         files = ["backup1.tar.xz", "backup2.tar.xz"]
         backup_folder = "/tmp/backups"
 
+        setup_application_logging()
         # Mock input to return invalid input first, then valid
         with patch("builtins.input", side_effect=["invalid", "1"]):
-            with patch("builtins.print") as mock_print:
-                result = select_file(files, backup_folder)
-                expected = os.path.join(backup_folder, "backup1.tar.xz")
-                assert result == expected
-                # Verify error message was printed
-                mock_print.assert_any_call("Invalid input. Please enter a number.")
+            result = select_file(files, backup_folder)
+            expected = os.path.join(backup_folder, "backup1.tar.xz")
+            assert result == expected
+
+        captured = capsys.readouterr()
+        assert "Invalid input. Please enter a number." in captured.out
 
     def test_get_menu_choice_valid(self) -> None:
         """Test get_menu_choice with valid input."""
@@ -62,31 +70,44 @@ class TestUIFunctionality:
             result = get_menu_choice()
             assert result == 3
 
-    def test_get_menu_choice_invalid_then_valid(self) -> None:
+    def test_get_menu_choice_invalid_then_valid(self, capsys: Any) -> None:
         """Test get_menu_choice with invalid input followed by valid."""
+        from autotarcompress.logger import setup_application_logging
+
+        setup_application_logging()
         with patch("builtins.input", side_effect=["invalid", "8", "5"]):
-            with patch("builtins.print") as mock_print:
-                result = get_menu_choice()
-                assert result == 5
-                # Verify error messages were printed
-                mock_print.assert_any_call("Invalid input. Please enter a number between 1-7.")
+            result = get_menu_choice()
+            assert result == 5
 
-    def test_display_main_menu(self) -> None:
+        captured = capsys.readouterr()
+        assert (
+            "Invalid input. Please enter a number between 1-7." in captured.out
+        )
+
+    def test_display_main_menu(self, capsys: Any) -> None:
         """Test display_main_menu prints expected content."""
-        with patch("builtins.print") as mock_print:
-            display_main_menu()
-            # Verify the menu was printed
-            mock_print.assert_any_call("\n===== Backup Manager =====")
-            mock_print.assert_any_call("1. Perform Backup")
-            mock_print.assert_any_call("7. Exit")
+        from autotarcompress.logger import setup_application_logging
 
-    def test_exit_application(self) -> None:
+        setup_application_logging()
+        display_main_menu()
+
+        captured = capsys.readouterr()
+        output = captured.out
+        assert "===== Backup Manager =====" in output
+        assert "1. Perform Backup" in output
+        assert "7. Exit" in output
+
+    def test_exit_application(self, capsys: Any) -> None:
         """Test exit_application calls sys.exit."""
+        from autotarcompress.logger import setup_application_logging
+
+        setup_application_logging()
         with patch("sys.exit") as mock_exit:
-            with patch("builtins.print") as mock_print:
-                exit_application()
-                mock_exit.assert_called_once_with(0)
-                mock_print.assert_called_with("Exiting...")
+            exit_application()
+            mock_exit.assert_called_once_with(0)
+
+        captured = capsys.readouterr()
+        assert "Exiting..." in captured.out
 
     def test_select_file_keyboard_interrupt(self) -> None:
         """Test select_file handles KeyboardInterrupt properly."""

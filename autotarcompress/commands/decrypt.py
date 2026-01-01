@@ -19,7 +19,7 @@ class DecryptCommand(Command):
     """Command to securely decrypt backup archives using OpenSSL with PBKDF2.
 
     This class ensures decryption parameters match those used for encryption and
-    verifies file integrity post-decryption. Logging uses %s formatting for performance.
+    verifies file integrity post-decryption.
     """
 
     PBKDF2_ITERATIONS: int = 600000  # Must match encryption iterations
@@ -108,9 +108,9 @@ class DecryptCommand(Command):
             decrypted_hash: str = self._calculate_sha256(decrypted_path)
             original_hash: str = self._calculate_sha256(original_path)
 
-            # Print hashes for manual inspection (acceptable for CLI tools)
-            print(f"Decrypted file hash: {decrypted_hash}")
-            print(f"Original file hash: {original_hash}")
+            # Log hashes for verification
+            self.logger.info("Decrypted file hash: %s", decrypted_hash)
+            self.logger.info("Original file hash: %s", original_hash)
 
             if decrypted_hash == original_hash:
                 self.logger.info("Integrity verified: SHA256 match")

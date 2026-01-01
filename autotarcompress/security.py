@@ -12,9 +12,9 @@ Features:
 
 import getpass
 import logging
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
 
 
 class ContextManager:
@@ -42,19 +42,19 @@ class ContextManager:
             password: str = getpass.getpass("Enter file encryption password: ")
             if not password:
                 self.logger.error("Empty password rejected")
-                print("❌ Password cannot be empty")
                 yield None
                 return None
 
             # Get password confirmation
-            confirm_password: str = getpass.getpass("Confirm encryption password: ")
+            confirm_password: str = getpass.getpass(
+                "Confirm encryption password: "
+            )
             if password != confirm_password:
                 self.logger.error("Password confirmation failed")
-                print("❌ Passwords do not match. Please try again.")
                 yield None
                 return None
 
-            print("✅ Password confirmed successfully")
+            self.logger.info("Password confirmed successfully")
             password_bytes = bytearray(password.encode("utf-8"))
             confirm_bytes = bytearray(confirm_password.encode("utf-8"))
             yield password_bytes.decode("utf-8")

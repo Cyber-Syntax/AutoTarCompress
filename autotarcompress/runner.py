@@ -59,7 +59,9 @@ def find_file_by_date(files: list[str], target_date: str) -> str | None:
             if date_pattern in file:
                 return file
     except ValueError:
-        typer.echo(f"Error: Invalid date format '{target_date}'. Use dd-mm-yyyy")
+        typer.echo(
+            f"Error: Invalid date format '{target_date}'. Use dd-mm-yyyy"
+        )
 
     return None
 
@@ -105,44 +107,47 @@ def get_encrypted_files(backup_folder: str) -> list[str]:
 
 def handle_encrypt_operation(facade: BackupFacade) -> None:
     """Handle backup file encryption operation (interactive)."""
+    logger = logging.getLogger(__name__)
     backup_files: list[str] = get_backup_files(facade.config.backup_folder)
     if not backup_files:
-        print("No backup files available for encryption")
-        return None
+        logger.info("No backup files available for encryption")
+        return
 
     selected: str = select_file(backup_files, facade.config.backup_folder)
     from autotarcompress.commands import EncryptCommand
 
     EncryptCommand(facade.config, selected).execute()
-    return None
+    return
 
 
 def handle_decrypt_operation(facade: BackupFacade) -> None:
     """Handle backup file decryption operation (interactive)."""
+    logger = logging.getLogger(__name__)
     enc_files: list[str] = get_encrypted_files(facade.config.backup_folder)
     if not enc_files:
-        print("No encrypted backups found")
-        return None
+        logger.info("No encrypted backups found")
+        return
 
     selected: str = select_file(enc_files, facade.config.backup_folder)
     from autotarcompress.commands import DecryptCommand
 
     DecryptCommand(facade.config, selected).execute()
-    return None
+    return
 
 
 def handle_extract_operation(facade: BackupFacade) -> None:
     """Handle backup file extraction operation (interactive)."""
+    logger = logging.getLogger(__name__)
     backup_files: list[str] = get_backup_files(facade.config.backup_folder)
     if not backup_files:
-        print("No backup files found")
-        return None
+        logger.info("No backup files found")
+        return
 
     selected: str = select_file(backup_files, facade.config.backup_folder)
     from autotarcompress.commands import ExtractCommand
 
     ExtractCommand(facade.config, selected).execute()
-    return None
+    return
 
 
 def process_menu_choice(choice: int, facade: BackupFacade) -> None:
@@ -176,6 +181,7 @@ def run_main_loop(facade: BackupFacade) -> None:
             choice: int = get_menu_choice()
             process_menu_choice(choice, facade)
         except KeyboardInterrupt:
-            print("\nOperation cancelled by user")
+            logger = logging.getLogger(__name__)
+            logger.info("Operation cancelled by user")
         except (OSError, FileNotFoundError, PermissionError, ValueError) as e:
-            logging.error("Operation failed: %s", e)
+            logging.exception("Operation failed: %s", e)

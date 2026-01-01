@@ -3,6 +3,7 @@
 Following the Facade design pattern.
 """
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -34,12 +35,13 @@ class BackupFacade:
 
     def configure(self) -> None:
         """Launch interactive configuration wizard for backup settings."""
-        print("\n=== Backup Manager Configuration ===")
+        logger = logging.getLogger(__name__)
+        logger.info("\n=== Backup Manager Configuration ===")
         self._setup_paths()
         self._setup_retention()
         self._setup_directories()
         self.config.save()
-        print("\nConfiguration saved successfully!")
+        logger.info("Configuration saved successfully!")
 
     def execute_command(self, command_name: str, **kwargs: Any) -> Any:
         """Execute a predefined command by name.
@@ -60,40 +62,47 @@ class BackupFacade:
             cleanup_all = kwargs.get("cleanup_all", False)
             command = CleanupCommand(self.config, cleanup_all=cleanup_all)
             return command.execute()
-        elif command_name in self.commands:
+        if command_name in self.commands:
             return self.commands[command_name].execute()
         raise ValueError(f"Unknown command: {command_name}")
 
     def _setup_paths(self) -> None:
         """Prompt for backup storage location configuration."""
-        print("\n=== Backup Storage Location ===")
+        logger = logging.getLogger(__name__)
+        logger.info("\n=== Backup Storage Location ===")
         new_path: str = input(
             "Enter backup directory (default: ~/Documents/backup-for-cloud/): "
         ).strip()
         if new_path:
             self.config.backup_folder = str(Path(new_path).expanduser())
-        print(f"Using backup directory: {Path(self.config.backup_folder).expanduser()}")
+        logger.info(
+            "Using backup directory: %s",
+            Path(self.config.backup_folder).expanduser(),
+        )
 
     def _setup_retention(self) -> None:
         """Prompt for backup retention policy configuration."""
-        print("\n=== Backup Retention Settings ===")
+        logger = logging.getLogger(__name__)
+        logger.info("\n=== Backup Retention Settings ===")
         try:
             self.config.keep_backup = int(
-                input("Number of regular backups to keep (default 1): ") or self.config.keep_backup
+                input("Number of regular backups to keep (default 1): ")
+                or self.config.keep_backup
             )
             self.config.keep_enc_backup = int(
                 input("Number of encrypted backups to keep (default 1): ")
                 or self.config.keep_enc_backup
             )
         except ValueError:
-            print("Invalid number format. Using existing values.")
+            logger.info("Invalid number format. Using existing values.")
 
     def _setup_directories(self) -> None:
         """Launch interactive directory configuration.
 
         For backup and ignore lists.
         """
-        print("\n=== Directory Configuration ===")
+        logger = logging.getLogger(__name__)
+        logger.info("\n=== Directory Configuration ===")
         self._manage_path_list(
             "Backup Directories",
             self.config.dirs_to_backup,
@@ -115,51 +124,57 @@ class BackupFacade:
         list_header: str,
     ) -> None:
         """Manage interactive list configuration."""
+        logger = logging.getLogger(__name__)
         while True:
-            print(f"\n{list_header}")
+            logger.info("\n%s", list_header)
             if not target_list:
-                print("  None configured")
+                logger.info("  None configured")
             else:
                 for i, path in enumerate(target_list, 1):
                     expanded = Path(path).expanduser()
                     status = "(exists)" if expanded.exists() else "(not found)"
-                    print(f"  {i}. {path} {status}")
+                    logger.info("  %d. %s %s", i, path, status)
 
-            print("\nOptions:")
-            print(f"{ADD_OPTION}. Add paths")
-            print(f"{REMOVE_OPTION}. Remove path")
-            print(f"{FINISH_OPTION}. Finish configuration")
+            logger.info("\nOptions:")
+            logger.info("%d. Add paths", ADD_OPTION)
+            logger.info("%d. Remove path", REMOVE_OPTION)
+            logger.info("%d. Finish configuration", FINISH_OPTION)
 
             try:
                 choice = int(input("Choose an option (1-3): "))
             except ValueError:
-                print("Please enter a valid number")
+                logger.info("Please enter a valid number")
                 continue
 
             if choice == ADD_OPTION:
                 new_items = input(add_prompt).split(",")
-                cleaned_paths = self._validate_paths([p.strip() for p in new_items])
+                cleaned_paths = self._validate_paths(
+                    [p.strip() for p in new_items]
+                )
                 # Only add unique, non-empty paths
-                target_list.extend(p for p in cleaned_paths if p and p not in target_list)
+                target_list.extend(
+                    p for p in cleaned_paths if p and p not in target_list
+                )
             elif choice == REMOVE_OPTION:
                 self._remove_path(target_list)
             elif choice == FINISH_OPTION:
                 break
             else:
-                print("Invalid choice. Please try again.")
+                logger.info("Invalid choice. Please try again.")
 
     def _validate_paths(self, paths: list[str]) -> list[str]:
         """Validate and normalize paths.
 
         Prompting user for confirmation if path does not exist.
         """
+        logger = logging.getLogger(__name__)
         valid_paths: list[str] = []
         for path in paths:
             if not path:
                 continue
             expanded = Path(path).expanduser()
             if not expanded.exists():
-                print(f"Warning: Path does not exist - {expanded}")
+                logger.warning("Path does not exist - %s", expanded)
                 if input("Add anyway? (y/N): ").lower() != "y":
                     continue
             # Store original path with ~ if provided
@@ -168,17 +183,18 @@ class BackupFacade:
 
     def _remove_path(self, target_list: list[str]) -> None:
         """Remove an item from the target list by user-selected index."""
+        logger = logging.getLogger(__name__)
         if not target_list:
-            print("List is empty")
-            return None
+            logger.info("List is empty")
+            return
         try:
             prompt = f"Enter number to remove (1-{len(target_list)}): "
             index = int(input(prompt)) - 1
             if 0 <= index < len(target_list):
                 removed = target_list.pop(index)
-                print(f"Removed: {removed}")
+                logger.info("Removed: %s", removed)
             else:
-                print("Invalid index number")
+                logger.info("Invalid index number")
         except ValueError:
-            print("Please enter a valid number")
-        return None
+            logger.info("Please enter a valid number")
+        return

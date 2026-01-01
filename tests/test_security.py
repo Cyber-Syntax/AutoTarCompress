@@ -6,10 +6,13 @@ and other security components.
 
 import os
 import sys
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 # Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 
 from autotarcompress.security import ContextManager
 
@@ -29,7 +32,9 @@ class TestContextManager:
         assert callable(context_manager._password_context)
 
     @patch("autotarcompress.security.getpass.getpass")
-    def test_password_context_functionality(self, mock_getpass: MagicMock) -> None:
+    def test_password_context_functionality(
+        self, mock_getpass: MagicMock
+    ) -> None:
         """Test password context functionality with confirmation.
 
         Uses mocking to verify the behavior.
@@ -41,46 +46,56 @@ class TestContextManager:
 
         # Test that we can call the password context (even if protected)
         # This tests the underlying functionality without direct access
-        with patch.object(context_manager, "_password_context") as mock_context:
-            mock_context.return_value.__enter__ = MagicMock(return_value="test_password")
+        with patch.object(
+            context_manager, "_password_context"
+        ) as mock_context:
+            mock_context.return_value.__enter__ = MagicMock(
+                return_value="test_password"
+            )
             mock_context.return_value.__exit__ = MagicMock(return_value=None)
 
             with mock_context() as password:
                 assert password == "test_password"
 
-    @patch("builtins.print")
     @patch("autotarcompress.security.getpass.getpass")
     def test_password_confirmation_mismatch(
-        self, mock_getpass: MagicMock, mock_print: MagicMock
+        self, mock_getpass: MagicMock, capsys: Any
     ) -> None:
         """Test password confirmation fails when passwords don't match."""
+        from autotarcompress.logger import setup_application_logging
+
         # Mock getpass to return different passwords on consecutive calls
         mock_getpass.side_effect = ["password1", "password2"]
 
+        setup_application_logging()
         context_manager = ContextManager()
 
         # Test password context directly
         with context_manager._password_context() as password:
             assert password is None
 
-        # Verify that error message was printed
-        mock_print.assert_called_with("❌ Passwords do not match. Please try again.")
+        captured = capsys.readouterr()
+        assert "Password confirmation failed" in captured.out
 
-    @patch("builtins.print")
     @patch("autotarcompress.security.getpass.getpass")
-    def test_password_empty_rejection(self, mock_getpass: MagicMock, mock_print: MagicMock) -> None:
+    def test_password_empty_rejection(
+        self, mock_getpass: MagicMock, capsys: Any
+    ) -> None:
         """Test that empty passwords are rejected."""
+        from autotarcompress.logger import setup_application_logging
+
         # Mock getpass to return empty password
         mock_getpass.return_value = ""
 
+        setup_application_logging()
         context_manager = ContextManager()
 
         # Test password context directly
         with context_manager._password_context() as password:
             assert password is None
 
-        # Verify that error message was printed
-        mock_print.assert_called_with("❌ Password cannot be empty")
+        captured = capsys.readouterr()
+        assert "Empty password rejected" in captured.out
 
     def test_context_manager_logger_setup(self) -> None:
         """Test that context manager has proper logging setup."""
@@ -92,7 +107,9 @@ class TestContextManager:
         assert hasattr(context_manager.logger, "debug")
 
     @patch("autotarcompress.security.logging.getLogger")
-    def test_context_manager_logging_configuration(self, mock_get_logger: MagicMock) -> None:
+    def test_context_manager_logging_configuration(
+        self, mock_get_logger: MagicMock
+    ) -> None:
         """Test that context manager configures logging correctly."""
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger

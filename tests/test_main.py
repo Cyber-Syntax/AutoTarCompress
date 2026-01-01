@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
@@ -114,33 +115,33 @@ class TestMainModule:
             result = get_encrypted_files("/test/path")
             assert result == expected_files
 
-    def test_handle_encrypt_operation_no_files(self) -> None:
+    def test_handle_encrypt_operation_no_files(self, capsys: Any) -> None:
         """Test handle_encrypt_operation when no backup files are available."""
+        from autotarcompress.logger import setup_application_logging
+
         facade_mock = MagicMock()
         facade_mock.config.backup_folder = "/test/folder"
 
-        with (
-            patch("autotarcompress.runner.get_backup_files", return_value=[]),
-            patch("builtins.print") as mock_print,
-        ):
-            result = handle_encrypt_operation(facade_mock)
-            assert result is None
-            mock_print.assert_called_with(
-                "No backup files available for encryption"
-            )
+        setup_application_logging()
+        with patch("autotarcompress.runner.get_backup_files", return_value=[]):
+            handle_encrypt_operation(facade_mock)
 
-    def test_handle_extract_operation_no_files(self) -> None:
+        captured = capsys.readouterr()
+        assert "No backup files available for encryption" in captured.out
+
+    def test_handle_extract_operation_no_files(self, capsys: Any) -> None:
         """Test handle_extract_operation when no backup files are available."""
+        from autotarcompress.logger import setup_application_logging
+
         facade_mock = MagicMock()
         facade_mock.config.backup_folder = "/test/folder"
 
-        with (
-            patch("autotarcompress.runner.get_backup_files", return_value=[]),
-            patch("builtins.print") as mock_print,
-        ):
-            result = handle_extract_operation(facade_mock)
-            assert result is None
-            mock_print.assert_called_with("No backup files found")
+        setup_application_logging()
+        with patch("autotarcompress.runner.get_backup_files", return_value=[]):
+            handle_extract_operation(facade_mock)
+
+        captured = capsys.readouterr()
+        assert "No backup files found" in captured.out
 
     def test_main_function_calls_app(self) -> None:
         """Test that main function calls the typer app."""

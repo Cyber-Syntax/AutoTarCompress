@@ -37,8 +37,10 @@ class InfoCommand(Command):
         if backup_info and backup_info.get("backup_file"):
             self._display_backup_info(backup_info)
             return True
-        print("No backup information found.")
-        print("This usually means no backups have been created yet.")
+        self.logger.info("No backup information found.")
+        self.logger.info(
+            "This usually means no backups have been created yet."
+        )
         return False
 
     def _load_backup_info(self) -> dict[str, Any] | None:
@@ -77,26 +79,32 @@ class InfoCommand(Command):
             backup_info (dict[str, Any]): Backup info dictionary.
 
         """
-        print("\n===== Last Backup Information =====")
-        print(f"Backup File: {backup_info.get('backup_file', 'Unknown')}")
-        print(f"Full Path: {backup_info.get('backup_path', 'Unknown')}")
-        print(f"Backup Date: {backup_info.get('backup_date', 'Unknown')}")
-        print(
-            f"Backup Size: {backup_info.get('backup_size_human', 'Unknown')}"
+        self.logger.info("\n===== Last Backup Information =====")
+        self.logger.info(
+            "Backup File: %s", backup_info.get("backup_file", "Unknown")
+        )
+        self.logger.info(
+            "Full Path: %s", backup_info.get("backup_path", "Unknown")
+        )
+        self.logger.info(
+            "Backup Date: %s", backup_info.get("backup_date", "Unknown")
+        )
+        self.logger.info(
+            "Backup Size: %s", backup_info.get("backup_size_human", "Unknown")
         )
         dirs = backup_info.get("directories_backed_up", [])
         if dirs:
-            print(f"Directories Backed Up ({len(dirs)}):")
+            self.logger.info("Directories Backed Up (%d):", len(dirs))
             for directory in dirs:
-                print(f"  - {directory}")
+                self.logger.info("  - %s", directory)
         else:
-            print("Directories Backed Up: None")
+            self.logger.info("Directories Backed Up: None")
         backup_path = backup_info.get("backup_path")
         if backup_path and Path(backup_path).exists():
-            print("Status: ✓ Backup file exists")
+            self.logger.info("Status: ✓ Backup file exists")
         elif backup_path:
-            print("Status: ✗ Backup file not found")
+            self.logger.info("Status: ✗ Backup file not found")
         else:
-            print("Status: Unknown")
+            self.logger.info("Status: Unknown")
 
-        print("=" * 35)
+        self.logger.info("=" * 35)

@@ -4,6 +4,7 @@ This module provides user interaction functions following the Single
 Responsibility Principle. It handles file selection and user input validation.
 """
 
+import logging
 import os
 import sys
 from typing import NoReturn
@@ -30,28 +31,31 @@ def select_file(files: list[str], backup_folder: str) -> str:
     if not files:
         raise ValueError("No files available for selection")
 
-    print("\nAvailable files:")
+    logger = logging.getLogger(__name__)
+    logger.info("\nAvailable files:")
     for idx, file in enumerate(files, start=1):
-        print(f"{idx}. {file}")
+        logger.info("%d. %s", idx, file)
 
     while True:
         try:
             choice_input = input("Enter your choice: ").strip()
             if not choice_input:
-                print("Please enter a number.")
+                logger.info("Please enter a number.")
                 continue
 
             choice: int = int(choice_input) - 1
             if choice < 0 or choice >= len(files):
-                print(f"Please enter a number between 1 and {len(files)}.")
+                logger.info(
+                    "Please enter a number between 1 and %d.", len(files)
+                )
                 continue
 
             return os.path.join(backup_folder, files[choice])
 
         except ValueError:
-            print("Invalid input. Please enter a number.")
+            logger.info("Invalid input. Please enter a number.")
         except KeyboardInterrupt:
-            print("\nOperation cancelled by user")
+            logger.info("Operation cancelled by user")
             raise
 
 
@@ -65,40 +69,49 @@ def get_menu_choice() -> int:
         KeyboardInterrupt: If user cancels with Ctrl+C.
 
     """
+    logger = logging.getLogger(__name__)
     while True:
         try:
             choice: str = input("Enter your choice (1-7): ").strip()
             if not choice:
-                print("Please enter a number.")
+                logger.info("Please enter a number.")
                 continue
 
             choice_int: int = int(choice)
             if choice_int < 1 or choice_int > MAX_MENU_CHOICE:
-                print(f"Invalid input. Please enter a number between 1-{MAX_MENU_CHOICE}.")
+                logger.info(
+                    "Invalid input. Please enter a number between 1-%d.",
+                    MAX_MENU_CHOICE,
+                )
                 continue
 
             return choice_int
 
         except ValueError:
-            print(f"Invalid input. Please enter a number between 1-{MAX_MENU_CHOICE}.")
+            logger.info(
+                "Invalid input. Please enter a number between 1-%d.",
+                MAX_MENU_CHOICE,
+            )
         except KeyboardInterrupt:
-            print("\nExiting...")
+            logger.info("Exiting...")
             raise
 
 
 def display_main_menu() -> None:
     """Display the main application menu."""
-    print("\n===== Backup Manager =====")
-    print("1. Perform Backup")
-    print("2. Encrypt Backup File")
-    print("3. Decrypt Backup")
-    print("4. Cleanup Old Backups")
-    print("5. Extract Backup")
-    print("6. Show Last Backup Info")
-    print("7. Exit")
+    logger = logging.getLogger(__name__)
+    logger.info("\n===== Backup Manager =====")
+    logger.info("1. Perform Backup")
+    logger.info("2. Encrypt Backup File")
+    logger.info("3. Decrypt Backup")
+    logger.info("4. Cleanup Old Backups")
+    logger.info("5. Extract Backup")
+    logger.info("6. Show Last Backup Info")
+    logger.info("7. Exit")
 
 
 def exit_application() -> NoReturn:
     """Exit the application gracefully."""
-    print("Exiting...")
+    logger = logging.getLogger(__name__)
+    logger.info("Exiting...")
     sys.exit(0)

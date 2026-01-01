@@ -49,13 +49,11 @@ def validate_and_expand_paths(
             missing.append(str(candidate_path))
 
     if missing:
-        print(f"Some configured backup paths do not exist: {missing}")
         logger.warning(
             "Some configured backup paths do not exist: %s",
             missing,
         )
 
-    print("Proceeding with existing directories only.")
     logger.info(
         "Proceeding with existing directories only: %s",
         existing,
@@ -80,7 +78,6 @@ def ensure_backup_folder(folder: str) -> Path:
     """
     path = Path(folder).expanduser()
     if not path.exists():
-        print(f"Creating backup folder at {path}")
         logger.info(
             "Creating backup folder at %s",
             path,
@@ -129,15 +126,17 @@ class SizeCalculator:
             int: Total size in bytes.
 
         """
-        print("\n\U0001f4c2 Backup Directories (Exist Only)")
-        print("=" * 40)
+        logger.info("\n\U0001f4c2 Backup Directories (Exist Only)")
+        logger.info("=" * 40)
         total: int = 0
         for directory in self.directories:
             dir_size: int = self._calculate_directory_size(directory)
             total += dir_size
-            print(f"\U0001f4c1 {directory}: {self._format_size(dir_size)}")
-        print("=" * 40)
-        print(f"\u2705 Total Backup Size: {self._format_size(total)}\n")
+            logger.info(
+                "\U0001f4c1 %s: %s", directory, self._format_size(dir_size)
+            )
+        logger.info("=" * 40)
+        logger.info("\u2705 Total Backup Size: %s", self._format_size(total))
         return total
 
     def _calculate_directory_size(self, directory: Path) -> int:

@@ -7,6 +7,7 @@ formatting consistently across the application.
 
 import logging
 import os
+import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -52,9 +53,9 @@ def setup_application_logging(log_level: int = logging.INFO) -> None:
     file_handler.setFormatter(file_formatter)
     file_handler.setLevel(log_level)
 
-    # Configure console handler (errors only)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.ERROR)
+    # Configure console handler (user feedback and errors)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
     console_formatter = logging.Formatter("%(message)s")
     console_handler.setFormatter(console_formatter)
 

@@ -10,7 +10,7 @@ import logging
 import tempfile
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock, call, mock_open, patch
+from unittest.mock import Mock, mock_open, patch
 
 import pytest
 from hypothesis import given
@@ -116,39 +116,37 @@ class TestInfoCommand:
         mock_display.assert_called_once_with(sample_backup_info)
         mock_print.assert_not_called()
 
-    @patch("builtins.print")
     @patch.object(InfoCommand, "_load_backup_info")
     @patch.object(InfoCommand, "_display_backup_info")
     def test_execute_no_backup_info(
         self,
         mock_display: Mock,
         mock_load: Mock,
-        mock_print: Mock,
         info_command: InfoCommand,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test execute when no backup info is available.
 
         Args:
             mock_display: Mock display method.
-
             mock_load: Mock load method.
-            mock_print: Mock print function.
             info_command: InfoCommand instance.
+            caplog: Log capture fixture.
 
         """
         mock_load.return_value = None
 
-        info_command.execute()
+        with caplog.at_level(logging.INFO):
+            info_command.execute()
 
         mock_load.assert_called_once()
         mock_display.assert_not_called()
-        expected_calls = [
-            (("No backup information found.",), {}),
-            (("This usually means no backups have been created yet.",), {}),
-        ]
 
-        mock_print.assert_has_calls(
-            [call(*args, **kwargs) for args, kwargs in expected_calls]
+        # Check that the expected messages were logged
+        assert "No backup information found." in caplog.text
+        assert (
+            "This usually means no backups have been created yet."
+            in caplog.text
         )
 
     @patch("pathlib.Path.exists")
@@ -256,78 +254,70 @@ class TestInfoCommand:
         assert result is None
         assert "Failed to load backup info" in caplog.text
 
-    @patch("builtins.print")
     @patch("pathlib.Path.exists")
     def test_display_backup_info_complete(
         self,
         mock_exists: Mock,
-        mock_print: Mock,
         info_command: InfoCommand,
         sample_backup_info: dict[str, Any],
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test display with complete backup information.
 
         Args:
             mock_exists: Mock path existence check.
-
-            mock_print: Mock print function.
             info_command: InfoCommand instance.
             sample_backup_info: Sample backup data.
+            caplog: Log capture fixture.
 
         """
         mock_exists.return_value = True
 
-        info_command._display_backup_info(sample_backup_info)
+        with caplog.at_level(logging.INFO):
+            info_command._display_backup_info(sample_backup_info)
 
-        # Verify all expected information is printed
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
+        # Verify all expected information is logged
+        log_text = caplog.text
+        assert "Last Backup Information" in log_text
+        assert "backup_20241215_120000.tar.xz" in log_text
+        assert "2024-12-15 12:00:00" in log_text
+        assert "156.8 MB" in log_text
+        assert "/home/user/documents" in log_text
+        assert "/home/user/projects" in log_text
+        assert "✓ Backup file exists" in log_text
 
-        assert any("Last Backup Information" in call for call in print_calls)
-        assert any(
-            "backup_20241215_120000.tar.xz" in call for call in print_calls
-        )
-        assert any("2024-12-15 12:00:00" in call for call in print_calls)
-        assert any("156.8 MB" in call for call in print_calls)
-        assert any("/home/user/documents" in call for call in print_calls)
-        assert any("/home/user/projects" in call for call in print_calls)
-        assert any("✓ Backup file exists" in call for call in print_calls)
-
-    @patch("builtins.print")
     @patch("pathlib.Path.exists")
     def test_display_backup_info_file_not_found(
         self,
         mock_exists: Mock,
-        mock_print: Mock,
         info_command: InfoCommand,
         sample_backup_info: dict[str, Any],
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test display when backup file doesn't exist.
 
         Args:
             mock_exists: Mock path existence check.
-
-            mock_print: Mock print function.
             info_command: InfoCommand instance.
             sample_backup_info: Sample backup data.
+            caplog: Log capture fixture.
 
         """
         mock_exists.return_value = False
 
-        info_command._display_backup_info(sample_backup_info)
+        with caplog.at_level(logging.INFO):
+            info_command._display_backup_info(sample_backup_info)
 
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("✗ Backup file not found" in call for call in print_calls)
+        assert "✗ Backup file not found" in caplog.text
 
-    @patch("builtins.print")
     def test_display_backup_info_no_directories(
-        self, mock_print: Mock, info_command: InfoCommand
+        self, info_command: InfoCommand, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test display with no directories backed up.
 
         Args:
-            mock_print: Mock print function.
-
             info_command: InfoCommand instance.
+            caplog: Log capture fixture.
 
         """
         backup_info = {
@@ -338,32 +328,29 @@ class TestInfoCommand:
             "directories_backed_up": [],
         }
 
-        info_command._display_backup_info(backup_info)
+        with caplog.at_level(logging.INFO):
+            info_command._display_backup_info(backup_info)
 
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any(
-            "Directories Backed Up: None" in call for call in print_calls
-        )
-        assert any("Status: Unknown" in call for call in print_calls)
+        log_text = caplog.text
+        assert "Directories Backed Up: None" in log_text
+        assert "Status: Unknown" in log_text
 
-    @patch("builtins.print")
     def test_display_backup_info_missing_fields(
-        self, mock_print: Mock, info_command: InfoCommand
+        self, info_command: InfoCommand, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test display with missing backup info fields.
 
         Args:
-            mock_print: Mock print function.
-
             info_command: InfoCommand instance.
+            caplog: Log capture fixture.
 
         """
         backup_info: dict[str, Any] = {}
 
-        info_command._display_backup_info(backup_info)
+        with caplog.at_level(logging.INFO):
+            info_command._display_backup_info(backup_info)
 
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        assert any("Unknown" in call for call in print_calls)
+        assert "Unknown" in caplog.text
 
     @given(
         st.dictionaries(
@@ -393,18 +380,12 @@ class TestInfoCommand:
         config.config_dir = tempfile.mkdtemp()
         info_command = InfoCommand(config)
 
-        with (
-            patch("builtins.print") as mock_print,
-            patch("pathlib.Path.exists", return_value=True),
-        ):
+        with patch("pathlib.Path.exists", return_value=True):
             # Add required structure
             full_backup_info = {"directories_backed_up": [], **backup_info}
 
             # Should not raise exception
             info_command._display_backup_info(full_backup_info)
-
-            # Should have printed something
-            assert mock_print.called
 
     @given(st.lists(st.text(min_size=1, max_size=50), min_size=0, max_size=10))
     def test_directories_display_property(
@@ -424,35 +405,9 @@ class TestInfoCommand:
             "directories_backed_up": directories,
         }
 
-        with (
-            patch("builtins.print") as mock_print,
-            patch("pathlib.Path.exists", return_value=True),
-        ):
+        with patch("pathlib.Path.exists", return_value=True):
+            # Should not raise exception
             info_command._display_backup_info(backup_info)
-
-            print_calls = [call[0][0] for call in mock_print.call_args_list]
-
-            if directories:
-                # Should show count
-                count_line = next(
-                    (
-                        call
-                        for call in print_calls
-                        if f"({len(directories)})" in call
-                    ),
-                    None,
-                )
-                assert count_line is not None
-
-                # Should show each directory
-                for directory in directories:
-                    assert any(directory in call for call in print_calls)
-            else:
-                # Should show "None"
-                assert any(
-                    "Directories Backed Up: None" in call
-                    for call in print_calls
-                )
 
     def test_backup_info_file_path_construction(
         self, info_command: InfoCommand

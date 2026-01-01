@@ -116,7 +116,6 @@ class BackupCommand(Command):
 
         """
         if os.path.exists(self.config.backup_path):
-            print(f"File already exists: {self.config.backup_path}")
             self.logger.warning(
                 "File already exists: %s",
                 self.config.backup_path,

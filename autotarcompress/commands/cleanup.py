@@ -87,8 +87,6 @@ class CleanupCommand(Command):
             files if keep_count == 0 else files[:-keep_count]
         )
         if not files_to_delete:
-            msg = f"No old '{ext}' files to remove."
-            print(msg)
             self.logger.info("No old '%s' files to remove.", ext)
             return
 
@@ -101,14 +99,11 @@ class CleanupCommand(Command):
                     self.logger.info(
                         "Deleted old backup directory: %s", old_file
                     )
-                    print(f"Deleted old backup directory: {old_file}")
                 else:
                     file_path.unlink()
                     self.logger.info("Deleted old backup: %s", old_file)
-                    print(f"Deleted old backup: {old_file}")
             except (OSError, PermissionError) as e:
                 self.logger.error("Failed to delete %s: %s", old_file, e)
-                print(f"Failed to delete {old_file}: {e}")
         return
 
     def _cleanup_all_files(self) -> None:
