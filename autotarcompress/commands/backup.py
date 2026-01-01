@@ -5,14 +5,11 @@ backup archives using tar and xz compression.
 """
 
 import datetime
-import itertools
 import json
 import logging
 import os
 import shlex
 import subprocess
-import sys
-import time
 from pathlib import Path
 
 from autotarcompress.commands.command import Command
@@ -20,6 +17,7 @@ from autotarcompress.config import BackupConfig
 from autotarcompress.utils import (
     SizeCalculator,
     ensure_backup_folder,
+    is_pv_available,
     validate_and_expand_paths,
 )
 
@@ -140,7 +138,7 @@ class BackupCommand(Command):
                 self.logger.error("Failed to remove existing backup: %s", e)
                 return False
 
-        cmd = self._build_tar_command()
+        cmd = self._build_tar_command(total_size)
         total_size_gb = total_size / 1024**3
 
         self.logger.info(
@@ -160,10 +158,20 @@ class BackupCommand(Command):
             self.logger.error("Backup failed: %s", e)
             return False
 
-    def _build_tar_command(self) -> str:
-        """Build the tar+xz command string for backup."""
+    def _build_tar_command(self, total_size: int) -> str:
+        """Build the tar+xz command string for backup with optional pv progress.
+
+        Args:
+            total_size (int): Total size in bytes for pv progress calculation.
+
+        Returns:
+            str: The complete command string for backup.
+
+        """
+        # Quote each exclude pattern for shell safety
         exclude_options = " ".join(
-            f"--exclude={path}" for path in self.config.ignore_list
+            f"--exclude={shlex.quote(pattern)}"
+            for pattern in self.config.ignore_list
         )
         dir_paths = [
             os.path.expanduser(path) for path in self.config.dirs_to_backup
@@ -171,10 +179,27 @@ class BackupCommand(Command):
         quoted_paths = [shlex.quote(path) for path in dir_paths]
         cpu_count = os.cpu_count() or 1
         threads = max(1, cpu_count - 1)
-        return (
+
+        # Build tar command with pv progress if available
+        tar_cmd = (
             f"tar -chf - --one-file-system {exclude_options} "
-            f"{' '.join(quoted_paths)} | "
-            f"xz --threads={threads} > {self.config.backup_path}"
+            f"{' '.join(quoted_paths)}"
+        )
+
+        if is_pv_available():
+            # Use pv to show progress bar
+            return (
+                f"{tar_cmd} | "
+                f"pv -s {total_size} | "
+                f"xz --threads={threads} > {self.config.backup_path}"
+            )
+        # Fallback without progress bar
+        self.logger.info(
+            "pv command not found. Progress bar disabled. "
+            "Install pv for progress visualization: sudo apt install pv"
+        )
+        return (
+            f"{tar_cmd} | xz --threads={threads} > {self.config.backup_path}"
         )
 
     def _prompt_overwrite(self) -> bool:
@@ -219,11 +244,3 @@ class BackupCommand(Command):
                 return f"{size:.2f} {unit}"
             size /= BYTES_IN_KB
         return f"{size:.2f} PB"
-
-    def _show_spinner(self, process) -> None:
-        spinner = itertools.cycle(["/", "-", "\\", "|"])
-        while process.poll() is None:
-            sys.stdout.write(next(spinner) + " ")
-            sys.stdout.flush()
-            sys.stdout.write("\b\b")
-            time.sleep(0.1)

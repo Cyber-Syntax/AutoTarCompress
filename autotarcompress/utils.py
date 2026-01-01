@@ -4,8 +4,10 @@ This module provides support components for calculating file sizes
 and other utility operations.
 """
 
+import fnmatch
 import logging
 import os
+import shutil
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -87,6 +89,16 @@ def ensure_backup_folder(folder: str) -> Path:
     return path
 
 
+def is_pv_available() -> bool:
+    """Check if pv (pipe viewer) command is available on the system.
+
+    Returns:
+        bool: True if pv is available, False otherwise.
+
+    """
+    return shutil.which("pv") is not None
+
+
 BYTES_IN_KB = 1024.0
 
 
@@ -99,16 +111,16 @@ class SizeCalculator:
         Args:
             directories (list[str]): Directories to include in size
                 calculation.
-            ignore_list (list[str]): Paths to ignore during
-                calculation.
+            ignore_list (list[str]): Patterns or paths to ignore during
+                calculation. Can be absolute paths or patterns like
+                'node_modules' or '*.pyc'.
 
         """
         self.directories: list[Path] = [
             Path(os.path.expanduser(d)) for d in directories
         ]
-        self.ignore_list: list[Path] = [
-            Path(os.path.expanduser(p)) for p in ignore_list
-        ]
+        # Keep as strings to support both patterns and absolute paths
+        self.ignore_list: list[str] = ignore_list
 
     def calculate_total_size(self) -> int:
         """Sum the sizes of all directories, printing a summary.
@@ -191,17 +203,16 @@ class SizeCalculator:
     def _should_ignore(self, path: Path | str) -> bool:
         """Return True if path should be ignored based on ignore list.
 
+        Supports both:
+        - Absolute paths (e.g., /home/user/.stversions)
+        - Patterns (e.g., node_modules, *.pyc, __pycache__)
+
         Args:
             path (Path | str): File or directory path to check.
-        The check is performed using the normalized path to avoid mismatches
-        due to path formatting.
-
-        Args:
-            path: The file or directory path to check.
 
         Returns:
-            True if the path starts with any of the ignore paths,
-            False otherwise.
+            True if the path matches any ignore pattern or starts with
+            any absolute ignore path, False otherwise.
 
         """
         if isinstance(path, str):
@@ -209,13 +220,27 @@ class SizeCalculator:
 
         # Convert to absolute path for consistent comparison
         absolute_path = path.absolute()
+        absolute_str = str(absolute_path)
 
-        # Return True if the absolute path starts with any of the
-        # ignored paths. Normalize both sides for reliable comparison.
-        return any(
-            str(absolute_path).startswith(str(ignored.absolute()))
-            for ignored in self.ignore_list
-        )
+        for pattern in self.ignore_list:
+            # If pattern is an absolute path, check if path starts with it
+            if pattern.startswith(("/", "~")):
+                # Absolute path comparison
+                pattern_path = Path(pattern).expanduser().absolute()
+                if absolute_str.startswith(str(pattern_path)):
+                    return True
+            else:
+                # Pattern matching - check if any path component matches
+                # Split path into parts and check each part
+                path_parts = absolute_path.parts
+                for part in path_parts:
+                    if fnmatch.fnmatch(part, pattern):
+                        return True
+                # Also check full filename for patterns like *.pyc
+                if fnmatch.fnmatch(absolute_path.name, pattern):
+                    return True
+
+        return False
 
     def _format_size(self, size_in_bytes: int) -> str:
         """Convert a size in bytes to a human-readable format (KB, MB, GB).
