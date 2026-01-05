@@ -14,24 +14,24 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
 
-from autotarcompress.security import ContextManager
+from autotarcompress.utils.get_password import PasswordContext
 
 
 class TestContextManager:
-    """Test ContextManager security functionality."""
+    """Test PasswordContext security functionality."""
 
     def test_context_manager_initialization(self) -> None:
-        """Test that ContextManager initializes correctly."""
-        context_manager = ContextManager()
+        """Test that PasswordContext initializes correctly."""
+        context_manager = PasswordContext()
         assert hasattr(context_manager, "logger")
 
     def test_context_manager_has_password_context_method(self) -> None:
-        """Test that ContextManager has the password context method."""
-        context_manager = ContextManager()
+        """Test that PasswordContext has the password context method."""
+        context_manager = PasswordContext()
         assert hasattr(context_manager, "_password_context")
         assert callable(context_manager._password_context)
 
-    @patch("autotarcompress.security.getpass.getpass")
+    @patch("autotarcompress.utils.get_password.getpass.getpass")
     def test_password_context_functionality(
         self, mock_getpass: MagicMock
     ) -> None:
@@ -42,7 +42,7 @@ class TestContextManager:
         # Mock getpass to return same password for both calls
         mock_getpass.return_value = "test_password"
 
-        context_manager = ContextManager()
+        context_manager = PasswordContext()
 
         # Test that we can call the password context (even if protected)
         # This tests the underlying functionality without direct access
@@ -57,7 +57,7 @@ class TestContextManager:
             with mock_context() as password:
                 assert password == "test_password"
 
-    @patch("autotarcompress.security.getpass.getpass")
+    @patch("autotarcompress.utils.get_password.getpass.getpass")
     def test_password_confirmation_mismatch(
         self, mock_getpass: MagicMock, capsys: Any
     ) -> None:
@@ -68,7 +68,7 @@ class TestContextManager:
         mock_getpass.side_effect = ["password1", "password2"]
 
         setup_application_logging()
-        context_manager = ContextManager()
+        context_manager = PasswordContext()
 
         # Test password context directly
         with context_manager._password_context() as password:
@@ -77,7 +77,7 @@ class TestContextManager:
         captured = capsys.readouterr()
         assert "Password confirmation failed" in captured.out
 
-    @patch("autotarcompress.security.getpass.getpass")
+    @patch("autotarcompress.utils.get_password.getpass.getpass")
     def test_password_empty_rejection(
         self, mock_getpass: MagicMock, capsys: Any
     ) -> None:
@@ -88,7 +88,7 @@ class TestContextManager:
         mock_getpass.return_value = ""
 
         setup_application_logging()
-        context_manager = ContextManager()
+        context_manager = PasswordContext()
 
         # Test password context directly
         with context_manager._password_context() as password:
@@ -99,14 +99,14 @@ class TestContextManager:
 
     def test_context_manager_logger_setup(self) -> None:
         """Test that context manager has proper logging setup."""
-        context_manager = ContextManager()
+        context_manager = PasswordContext()
         assert hasattr(context_manager, "logger")
         assert context_manager.logger is not None
         assert hasattr(context_manager.logger, "error")
         assert hasattr(context_manager.logger, "info")
         assert hasattr(context_manager.logger, "debug")
 
-    @patch("autotarcompress.security.logging.getLogger")
+    @patch("autotarcompress.utils.get_password.logging.getLogger")
     def test_context_manager_logging_configuration(
         self, mock_get_logger: MagicMock
     ) -> None:
@@ -114,8 +114,10 @@ class TestContextManager:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
-        context_manager = ContextManager()
+        context_manager = PasswordContext()
 
         # Verify logger was requested with correct module name
-        mock_get_logger.assert_called_with("autotarcompress.security")
+        mock_get_logger.assert_called_with(
+            "autotarcompress.utils.get_password"
+        )
         assert context_manager.logger == mock_logger

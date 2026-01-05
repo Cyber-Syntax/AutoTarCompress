@@ -25,9 +25,8 @@ from autotarcompress.commands import (
     EncryptCommand,
 )
 from autotarcompress.config import BackupConfig
-from autotarcompress.facade import BackupFacade
-from autotarcompress.security import ContextManager
-from autotarcompress.utils import SizeCalculator
+from autotarcompress.utils.get_password import PasswordContext
+from autotarcompress.utils.size_calculator import SizeCalculator
 
 
 # Fixtures
@@ -366,82 +365,18 @@ class TestCleanupCommand:
         assert "02-01-2022.tar.xz.enc" in remaining_files
 
 
-# Tests for ContextManager
+# Tests for PasswordContext
 class TestContextManager:
     @patch("getpass.getpass", return_value="test_password")
     def test_password_context(self, mock_getpass: MagicMock) -> None:
         """Test secure password handling context"""
-        manager = ContextManager()
+        manager = PasswordContext()
 
         with manager._password_context() as password:
             assert password == "test_password"
 
         # After context exit, password should be securely wiped
         # This is hard to test directly as we're testing the absence of data
-
-
-# Tests for BackupFacade
-class TestBackupFacade:
-    @patch.object(BackupConfig, "load")
-    def test_init(
-        self, mock_load: MagicMock, test_config: BackupConfig
-    ) -> None:
-        """Test facade initialization"""
-        mock_load.return_value = test_config
-        facade = BackupFacade()
-
-        assert isinstance(facade.commands["backup"], BackupCommand)
-        assert isinstance(facade.commands["cleanup"], CleanupCommand)
-
-    @patch(
-        "builtins.input",
-        side_effect=[
-            # _setup_paths: backup directory input
-            "test_path",
-            # _setup_retention: two inputs for retention counts
-            "",
-            "",
-            # _setup_directories for backup dirs:
-            "1",  # Choose option 1: Add paths
-            "dir1,dir2",  # Enter directories
-            "y",
-            "y",  # Confirm non-existent paths
-            "3",  # Choose option 3: Finish configuration
-            # _setup_directories for ignore paths:
-            "1",  # Choose option 1: Add paths
-            "ignore1",  # Enter paths to ignore
-            "y",  # Confirm non-existent path
-            "3",  # Choose option 3: Finish configuration
-        ],
-    )
-    def test_configure(self, mock_input: MagicMock, temp_dir: str) -> None:
-        """Test interactive configuration."""
-        with (
-            patch.object(BackupConfig, "save"),
-            patch("pathlib.Path.exists", return_value=False),
-            patch("builtins.print"),
-        ):
-            facade = BackupFacade()
-            facade.configure()
-
-            assert "test_path" in facade.config.backup_folder
-            assert "dir1" in facade.config.dirs_to_backup
-            assert "dir2" in facade.config.dirs_to_backup
-            assert "ignore1" in facade.config.ignore_list
-
-    @patch.object(BackupCommand, "execute")
-    def test_execute_command(self, mock_execute: MagicMock) -> None:
-        """Test command execution through facade"""
-        facade = BackupFacade()
-        facade.execute_command("backup")
-
-        assert mock_execute.called
-
-    def test_execute_invalid_command(self) -> None:
-        """Test execution of invalid command"""
-        facade = BackupFacade()
-        with pytest.raises(ValueError):
-            facade.execute_command("invalid_command")
 
 
 if __name__ == "__main__":

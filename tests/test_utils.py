@@ -12,8 +12,8 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
 
-from autotarcompress.utils import (
-    SizeCalculator,
+from autotarcompress.utils.size_calculator import SizeCalculator
+from autotarcompress.utils.utils import (
     ensure_backup_folder,
     validate_and_expand_paths,
 )
@@ -69,7 +69,7 @@ class TestSizeCalculator:
         # Size with ignore should be less than or equal to size without ignore
         assert size_with_ignore <= size_without_ignore
 
-    @patch("autotarcompress.utils.os.walk")
+    @patch("autotarcompress.utils.size_calculator.os.walk")
     def test_calculate_total_size_handles_permission_errors(
         self, mock_walk
     ) -> None:
@@ -96,7 +96,7 @@ class TestSizeCalculator:
         # Should return 0 for non-existent directory
         assert total_size == 0
 
-    @patch("autotarcompress.utils.os.walk")
+    @patch("autotarcompress.utils.size_calculator.os.walk")
     def test_calculate_total_size_with_mocked_files(self, mock_walk) -> None:
         """Test size calculation with mocked file system."""
         # Mock os.walk to return test data
@@ -114,9 +114,10 @@ class TestSizeCalculator:
             def __init__(self, size: int):
                 self.st_size = size
 
-        with patch("pathlib.Path.stat") as mock_path_stat, patch(
-            "pathlib.Path.is_symlink"
-        ) as mock_is_symlink:
+        with (
+            patch("pathlib.Path.stat") as mock_path_stat,
+            patch("pathlib.Path.is_symlink") as mock_is_symlink,
+        ):
             mock_path_stat.return_value = MockStat(FILE_SIZE)
             mock_is_symlink.return_value = False  # Treat all as regular files
 

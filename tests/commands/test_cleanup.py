@@ -8,7 +8,6 @@ error handling, and file system operations.
 import datetime
 import logging
 from pathlib import Path
-from typing import List
 from unittest.mock import Mock, call, patch
 
 import pytest
@@ -72,7 +71,7 @@ class TestCleanupCommand:
         return CleanupCommand(mock_config)
 
     @pytest.fixture
-    def sample_backup_files(self) -> List[str]:
+    def sample_backup_files(self) -> list[str]:
         """Create sample backup filenames for testing.
 
         Returns:
@@ -90,7 +89,7 @@ class TestCleanupCommand:
         ]
 
     @pytest.fixture
-    def sample_encrypted_files(self) -> List[str]:
+    def sample_encrypted_files(self) -> list[str]:
         """Create sample encrypted backup filenames for testing.
 
         Returns:
@@ -118,7 +117,9 @@ class TestCleanupCommand:
         assert isinstance(command.logger, logging.Logger)
         assert command.logger.name == "autotarcompress.commands.cleanup"
 
-    def test_initialization_with_cleanup_all(self, mock_config: BackupConfig) -> None:
+    def test_initialization_with_cleanup_all(
+        self, mock_config: BackupConfig
+    ) -> None:
         """Test CleanupCommand initialization with cleanup_all parameter.
 
         Args:
@@ -164,7 +165,7 @@ class TestCleanupCommand:
         mock_unlink: Mock,
         mock_listdir: Mock,
         cleanup_command: CleanupCommand,
-        sample_backup_files: List[str],
+        sample_backup_files: list[str],
     ) -> None:
         """Test that cleanup keeps the specified number of recent files.
 
@@ -186,7 +187,10 @@ class TestCleanupCommand:
     @patch("os.listdir")
     @patch("pathlib.Path.unlink")
     def test_cleanup_files_with_fewer_than_keep_count(
-        self, mock_unlink: Mock, mock_listdir: Mock, cleanup_command: CleanupCommand
+        self,
+        mock_unlink: Mock,
+        mock_listdir: Mock,
+        cleanup_command: CleanupCommand,
     ) -> None:
         """Test cleanup when there are fewer files than keep count.
 
@@ -207,7 +211,10 @@ class TestCleanupCommand:
     @patch("os.listdir")
     @patch("pathlib.Path.unlink")
     def test_cleanup_files_no_matching_files(
-        self, mock_unlink: Mock, mock_listdir: Mock, cleanup_command: CleanupCommand
+        self,
+        mock_unlink: Mock,
+        mock_listdir: Mock,
+        cleanup_command: CleanupCommand,
     ) -> None:
         """Test cleanup when no files match the extension.
 
@@ -232,7 +239,7 @@ class TestCleanupCommand:
         mock_unlink: Mock,
         mock_listdir: Mock,
         cleanup_command: CleanupCommand,
-        sample_encrypted_files: List[str],
+        sample_encrypted_files: list[str],
     ) -> None:
         """Test cleanup of encrypted backup files.
 
@@ -306,7 +313,9 @@ class TestCleanupCommand:
         assert "Deleted old backup:" in caplog.text
         assert "14-12-2024.tar.xz" in caplog.text
 
-    def test_date_parsing_validation(self, cleanup_command: CleanupCommand) -> None:
+    def test_date_parsing_validation(
+        self, cleanup_command: CleanupCommand
+    ) -> None:
         """Test that date parsing works correctly for filename sorting.
 
         Args:
@@ -355,7 +364,7 @@ class TestCleanupCommand:
         mock_unlink: Mock,
         mock_listdir: Mock,
         cleanup_command: CleanupCommand,
-        sample_backup_files: List[str],
+        sample_backup_files: list[str],
     ) -> None:
         """Test cleanup when keep count is zero (delete all files).
 
@@ -382,11 +391,14 @@ class TestCleanupCommand:
 
         """
         cleanup_command = CleanupCommand(BackupConfig())
-        sample_files = [f"{i:02d}-12-2024.tar.xz" for i in range(1, 16)]  # 15 files
+        sample_files = [
+            f"{i:02d}-12-2024.tar.xz" for i in range(1, 16)
+        ]  # 15 files
 
-        with patch("os.listdir", return_value=sample_files), patch(
-            "pathlib.Path.unlink"
-        ) as mock_unlink:
+        with (
+            patch("os.listdir", return_value=sample_files),
+            patch("pathlib.Path.unlink") as mock_unlink,
+        ):
             cleanup_command._cleanup_files(".tar.xz", keep_count)
 
             if keep_count >= len(sample_files):
@@ -405,7 +417,9 @@ class TestCleanupCommand:
             unique=True,
         )
     )
-    def test_cleanup_files_various_filenames_property(self, filenames: List[str]) -> None:
+    def test_cleanup_files_various_filenames_property(
+        self, filenames: list[str]
+    ) -> None:
         """Property-based test for various filename patterns.
 
         Args:
@@ -423,9 +437,10 @@ class TestCleanupCommand:
             except ValueError:
                 continue
 
-        with patch("os.listdir", return_value=valid_filenames), patch(
-            "pathlib.Path.unlink"
-        ) as mock_unlink:
+        with (
+            patch("os.listdir", return_value=valid_filenames),
+            patch("pathlib.Path.unlink") as mock_unlink,
+        ):
             keep_count = 3
             cleanup_command._cleanup_files(".tar.xz", keep_count)
 
@@ -435,14 +450,19 @@ class TestCleanupCommand:
                 expected_deletions = len(valid_filenames) - keep_count
                 assert mock_unlink.call_count == expected_deletions
 
-    def test_backup_folder_path_construction(self, cleanup_command: CleanupCommand) -> None:
+    def test_backup_folder_path_construction(
+        self, cleanup_command: CleanupCommand
+    ) -> None:
         """Test that backup folder path is constructed correctly.
 
         Args:
             cleanup_command: CleanupCommand instance.
 
         """
-        with patch("os.listdir") as mock_listdir, patch("pathlib.Path.unlink") as mock_unlink:
+        with (
+            patch("os.listdir") as mock_listdir,
+            patch("pathlib.Path.unlink") as mock_unlink,
+        ):
             mock_listdir.return_value = ["15-12-2024.tar.xz"]
             cleanup_command._cleanup_files(".tar.xz", 0)
 
@@ -454,7 +474,10 @@ class TestCleanupCommand:
 
     @patch("os.listdir")
     def test_cleanup_files_handles_os_error(
-        self, mock_listdir: Mock, cleanup_command: CleanupCommand, caplog: pytest.LogCaptureFixture
+        self,
+        mock_listdir: Mock,
+        cleanup_command: CleanupCommand,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test handling of OS errors during directory listing.
 
@@ -470,7 +493,9 @@ class TestCleanupCommand:
         with pytest.raises(OSError):
             cleanup_command._cleanup_files(".tar.xz", 5)
 
-    def test_file_extension_filtering(self, cleanup_command: CleanupCommand) -> None:
+    def test_file_extension_filtering(
+        self, cleanup_command: CleanupCommand
+    ) -> None:
         """Test that only files with correct extension are processed.
 
         Args:
@@ -485,15 +510,18 @@ class TestCleanupCommand:
             "11-12-2024.tar.xz",  # Should match
         ]
 
-        with patch("os.listdir", return_value=mixed_files), patch(
-            "pathlib.Path.unlink"
-        ) as mock_unlink:
+        with (
+            patch("os.listdir", return_value=mixed_files),
+            patch("pathlib.Path.unlink") as mock_unlink,
+        ):
             cleanup_command._cleanup_files(".tar.xz", 1)
 
             # Should only process the 2 .tar.xz files and delete 1 (oldest)
             assert mock_unlink.call_count == 1
 
-    def test_cleanup_all_files_functionality(self, mock_config: BackupConfig) -> None:
+    def test_cleanup_all_files_functionality(
+        self, mock_config: BackupConfig
+    ) -> None:
         """Test that cleanup_all deletes all files regardless of retention policy.
 
         Args:
@@ -511,9 +539,11 @@ class TestCleanupCommand:
             "11-12-2024.tar.xz.enc",
         ]
 
-        with patch("os.listdir", return_value=test_files), patch(
-            "pathlib.Path.unlink"
-        ) as mock_unlink, patch("pathlib.Path.is_dir", return_value=False):
+        with (
+            patch("os.listdir", return_value=test_files),
+            patch("pathlib.Path.unlink") as mock_unlink,
+            patch("pathlib.Path.is_dir", return_value=False),
+        ):
             command._cleanup_all_files()
 
             # Should delete all files (4 calls for 4 different extensions)
