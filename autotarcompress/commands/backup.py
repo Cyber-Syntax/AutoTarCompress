@@ -14,8 +14,8 @@ from pathlib import Path
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
-from autotarcompress.utils import (
-    SizeCalculator,
+from autotarcompress.utils.size_calculator import SizeCalculator
+from autotarcompress.utils.utils import (
     ensure_backup_folder,
     is_pv_available,
     validate_and_expand_paths,

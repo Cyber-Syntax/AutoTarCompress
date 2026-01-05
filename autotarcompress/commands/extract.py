@@ -12,7 +12,7 @@ from pathlib import Path
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
-from autotarcompress.utils import is_pv_available
+from autotarcompress.utils.utils import is_pv_available
 
 
 class ExtractCommand(Command):

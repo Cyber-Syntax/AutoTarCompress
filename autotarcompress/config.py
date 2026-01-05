@@ -11,6 +11,8 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 
 def _default_dirs_to_backup() -> list[str]:
     """Return default list of directories to backup.
@@ -99,9 +101,7 @@ class BackupConfig:
         valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
         level_upper = level.upper()
         if level_upper not in valid_levels:
-            logging.warning(
-                "Invalid log level '%s', defaulting to INFO", level
-            )
+            logger.warning("Invalid log level '%s', defaulting to INFO", level)
             return "INFO"
         return level_upper
 
@@ -242,7 +242,7 @@ class BackupConfig:
                 for ignore_path in self.ignore_list
             )
 
-        logging.info("Configuration saved to %s", self.config_path)
+        logger.info("Configuration saved to %s", self.config_path)
 
     @classmethod
     def load(cls) -> "BackupConfig":
@@ -303,11 +303,28 @@ class BackupConfig:
                     dirs_to_backup=dirs_to_backup,
                     ignore_list=ignore_list,
                 )
-            except (OSError, ValueError, configparser.Error) as e:
-                logging.exception("Error reading config file: %s", e)
-                logging.warning("Using default configuration")
+            except (OSError, ValueError, configparser.Error):
+                logger.exception("Error reading config file")
+                logger.warning("Using default configuration")
                 return default_config
         return default_config
+
+    @classmethod
+    def create_default(cls, config_path: Path | None = None) -> "BackupConfig":
+        """Create and save default configuration.
+
+        Args:
+            config_path: Optional custom config path. If None, uses default location.
+
+        Returns:
+            BackupConfig: Newly created config instance with defaults.
+        """
+        config = cls()
+        if config_path:
+            config.config_dir = str(config_path.parent)
+        config.save()
+        logger.info("Created default configuration at %s", config.config_path)
+        return config
 
     @classmethod
     def verify_config(cls) -> tuple[bool, str]:

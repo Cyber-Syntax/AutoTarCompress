@@ -17,7 +17,7 @@ import subprocess
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
-from autotarcompress.security import ContextManager
+from autotarcompress.utils.get_password import PasswordContext
 
 
 class EncryptCommand(Command):
@@ -41,8 +41,8 @@ class EncryptCommand(Command):
         """
         self.file_to_encrypt: str = file_to_encrypt
         self.logger: logging.Logger = logging.getLogger(__name__)
-        self._password_context = ContextManager()._password_context
-        self._safe_cleanup = ContextManager()._safe_cleanup
+        self._password_context = PasswordContext()._password_context
+        self._safe_cleanup = PasswordContext()._safe_cleanup
         self.required_openssl_version: tuple[int, int, int] = (3, 0, 0)
 
     def execute(self) -> bool:

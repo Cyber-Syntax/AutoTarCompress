@@ -12,7 +12,7 @@ import subprocess
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
-from autotarcompress.security import ContextManager
+from autotarcompress.utils.get_password import PasswordContext
 
 
 class DecryptCommand(Command):
@@ -35,8 +35,8 @@ class DecryptCommand(Command):
         self.config: BackupConfig = config
         self.file_path: str = file_path
         self.logger: logging.Logger = logging.getLogger(__name__)
-        self._password_context = ContextManager()._password_context
-        self._safe_cleanup = ContextManager()._safe_cleanup
+        self._password_context = PasswordContext()._password_context
+        self._safe_cleanup = PasswordContext()._safe_cleanup
 
     def execute(self) -> bool:
         """Perform secure decryption with matched PBKDF2 parameters.

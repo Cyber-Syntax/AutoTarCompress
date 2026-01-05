@@ -1,7 +1,7 @@
-"""Security module for handling sensitive operations.
+"""Password and encryption utilities for AutoTarCompress.
 
-This module provides security-related functions and classes for handling
-sensitive data like passwords and secure file operations.
+This module provides secure password handling and file cleanup utilities
+for encryption and decryption operations.
 
 Features:
 - Password confirmation to prevent user mistakes
@@ -17,11 +17,11 @@ from contextlib import contextmanager
 from pathlib import Path
 
 
-class ContextManager:
-    """Secure context manager for password handling and safe cleanup."""
+class PasswordContext:
+    """Secure password handling and file cleanup utilities."""
 
     def __init__(self) -> None:
-        """Initialize ContextManager with logger."""
+        """Initialize PasswordContext with logger."""
         self.logger: logging.Logger = logging.getLogger(__name__)
 
     @contextmanager
