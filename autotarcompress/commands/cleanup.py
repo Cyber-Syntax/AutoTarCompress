@@ -46,9 +46,13 @@ class CleanupCommand(Command):
         if self.cleanup_all:
             self._cleanup_all_files()
         else:
+            # Support both new (.tar.zst) and legacy (.tar.xz) formats
+            self._cleanup_files(".tar.zst", self.config.keep_backup)
             self._cleanup_files(".tar.xz", self.config.keep_backup)
+            self._cleanup_files(".tar.zst-decrypted", self.config.keep_backup)
             self._cleanup_files(".tar.xz-decrypted", self.config.keep_backup)
             self._cleanup_files(".tar-extracted", self.config.keep_backup)
+            self._cleanup_files(".tar.zst.enc", self.config.keep_enc_backup)
             self._cleanup_files(".tar.xz.enc", self.config.keep_enc_backup)
         return True
 
@@ -113,10 +117,14 @@ class CleanupCommand(Command):
         respecting the keep_count configuration.
 
         """
+        # Support both new (.tar.zst) and legacy (.tar.xz) formats
         extensions = [
+            ".tar.zst",
             ".tar.xz",
+            ".tar.zst-decrypted",
             ".tar.xz-decrypted",
             ".tar-extracted",
+            ".tar.zst.enc",
             ".tar.xz.enc",
         ]
 

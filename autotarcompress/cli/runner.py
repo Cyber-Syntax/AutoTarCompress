@@ -84,7 +84,8 @@ def get_backup_files(backup_folder: str) -> list[str]:
     return [
         f
         for f in os.listdir(expanded_backup_dir)
-        if f.endswith(".tar.xz") and not f.endswith(".enc")
+        if (f.endswith(".tar.zst") or f.endswith(".tar.xz"))
+        and not f.endswith(".enc")
     ]
 
 

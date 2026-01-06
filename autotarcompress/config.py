@@ -129,7 +129,7 @@ class BackupConfig:
         """Return the full path to the backup file."""
         return (
             Path(self.backup_folder).expanduser()
-            / f"{self.current_date}.tar.xz"
+            / f"{self.current_date}.tar.zst"
         )
 
     def _unexpand_path(self, path: str) -> str:
@@ -245,7 +245,7 @@ class BackupConfig:
         logger.info("Configuration saved to %s", self.config_path)
 
     @classmethod
-    def load(cls) -> "BackupConfig":
+    def load(cls) -> BackupConfig:
         """Load config from INI file or create with defaults if missing.
 
         Lists are loaded as INI multi-line values for user-friendly editing.
@@ -310,7 +310,7 @@ class BackupConfig:
         return default_config
 
     @classmethod
-    def create_default(cls, config_path: Path | None = None) -> "BackupConfig":
+    def create_default(cls, config_path: Path | None = None) -> BackupConfig:
         """Create and save default configuration.
 
         Args:

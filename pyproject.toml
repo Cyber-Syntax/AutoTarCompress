@@ -4,7 +4,7 @@ version = '0.8.0-beta'
 license = { text = "GPL-3.0-or-later" }
 description = 'The script compresses specific directories into tar files, and it is able to encrypt them using the OpenSSL Python library. It also allows for decryption and extraction of the created files.'
 keywords = ["tar", "compress", "backup"]
-requires-python = ">= 3.12"
+requires-python = ">= 3.14"
 authors = [{ name = "Cyber-Syntax" }]
 dependencies = ["typer", "typing_extensions"]
 classifiers = [

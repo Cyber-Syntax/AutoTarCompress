@@ -16,7 +16,7 @@ from autotarcompress.utils.utils import is_pv_available
 
 
 class ExtractCommand(Command):
-    """Command to extract tar.xz backup archives securely."""
+    """Command to extract tar.xz and tar.zst backup archives securely."""
 
     def __init__(self, config: BackupConfig, file_path: str) -> None:
         """Initialize ExtractCommand.
@@ -41,11 +41,39 @@ class ExtractCommand(Command):
         extract_dir: Path = Path(f"{file_path.with_suffix('')}-extracted")
         extract_dir.mkdir(exist_ok=True)
 
-        # Use pv for progress if available
-        if is_pv_available() and file_path.suffix == ".xz":
+        # Determine compression format from file extension
+        # Support both .tar.zst (new) and .tar.xz (legacy)
+        compression = self._detect_compression(file_path)
+        if not compression:
+            self.logger.error(
+                "Unsupported file format: %s (expected .tar.zst or .tar.xz)",
+                file_path.suffix,
+            )
+            return False
+
+        # Use pv for progress if available (only for xz, tarfile for zst)
+        if is_pv_available() and compression == "xz":
             return self._extract_with_pv(file_path, extract_dir)
 
-        return self._extract_without_pv(file_path, extract_dir)
+        return self._extract_without_pv(file_path, extract_dir, compression)
+
+    def _detect_compression(self, file_path: Path) -> str | None:
+        """Detect compression format from file extension.
+
+        Args:
+            file_path (Path): Path to the archive file.
+
+        Returns:
+            str | None: Compression format ('xz' or 'zst'), or None if
+                unsupported.
+
+        """
+        suffix = file_path.suffix.lower()
+        if suffix == ".zst":
+            return "zst"
+        if suffix == ".xz":
+            return "xz"
+        return None
 
     def _extract_with_pv(self, file_path: Path, extract_dir: Path) -> bool:
         """Extract archive using pv to show progress.
@@ -74,19 +102,22 @@ class ExtractCommand(Command):
             self.logger.exception("Error during extraction")
             return False
 
-    def _extract_without_pv(self, file_path: Path, extract_dir: Path) -> bool:
+    def _extract_without_pv(
+        self, file_path: Path, extract_dir: Path, compression: str
+    ) -> bool:
         """Extract archive without pv (fallback method).
 
         Args:
             file_path (Path): Path to the archive file.
             extract_dir (Path): Directory to extract to.
+            compression (str): Compression format ('xz' or 'zst').
 
         Returns:
             bool: True if extraction succeeded, False otherwise.
 
         """
         try:
-            with tarfile.open(file_path, "r:xz") as tar:
+            with tarfile.open(str(file_path), f"r:{compression}") as tar:
                 # Prevent path traversal attacks by checking extraction target
                 for member in tar.getmembers():
                     target_path = extract_dir / member.name
