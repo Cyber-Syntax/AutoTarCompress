@@ -5,7 +5,6 @@ This module tests backup, cleanup, encrypt, decrypt, extract, and info commands.
 
 import logging
 import os
-import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -70,18 +69,22 @@ class TestBackupCommand:
             result = command._format_size(size_bytes)
             assert result == expected
 
-    @patch("autotarcompress.commands.backup.subprocess.run")
-    @patch("autotarcompress.commands.backup.os.path.exists")
+    @patch("autotarcompress.commands.backup.validate_and_expand_paths")
+    @patch("tarfile.open")
+    @patch("pathlib.Path.exists")
     def test_backup_success_saves_info(
         self,
-        mock_exists: MagicMock,
-        mock_subprocess: MagicMock,
+        mock_path_exists: MagicMock,
+        mock_tarfile: MagicMock,
+        mock_validate: MagicMock,
         test_config: BackupConfig,
     ) -> None:
         """Test that backup command saves info when backup succeeds."""
         # Setup mocks
-        mock_exists.return_value = False  # Backup file doesn't exist
-        mock_subprocess.return_value = MagicMock(returncode=0)  # Success
+        mock_path_exists.return_value = False  # Backup file doesn't exist
+        mock_validate.return_value = (test_config.dirs_to_backup, [])
+        mock_tar = MagicMock()
+        mock_tarfile.return_value.__enter__.return_value = mock_tar
 
         command = BackupCommand(test_config)
 
@@ -98,20 +101,21 @@ class TestBackupCommand:
         assert result is True
         mock_save_info.assert_called_once_with(1000)
 
-    @patch("autotarcompress.commands.backup.subprocess.run")
-    @patch("autotarcompress.commands.backup.os.path.exists")
+    @patch("autotarcompress.commands.backup.validate_and_expand_paths")
+    @patch("tarfile.open")
+    @patch("pathlib.Path.exists")
     def test_backup_failure_no_info_saved(
         self,
-        mock_exists: MagicMock,
-        mock_subprocess: MagicMock,
+        mock_path_exists: MagicMock,
+        mock_tarfile: MagicMock,
+        mock_validate: MagicMock,
         test_config: BackupConfig,
     ) -> None:
         """Test that backup command doesn't save info when backup fails."""
         # Setup mocks
-        mock_exists.return_value = False  # Backup file doesn't exist
-        mock_subprocess.side_effect = subprocess.CalledProcessError(
-            1, "backup failed"
-        )
+        mock_path_exists.return_value = False  # Backup file doesn't exist
+        mock_validate.return_value = (test_config.dirs_to_backup, [])
+        mock_tarfile.side_effect = OSError("backup failed")
 
         command = BackupCommand(test_config)
 

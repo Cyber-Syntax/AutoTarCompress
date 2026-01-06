@@ -72,7 +72,7 @@ class TestBackupConfig:
         """Test that backup_path generates correct path."""
         config = BackupConfig()
         backup_path = config.backup_path
-        assert str(backup_path).endswith(".tar.xz")
+        assert str(backup_path).endswith(".tar.zst")
         assert config.current_date in str(backup_path)
 
     def test_config_save(self, test_config: BackupConfig) -> None:

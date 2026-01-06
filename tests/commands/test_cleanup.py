@@ -150,10 +150,14 @@ class TestCleanupCommand:
         result = cleanup_command.execute()
 
         assert result is True
+        # Updated to expect both .tar.zst and .tar.xz formats
         expected_calls = [
+            call(".tar.zst", 5),
             call(".tar.xz", 5),
+            call(".tar.zst-decrypted", 5),
             call(".tar.xz-decrypted", 5),
             call(".tar-extracted", 5),
+            call(".tar.zst.enc", 3),
             call(".tar.xz.enc", 3),
         ]
         mock_cleanup.assert_has_calls(expected_calls)
@@ -582,5 +586,6 @@ class TestCleanupCommand:
             result = command.execute()
 
             assert result is True
-            # Should be called 4 times for different file extensions
-            assert mock_cleanup_files.call_count == 4
+            # Should be called 7 times for different file extensions
+            # (both .tar.zst and .tar.xz formats)
+            assert mock_cleanup_files.call_count == 7

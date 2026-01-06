@@ -31,7 +31,7 @@ from autotarcompress.utils.size_calculator import SizeCalculator
 
 # Fixtures
 @pytest.fixture
-def temp_dir() -> Generator[str, None, None]:
+def temp_dir() -> Generator[str]:
     """Create a temporary directory for testing that gets cleaned up afterwards"""
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
@@ -257,16 +257,23 @@ class TestSizeCalculator:
 
 # Tests for Commands
 class TestBackupCommand:
-    @patch("subprocess.run")
-    @patch("os.cpu_count", return_value=4)
+    @patch("tarfile.open")
+    @patch("pathlib.Path.exists")
+    @patch("autotarcompress.commands.backup.validate_and_expand_paths")
     def test_execute_backup(
         self,
-        mock_cpu_count: MagicMock,
-        mock_run: MagicMock,
+        mock_validate: MagicMock,
+        mock_path_exists: MagicMock,
+        mock_tarfile: MagicMock,
         test_config: BackupConfig,
         test_data_dir: str,
     ) -> None:
         """Test backup execution"""
+        mock_validate.return_value = (test_config.dirs_to_backup, [])
+        mock_path_exists.return_value = False
+        mock_tar = MagicMock()
+        mock_tarfile.return_value.__enter__.return_value = mock_tar
+
         with (
             patch("builtins.print"),
             patch.object(
@@ -277,22 +284,26 @@ class TestBackupCommand:
             result = command.execute()
 
             # Check the command was executed
-            assert mock_run.called
+            assert mock_tarfile.called
             assert result is True
 
-    @patch("os.path.exists", return_value=True)
+    @patch("pathlib.Path.exists", return_value=True)
     @patch("builtins.input", return_value="y")
-    @patch("os.remove")
+    @patch("pathlib.Path.unlink")
+    @patch("tarfile.open")
     def test_execute_backup_file_exists(
         self,
-        mock_remove: MagicMock,
+        mock_tarfile: MagicMock,
+        mock_unlink: MagicMock,
         mock_input: MagicMock,
         mock_exists: MagicMock,
         test_config: BackupConfig,
     ) -> None:
         """Test backup when output file already exists"""
+        mock_tar = MagicMock()
+        mock_tarfile.return_value.__enter__.return_value = mock_tar
+
         with (
-            patch("subprocess.run"),
             patch.object(
                 SizeCalculator, "calculate_total_size", return_value=1024
             ),
@@ -302,7 +313,7 @@ class TestBackupCommand:
             command._run_backup_process(1024)
 
             # Check file was removed
-            assert mock_remove.called
+            assert mock_unlink.called
 
 
 class TestEncryptCommand:

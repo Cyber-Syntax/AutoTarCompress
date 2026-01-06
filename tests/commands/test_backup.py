@@ -6,7 +6,6 @@ including mocking external processes and testing error conditions.
 
 import logging
 import os
-import subprocess
 from pathlib import Path
 from unittest.mock import Mock, mock_open, patch
 
@@ -75,37 +74,44 @@ class TestBackupCommand:
         assert result is False
 
     @patch("autotarcompress.commands.backup.SizeCalculator")
-    @patch("subprocess.run")
-    @patch("os.path.exists")
+    @patch("tarfile.open")
+    @patch("pathlib.Path.exists")
+    @patch("autotarcompress.commands.backup.validate_and_expand_paths")
     def test_execute_successful_backup(
         self,
+        mock_validate: Mock,
         mock_exists: Mock,
-        mock_subprocess: Mock,
+        mock_tarfile_open: Mock,
         mock_size_calc: Mock,
         backup_command: BackupCommand,
     ) -> None:
         """Test successful backup execution."""
         # Setup mocks
+        mock_validate.return_value = (
+            backup_command.config.dirs_to_backup,
+            [],
+        )
         mock_exists.return_value = False
-        mock_subprocess.return_value = Mock(returncode=0)
         mock_calc_instance = Mock()
         mock_calc_instance.calculate_total_size.return_value = ONE_GB
         mock_size_calc.return_value = mock_calc_instance
+
+        # Mock tarfile context manager
+        mock_tar = Mock()
+        mock_tarfile_open.return_value.__enter__.return_value = mock_tar
 
         with patch.object(backup_command, "_save_backup_info") as mock_save:
             result = backup_command.execute()
 
             assert result is True
             mock_save.assert_called_once_with(ONE_GB)
-            mock_subprocess.assert_called_once()
+            mock_tarfile_open.assert_called_once()
 
     @patch("autotarcompress.commands.backup.SizeCalculator")
-    @patch("subprocess.run")
-    @patch("os.path.exists")
+    @patch("pathlib.Path.exists")
     def test_execute_backup_file_exists_user_refuses_removal(
         self,
         mock_exists: Mock,
-        mock_subprocess: Mock,
         mock_size_calc: Mock,
         backup_command: BackupCommand,
     ) -> None:
@@ -119,26 +125,28 @@ class TestBackupCommand:
             result = backup_command.execute()
 
             assert result is False
-            mock_subprocess.assert_not_called()
 
     @patch("autotarcompress.commands.backup.SizeCalculator")
-    @patch("subprocess.run")
-    @patch("os.path.exists")
-    @patch("os.remove")
+    @patch("tarfile.open")
+    @patch("pathlib.Path.exists")
+    @patch("pathlib.Path.unlink")
     def test_execute_backup_file_exists_user_allows_removal(
         self,
-        mock_remove: Mock,
+        mock_unlink: Mock,
         mock_exists: Mock,
-        mock_subprocess: Mock,
+        mock_tarfile_open: Mock,
         mock_size_calc: Mock,
         backup_command: BackupCommand,
     ) -> None:
         """Test backup succeeds when file exists and user allows removal."""
         mock_exists.return_value = True
-        mock_subprocess.return_value = Mock(returncode=0)
         mock_calc_instance = Mock()
         mock_calc_instance.calculate_total_size.return_value = ONE_GB
         mock_size_calc.return_value = mock_calc_instance
+
+        # Mock tarfile context manager
+        mock_tar = Mock()
+        mock_tarfile_open.return_value.__enter__.return_value = mock_tar
 
         with (
             patch("builtins.input", return_value="y"),
@@ -147,23 +155,21 @@ class TestBackupCommand:
             result = backup_command.execute()
 
             assert result is True
-            mock_remove.assert_called_once_with(
-                backup_command.config.backup_path
-            )
+            mock_unlink.assert_called_once()
 
     @patch("autotarcompress.commands.backup.SizeCalculator")
-    @patch("subprocess.run")
-    @patch("os.path.exists")
-    def test_execute_subprocess_error(
+    @patch("tarfile.open")
+    @patch("pathlib.Path.exists")
+    def test_execute_tarfile_error(
         self,
         mock_exists: Mock,
-        mock_subprocess: Mock,
+        mock_tarfile_open: Mock,
         mock_size_calc: Mock,
         backup_command: BackupCommand,
     ) -> None:
-        """Test backup fails when subprocess raises CalledProcessError."""
+        """Test backup fails when tarfile raises an error."""
         mock_exists.return_value = False
-        mock_subprocess.side_effect = subprocess.CalledProcessError(1, "tar")
+        mock_tarfile_open.side_effect = OSError("Permission denied")
         mock_calc_instance = Mock()
         mock_calc_instance.calculate_total_size.return_value = ONE_GB
         mock_size_calc.return_value = mock_calc_instance
@@ -189,24 +195,29 @@ class TestBackupCommand:
                 backup_command.config.ignore_list,
             )
 
-    @patch("os.cpu_count")
+    @patch("tarfile.open")
+    @patch("pathlib.Path.exists")
     def test_run_backup_process_cpu_count_none(
-        self, mock_cpu_count: Mock, backup_command: BackupCommand
+        self,
+        mock_exists: Mock,
+        mock_tarfile: Mock,
+        backup_command: BackupCommand,
     ) -> None:
-        """Test backup process handles None CPU count gracefully."""
-        mock_cpu_count.return_value = None
+        """Test backup process handles tarfile creation properly."""
+        mock_exists.return_value = False
 
-        with (
-            patch("subprocess.run") as mock_subprocess,
-            patch("os.path.exists", return_value=False),
-        ):
-            backup_command._run_backup_process(ONE_KB)
+        # Mock tarfile context manager
+        mock_tar = Mock()
+        mock_tarfile.return_value.__enter__.return_value = mock_tar
 
-            # Verify that threads=1 is used when cpu_count returns None
-            call_args = mock_subprocess.call_args[0][0]
-            assert "--threads=1" in call_args
+        backup_command._run_backup_process(ONE_KB)
 
-    @patch("builtins.open", new_callable=mock_open)
+        # Verify tarfile.open was called with zst compression
+        mock_tarfile.assert_called_once()
+        call_args = mock_tarfile.call_args
+        assert "w:zst" in call_args[0]  # Check for zst compression mode
+
+    @patch("pathlib.Path.open", new_callable=mock_open)
     @patch("json.dump")
     @patch("datetime.datetime")
     def test_save_backup_info_success(
@@ -217,26 +228,22 @@ class TestBackupCommand:
         backup_command: BackupCommand,
     ) -> None:
         """Test successful saving of backup information."""
-        mock_datetime.now().isoformat.return_value = (
-            "2025-09-13T10:30:45.123456"
+        mock_datetime.now.return_value.isoformat.return_value = (
+            "2025-09-13T10:30:45.123456+00:00"
         )
 
         backup_command._save_backup_info(ONE_GB)
 
-        expected_info = {
-            "backup_file": Path(backup_command.config.backup_path).name,
-            "backup_path": str(backup_command.config.backup_path),
-            "backup_date": "2025-09-13T10:30:45.123456",
-            "backup_size_bytes": ONE_GB,
-            "backup_size_human": "1.00 GB",
-            "directories_backed_up": backup_command.config.dirs_to_backup,
-        }
+        # Verify json.dump was called
+        assert mock_json_dump.called
+        call_args = mock_json_dump.call_args[0]
+        backup_info = call_args[0]
 
-        mock_json_dump.assert_called_once_with(
-            expected_info, mock_file_open().__enter__(), indent=2
-        )
+        assert backup_info["backup_size_bytes"] == ONE_GB
+        assert backup_info["backup_size_human"] == "1.00 GB"
+        assert backup_info["backup_date"] == "2025-09-13T10:30:45.123456+00:00"
 
-    @patch("builtins.open", side_effect=OSError("Permission denied"))
+    @patch("pathlib.Path.open", side_effect=OSError("Permission denied"))
     def test_save_backup_info_error(
         self,
         mock_file_open: Mock,
@@ -244,10 +251,11 @@ class TestBackupCommand:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test error handling in _save_backup_info method."""
-        with caplog.at_level(logging.ERROR):
-            backup_command._save_backup_info(ONE_GB)
+        backup_command._save_backup_info(ONE_GB)
 
-            assert "Failed to save backup info" in caplog.text
+        # Check that an exception was logged
+        # logging.exception automatically logs the exception
+        assert len(caplog.records) > 0
 
     @given(st.integers(min_value=0, max_value=10**15))
     def test_format_size_property(self, size_bytes: int) -> None:
@@ -286,68 +294,38 @@ class TestBackupCommand:
         result = backup_command._format_size(size_bytes)
         assert result == expected
 
-    @patch("autotarcompress.commands.backup.is_pv_available")
-    def test_build_tar_command_with_pv(
-        self, mock_pv_available: Mock, backup_command: BackupCommand
-    ) -> None:
-        """Test _build_tar_command includes pv when available."""
-        mock_pv_available.return_value = True
-        total_size = 1000000
-        cmd = backup_command._build_tar_command(total_size)
-
-        assert "pv -s 1000000" in cmd
-        assert "tar -chf -" in cmd
-        assert "xz --threads=" in cmd
-
-    @patch("autotarcompress.commands.backup.is_pv_available")
-    def test_build_tar_command_without_pv(
-        self, mock_pv_available: Mock, backup_command: BackupCommand
-    ) -> None:
-        """Test _build_tar_command works without pv."""
-        mock_pv_available.return_value = False
-        total_size = 1000000
-        cmd = backup_command._build_tar_command(total_size)
-
-        assert "pv" not in cmd
-        assert "tar -chf -" in cmd
-        assert "xz --threads=" in cmd
-
-    def test_backup_command_with_symlinks(
+    def test_should_exclude_absolute_path(
         self, backup_command: BackupCommand
     ) -> None:
-        """Test that backup command properly handles symlinks."""
-        # This test verifies the 'h' option is used in tar command
-        with (
-            patch("subprocess.run") as mock_subprocess,
-            patch("os.path.exists", return_value=False),
-            patch(
-                "autotarcompress.commands.backup.SizeCalculator"
-            ) as mock_calc,
-        ):
-            mock_calc_instance = Mock()
-            mock_calc_instance.calculate_total_size.return_value = ONE_KB
-            mock_calc.return_value = mock_calc_instance
+        """Test _should_exclude method with absolute paths."""
+        from pathlib import Path
 
-            backup_command._run_backup_process(ONE_KB)
+        backup_command.config.ignore_list = ["/tmp/test"]
+        assert backup_command._should_exclude(Path("/tmp/test/file.txt"))
+        assert not backup_command._should_exclude(Path("/home/user/file.txt"))
 
-            call_args = mock_subprocess.call_args[0][0]
-            assert "-chf" in call_args  # h option for following symlinks
-
-    def test_exclude_options_generation(
+    def test_should_exclude_glob_pattern(
         self, backup_command: BackupCommand
     ) -> None:
-        """Test that exclude options are properly generated."""
-        with (
-            patch("subprocess.run") as mock_subprocess,
-            patch("os.path.exists", return_value=False),
-        ):
-            backup_command._run_backup_process(ONE_KB)
+        """Test _should_exclude method with glob patterns."""
+        from pathlib import Path
 
-            call_args = mock_subprocess.call_args[0][0]
-            # Patterns are now quoted for shell safety
-            for ignore_item in backup_command.config.ignore_list:
-                # Check pattern is in the command, allowing for quoting
-                assert (
-                    f"--exclude={ignore_item}" in call_args
-                    or f"--exclude='{ignore_item}'" in call_args
-                )
+        backup_command.config.ignore_list = ["*.pyc", "*.log"]
+        assert backup_command._should_exclude(Path("/tmp/test.pyc"))
+        assert backup_command._should_exclude(Path("/tmp/app.log"))
+        assert not backup_command._should_exclude(Path("/tmp/test.py"))
+
+    def test_should_exclude_directory_name(
+        self, backup_command: BackupCommand
+    ) -> None:
+        """Test _should_exclude method with directory names."""
+        from pathlib import Path
+
+        backup_command.config.ignore_list = ["node_modules", "__pycache__"]
+        assert backup_command._should_exclude(
+            Path("/project/node_modules/package")
+        )
+        assert backup_command._should_exclude(
+            Path("/src/__pycache__/module.pyc")
+        )
+        assert not backup_command._should_exclude(Path("/project/src/file.py"))

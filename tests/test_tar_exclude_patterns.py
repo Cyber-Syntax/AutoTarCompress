@@ -6,7 +6,6 @@ operations, ensuring files and directories matching ignore patterns are
 excluded from both size calculation and tar archive creation.
 """
 
-import shlex
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -218,42 +217,36 @@ class TestBackupCommandIgnorePatterns:
     def test_tar_command_includes_exclude_flags(
         self, backup_config: BackupConfig
     ) -> None:
-        """Test tar command includes --exclude flags for patterns."""
+        """Test _should_exclude includes patterns correctly."""
         command = BackupCommand(backup_config)
 
-        with patch.object(command, "_calculate_total_size", return_value=1024):
-            tar_cmd = command._build_tar_command(1024)
+        # Test that patterns are properly handled
+        for pattern in backup_config.ignore_list:
+            # Test directory name matching
+            if not pattern.startswith(("*", "/")):
+                test_path = Path(f"/some/path/{pattern}/file.txt")
+                assert command._should_exclude(test_path) is True
 
-            for pattern in backup_config.ignore_list:
-                quoted_pattern = shlex.quote(pattern)
-                expected_flag = f"--exclude={quoted_pattern}"
-                assert expected_flag in tar_cmd
-
-    def test_tar_command_excludes_are_quoted(
+    def test_should_exclude_glob_patterns(
         self, backup_config: BackupConfig
     ) -> None:
-        """Test exclude patterns are properly quoted."""
-        backup_config.ignore_list.append("test dir with spaces")
+        """Test _should_exclude handles glob patterns."""
         command = BackupCommand(backup_config)
 
-        with patch.object(command, "_calculate_total_size", return_value=1024):
-            tar_cmd = command._build_tar_command(1024)
+        # Test glob pattern matching
+        assert command._should_exclude(Path("/path/package.egg-info"))
+        assert command._should_exclude(Path("/path/mytarget"))
 
-            assert (
-                "--exclude='test dir with spaces'" in tar_cmd
-                or '--exclude="test dir with spaces"' in tar_cmd
-            )
-
-    def test_tar_command_structure(self, backup_config: BackupConfig) -> None:
-        """Test tar command has correct structure."""
+    def test_should_exclude_structure(
+        self, backup_config: BackupConfig
+    ) -> None:
+        """Test _should_exclude method handles different pattern types."""
         command = BackupCommand(backup_config)
 
-        with patch.object(command, "_calculate_total_size", return_value=1024):
-            tar_cmd = command._build_tar_command(1024)
-
-            assert tar_cmd.startswith("tar -chf -")
-            assert "--one-file-system" in tar_cmd
-            assert "--exclude=" in tar_cmd
+        # Test directory names
+        assert command._should_exclude(Path("/path/node_modules/file.txt"))
+        assert command._should_exclude(Path("/path/.venv/file.txt"))
+        assert command._should_exclude(Path("/path/__pycache__/file.pyc"))
 
 
 class TestIntegrationBackupWithIgnores:
@@ -338,19 +331,25 @@ class TestIntegrationBackupWithIgnores:
 
         assert calculated_size == expected_size
 
-    @patch("subprocess.run")
-    @patch("autotarcompress.commands.backup.is_pv_available")
+    @patch("tarfile.open")
+    @patch("pathlib.Path.exists")
+    @patch("autotarcompress.commands.backup.validate_and_expand_paths")
     def test_full_backup_execution_with_ignores(
         self,
-        mock_pv_available: Mock,
-        mock_subprocess: Mock,
+        mock_validate: Mock,
+        mock_exists: Mock,
+        mock_tarfile: Mock,
         integration_setup: tuple[Path, Path, BackupConfig],
     ) -> None:
         """Integration test: full backup with ignore patterns."""
-        _source_dir, _backup_dir, config = integration_setup
+        source_dir, _backup_dir, config = integration_setup
 
-        mock_pv_available.return_value = False
-        mock_subprocess.return_value = Mock(returncode=0)
+        mock_validate.return_value = (config.dirs_to_backup, [])
+        mock_exists.return_value = False
+
+        # Mock tarfile context manager
+        mock_tar = Mock()
+        mock_tarfile.return_value.__enter__.return_value = mock_tar
 
         command = BackupCommand(config)
 
@@ -359,18 +358,11 @@ class TestIntegrationBackupWithIgnores:
             result = command.execute()
 
         assert result is True
-        assert mock_subprocess.called
+        assert mock_tarfile.called
 
-        call_args = mock_subprocess.call_args
-        actual_command = (
-            call_args[0][0]
-            if call_args[0]
-            else call_args.kwargs.get("args", [""])[0]
-        )
-
-        for pattern in config.ignore_list:
-            quoted_pattern = shlex.quote(pattern)
-            assert f"--exclude={quoted_pattern}" in actual_command
+        # Verify tarfile.open was called with zst compression
+        call_args = mock_tarfile.call_args
+        assert "w:zst" in call_args[0]  # Check for zst compression mode
 
     def test_size_calculator_respects_nested_ignores(
         self, tmp_path: Path
