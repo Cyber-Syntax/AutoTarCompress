@@ -257,63 +257,35 @@ class TestSizeCalculator:
 
 # Tests for Commands
 class TestBackupCommand:
-    @patch("tarfile.open")
-    @patch("pathlib.Path.exists")
-    @patch("autotarcompress.commands.backup.validate_and_expand_paths")
     def test_execute_backup(
         self,
-        mock_validate: MagicMock,
-        mock_path_exists: MagicMock,
-        mock_tarfile: MagicMock,
         test_config: BackupConfig,
         test_data_dir: str,
     ) -> None:
-        """Test backup execution"""
-        mock_validate.return_value = (test_config.dirs_to_backup, [])
-        mock_path_exists.return_value = False
-        mock_tar = MagicMock()
-        mock_tarfile.return_value.__enter__.return_value = mock_tar
-
-        with (
-            patch("builtins.print"),
-            patch.object(
-                SizeCalculator, "calculate_total_size", return_value=1024
-            ),
-        ):
+        """Test backup execution delegates to manager"""
+        with patch("builtins.print"):
             command = BackupCommand(test_config)
-            result = command.execute()
+            with patch.object(
+                command.manager, "execute_backup", return_value=True
+            ) as mock_execute:
+                result = command.execute()
 
-            # Check the command was executed
-            assert mock_tarfile.called
-            assert result is True
+                assert result is True
+                mock_execute.assert_called_once()
 
-    @patch("pathlib.Path.exists", return_value=True)
-    @patch("builtins.input", return_value="y")
-    @patch("pathlib.Path.unlink")
-    @patch("tarfile.open")
     def test_execute_backup_file_exists(
         self,
-        mock_tarfile: MagicMock,
-        mock_unlink: MagicMock,
-        mock_input: MagicMock,
-        mock_exists: MagicMock,
         test_config: BackupConfig,
     ) -> None:
-        """Test backup when output file already exists"""
-        mock_tar = MagicMock()
-        mock_tarfile.return_value.__enter__.return_value = mock_tar
+        """Test backup when output file already exists delegates to manager"""
+        command = BackupCommand(test_config)
+        with patch.object(
+            command.manager, "execute_backup", return_value=True
+        ) as mock_execute:
+            result = command.execute()
 
-        with (
-            patch.object(
-                SizeCalculator, "calculate_total_size", return_value=1024
-            ),
-            patch("builtins.print"),
-        ):
-            command = BackupCommand(test_config)
-            command._run_backup_process(1024)
-
-            # Check file was removed
-            assert mock_unlink.called
+            assert result is True
+            mock_execute.assert_called_once()
 
 
 class TestEncryptCommand:

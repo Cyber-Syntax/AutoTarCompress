@@ -12,6 +12,7 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
 
+from autotarcompress.utils.format import format_size
 from autotarcompress.utils.progress_bar import SimpleProgressBar
 from autotarcompress.utils.size_calculator import SizeCalculator
 from autotarcompress.utils.utils import (
@@ -346,3 +347,31 @@ class TestSimpleProgressBar:
                 break
 
         assert found_time, "elapsed/00:00 not found in finish output"
+
+
+class TestFormatSize:
+    """Test format_size function."""
+
+    def test_format_size_bytes(self) -> None:
+        """Test formatting bytes."""
+        assert format_size(512) == "512.00 B"
+
+    def test_format_size_kb(self) -> None:
+        """Test formatting kilobytes."""
+        assert format_size(1024) == "1.00 KB"
+
+    def test_format_size_mb(self) -> None:
+        """Test formatting megabytes."""
+        assert format_size(1048576) == "1.00 MB"
+
+    def test_format_size_gb(self) -> None:
+        """Test formatting gigabytes."""
+        assert format_size(1073741824) == "1.00 GB"
+
+    def test_format_size_tb(self) -> None:
+        """Test formatting terabytes."""
+        assert format_size(1099511627776) == "1.00 TB"
+
+    def test_format_size_pb(self) -> None:
+        """Test formatting petabytes."""
+        assert format_size(1125899906842624) == "1.00 PB"

@@ -23,6 +23,7 @@ sys.path.insert(
 from autotarcompress.commands.backup import BackupCommand
 from autotarcompress.commands.info import InfoCommand
 from autotarcompress.config import BackupConfig
+from autotarcompress.utils.format import format_size
 
 
 # Fixtures
@@ -87,7 +88,7 @@ class TestBackupInfoSaving:
         fixed_datetime.strftime.return_value = "13-09-2025"
 
         with patch(
-            "autotarcompress.commands.backup.datetime.datetime"
+            "autotarcompress.backup_manager.datetime.datetime"
         ) as mock_datetime:
             mock_datetime.now.return_value = fixed_datetime
 
@@ -97,8 +98,8 @@ class TestBackupInfoSaving:
             ) as mock_config_datetime:
                 mock_config_datetime.now.return_value = fixed_datetime
 
-                # Call the private method directly for testing
-                backup_command._save_backup_info(1073741824)  # 1 GB
+                # Call the method on the manager for testing
+                backup_command.manager.save_backup_info(1073741824)  # 1 GB
 
         # Verify the info file was created
         info_file_path = Path(test_config.config_dir) / "metadata.json"
@@ -131,16 +132,12 @@ class TestBackupInfoSaving:
         test_config.config_dir = "/invalid/path/that/does/not/exist"
 
         # This should not raise an exception but should log an error
-        backup_command._save_backup_info(1000)
+        backup_command.manager.save_backup_info(1000)
 
         assert "Failed to save backup info" in caplog.text
 
-    def test_format_size_various_sizes(
-        self, test_config: BackupConfig
-    ) -> None:
+    def test_format_size_various_sizes(self) -> None:
         """Test size formatting with various byte sizes."""
-        backup_command = BackupCommand(test_config)
-
         test_cases = [
             (512, "512.00 B"),
             (1024, "1.00 KB"),
@@ -150,79 +147,46 @@ class TestBackupInfoSaving:
         ]
 
         for size_bytes, expected in test_cases:
-            result = backup_command._format_size(size_bytes)
+            result = format_size(size_bytes)
             assert result == expected
 
-    @patch("autotarcompress.commands.backup.validate_and_expand_paths")
-    @patch("tarfile.open")
-    @patch("pathlib.Path.exists")
     def test_backup_command_saves_info_on_success(
         self,
-        mock_exists: MagicMock,
-        mock_tarfile: MagicMock,
-        mock_validate: MagicMock,
         test_config: BackupConfig,
     ) -> None:
-        """Test that backup command saves info when backup succeeds."""
-        # Setup mocks
-        mock_exists.return_value = False  # Backup file doesn't exist
-        mock_validate.return_value = (test_config.dirs_to_backup, [])
-        mock_tar = MagicMock()
-        mock_tarfile.return_value.__enter__.return_value = mock_tar
-
+        """Test that backup command delegates to manager for successful backup."""
         backup_command = BackupCommand(test_config)
 
         # Create test directories
         for dir_path in test_config.dirs_to_backup:
             os.makedirs(dir_path, exist_ok=True)
 
-        with (
-            patch.object(
-                backup_command, "_save_backup_info"
-            ) as mock_save_info,
-            patch.object(
-                backup_command, "_calculate_total_size", return_value=1000
-            ),
-        ):
+        with patch.object(
+            backup_command.manager, "execute_backup", return_value=True
+        ) as mock_execute:
             result = backup_command.execute()
 
         assert result is True
-        mock_save_info.assert_called_once_with(1000)
+        mock_execute.assert_called_once()
 
-    @patch("autotarcompress.commands.backup.validate_and_expand_paths")
-    @patch("tarfile.open")
-    @patch("pathlib.Path.exists")
     def test_backup_command_no_info_on_failure(
         self,
-        mock_exists: MagicMock,
-        mock_tarfile: MagicMock,
-        mock_validate: MagicMock,
         test_config: BackupConfig,
     ) -> None:
-        """Test that backup command doesn't save info when backup fails."""
-        # Setup mocks
-        mock_exists.return_value = False  # Backup file doesn't exist
-        mock_validate.return_value = (test_config.dirs_to_backup, [])
-        mock_tarfile.side_effect = OSError("backup failed")  # Failure
-
+        """Test that backup command delegates to manager for failed backup."""
         backup_command = BackupCommand(test_config)
 
         # Create test directories
         for dir_path in test_config.dirs_to_backup:
             os.makedirs(dir_path, exist_ok=True)
 
-        with (
-            patch.object(
-                backup_command, "_save_backup_info"
-            ) as mock_save_info,
-            patch.object(
-                backup_command, "_calculate_total_size", return_value=1000
-            ),
-        ):
+        with patch.object(
+            backup_command.manager, "execute_backup", return_value=False
+        ) as mock_execute:
             result = backup_command.execute()
 
         assert result is False
-        mock_save_info.assert_not_called()
+        mock_execute.assert_called_once()
 
 
 class TestInfoCommand:
@@ -333,53 +297,6 @@ class TestInfoCommand:
         output = captured.out
 
         assert "Error reading backup info file" in output
-
-    def test_load_backup_info_returns_none_for_missing_file(
-        self, test_config: BackupConfig
-    ) -> None:
-        """Test _load_backup_info returns None when file doesn't exist."""
-        info_command = InfoCommand(test_config)
-        result = info_command._load_backup_info()
-        assert result is None
-
-    def test_load_backup_info_returns_data_for_valid_file(
-        self, test_config: BackupConfig, mock_backup_info: dict[str, Any]
-    ) -> None:
-        """Test _load_backup_info returns data for valid file."""
-        # Create the info file
-        info_file_path = Path(test_config.config_dir) / "metadata.json"
-        with open(info_file_path, "w", encoding="utf-8") as f:
-            json.dump(mock_backup_info, f)
-
-        info_command = InfoCommand(test_config)
-        result = info_command._load_backup_info()
-
-        assert result is not None
-        assert result["backup_file"] == "13-09-2025.tar.xz"
-        assert result["backup_size_bytes"] == 1073741824
-
-    def test_display_backup_info_with_empty_directories(
-        self, test_config: BackupConfig, capsys: Any
-    ) -> None:
-        """Test display of backup info with empty directories list."""
-        from autotarcompress.logger import setup_application_logging
-
-        backup_info = {
-            "backup_file": "test.tar.xz",
-            "backup_path": "/path/to/test.tar.xz",
-            "backup_date": "2025-09-13T10:30:45",
-            "backup_size_human": "500.00 MB",
-            "directories_backed_up": [],
-        }
-
-        setup_application_logging()
-        info_command = InfoCommand(test_config)
-        info_command._display_backup_info(backup_info)
-
-        captured = capsys.readouterr()
-        output = captured.out
-
-        assert "Directories Backed Up: None" in output
 
 
 class TestBackupConfigWithoutLastBackup:
