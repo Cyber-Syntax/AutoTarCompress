@@ -1,47 +1,52 @@
-"""Tests for the EncryptDecryptManager class.
+"""Tests for the EncryptManager and DecryptManager classes.
 
-This module contains comprehensive tests for the encrypt/decrypt manager
-implementation, including mocking subprocess operations and testing
-error conditions.
+This module contains comprehensive tests for the encrypt/decrypt managers
+using AES-256-GCM authenticated encryption with the cryptography library.
 """
 
 import logging
 import tempfile
 from pathlib import Path
-from subprocess import CalledProcessError
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from autotarcompress.config import BackupConfig
-from autotarcompress.encrypt_decrypt_manager import EncryptDecryptManager
+from autotarcompress.decrypt_manager import DecryptManager
+from autotarcompress.encrypt_manager import EncryptManager
 
 
-class TestEncryptDecryptManager:
-    """Test cases for EncryptDecryptManager class."""
+class TestEncryptManager:
+    """Test cases for EncryptManager class."""
 
     @pytest.fixture
-    def mock_config(self) -> BackupConfig:
-        """Create a mock BackupConfig for testing."""
+    def mock_config(self, tmp_path: Path) -> BackupConfig:
+        """Create a mock BackupConfig for testing.
+
+        Uses a temporary directory to ensure tests don't pollute
+        the real user configuration directory.
+        """
         config = BackupConfig()
-        config.config_dir = "~/.config/autotarcompress"
+        config.config_dir = str(tmp_path / "config")
         return config
 
     @pytest.fixture
-    def manager(self, mock_config: BackupConfig) -> EncryptDecryptManager:
-        """Create an EncryptDecryptManager instance for testing."""
-        return EncryptDecryptManager(mock_config)
+    def manager(self, mock_config: BackupConfig) -> EncryptManager:
+        """Create an EncryptManager instance for testing."""
+        return EncryptManager(mock_config)
 
     def test_manager_initialization(self, mock_config: BackupConfig) -> None:
-        """Test EncryptDecryptManager initialization."""
-        manager = EncryptDecryptManager(mock_config)
+        """Test EncryptManager initialization."""
+        manager = EncryptManager(mock_config)
 
         assert manager.config == mock_config
         assert isinstance(manager.logger, logging.Logger)
+        assert manager.PBKDF2_ITERATIONS == 600000
+        assert manager.SALT_SIZE == 16
+        assert manager.NONCE_SIZE == 12
+        assert manager.KEY_SIZE == 32
 
-    def test_validate_input_file_exists(
-        self, manager: EncryptDecryptManager
-    ) -> None:
+    def test_validate_input_file_exists(self, manager: EncryptManager) -> None:
         """Test _validate_input_file with existing file."""
         with tempfile.NamedTemporaryFile() as temp_file:
             temp_file.write(b"test content")
@@ -51,111 +56,19 @@ class TestEncryptDecryptManager:
             assert result is True
 
     def test_validate_input_file_not_exists(
-        self, manager: EncryptDecryptManager
+        self, manager: EncryptManager
     ) -> None:
         """Test _validate_input_file with non-existent file."""
-        result = manager._validate_input_file("/nonexistent/file")  # type: ignore
+        result = manager._validate_input_file("/nonexistent/file")
         assert result is False
 
-    def test_validate_input_file_empty(
-        self, manager: EncryptDecryptManager
-    ) -> None:
+    def test_validate_input_file_empty(self, manager: EncryptManager) -> None:
         """Test _validate_input_file with empty file."""
         with tempfile.NamedTemporaryFile() as temp_file:
-            # File is empty
             result = manager._validate_input_file(temp_file.name)
             assert result is False
 
-    @patch("subprocess.run")
-    @patch("getpass.getpass")
-    def test_execute_encrypt_success(
-        self, mock_getpass, mock_subprocess, manager: EncryptDecryptManager
-    ) -> None:
-        """Test execute_encrypt with successful encryption."""
-        # Setup mocks
-        mock_getpass.side_effect = [
-            "test_password",
-            "test_password",
-        ]  # password and confirm
-
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stderr = b"success"
-        mock_subprocess.return_value = mock_result
-
-        with tempfile.NamedTemporaryFile() as temp_file:
-            temp_file.write(b"test content")
-            temp_file.flush()
-
-            with patch.object(
-                manager, "_validate_input_file", return_value=True
-            ):
-                result = manager.execute_encrypt(temp_file.name)
-
-            assert result is True
-            mock_subprocess.assert_called_once()
-
-    @patch("getpass.getpass")
-    def test_execute_encrypt_password_none(
-        self, mock_getpass: MagicMock, manager: EncryptDecryptManager
-    ) -> None:
-        """Test execute_encrypt when password is None."""
-        mock_getpass.return_value = ""  # Empty password
-
-        result = manager.execute_encrypt("/some/file")
-        assert result is False
-
-    @patch("subprocess.run")
-    @patch("getpass.getpass")
-    def test_execute_decrypt_success(
-        self,
-        mock_getpass: MagicMock,
-        mock_subprocess: MagicMock,
-        manager: EncryptDecryptManager,
-    ) -> None:
-        """Test execute_decrypt with successful decryption."""
-        # Setup mocks
-        mock_getpass.side_effect = [
-            "test_password",
-            "test_password",
-        ]  # password and confirm
-
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stderr = b"success"
-        mock_subprocess.return_value = mock_result
-
-        with tempfile.NamedTemporaryFile(suffix=".enc") as temp_file:
-            temp_file.write(b"encrypted content")
-            temp_file.flush()
-
-            # Create a dummy original file for integrity check
-            original_path = temp_file.name[:-4]  # Remove .enc
-            Path(original_path).write_text(
-                "original content", encoding="utf-8"
-            )
-
-            # Create the decrypted file as if openssl created it
-            stem = Path(temp_file.name).stem
-            decrypted_path = Path(temp_file.name).parent / f"{stem}-decrypted"
-            decrypted_path.write_text("original content", encoding="utf-8")
-
-            result = manager.execute_decrypt(temp_file.name)
-
-            assert result is True
-            mock_subprocess.assert_called_once()
-
-    @patch("getpass.getpass")
-    def test_execute_decrypt_password_none(
-        self, mock_getpass: MagicMock, manager: EncryptDecryptManager
-    ) -> None:
-        """Test execute_decrypt when password is None."""
-        mock_getpass.return_value = ""  # Empty password
-
-        result = manager.execute_decrypt("/some/file.enc")
-        assert result is False
-
-    def test_calculate_sha256(self, manager: EncryptDecryptManager) -> None:
+    def test_calculate_sha256(self, manager: EncryptManager) -> None:
         """Test _calculate_sha256 calculates correct hash."""
         test_content = b"Hello, World!"
         expected_hash = (
@@ -166,96 +79,393 @@ class TestEncryptDecryptManager:
             temp_file.write(test_content)
             temp_file.flush()
 
-            result = manager._calculate_sha256(temp_file.name)  # type: ignore
+            result = manager._calculate_sha256(temp_file.name)
             assert result == expected_hash
 
-    def test_verify_integrity_match(
-        self, manager: EncryptDecryptManager, caplog: pytest.LogCaptureFixture
+    def test_derive_key_deterministic(self, manager: EncryptManager) -> None:
+        """Test _derive_key produces same key with same password and salt."""
+        password = "test_password"
+        salt = b"sixteen_bytes123"
+
+        key1 = manager._derive_key(password, salt)
+        key2 = manager._derive_key(password, salt)
+
+        assert key1 == key2
+        assert len(key1) == 32  # 256 bits
+
+    def test_derive_key_different_salts(self, manager: EncryptManager) -> None:
+        """Test _derive_key produces different keys with different salts."""
+        password = "test_password"
+        salt1 = b"sixteen_bytes123"
+        salt2 = b"sixteen_bytes456"
+
+        key1 = manager._derive_key(password, salt1)
+        key2 = manager._derive_key(password, salt2)
+
+        assert key1 != key2
+
+    def test_generate_salt(self, manager: EncryptManager) -> None:
+        """Test _generate_salt creates random salt of correct size."""
+        salt1 = manager._generate_salt()
+        salt2 = manager._generate_salt()
+
+        assert len(salt1) == 16
+        assert len(salt2) == 16
+        assert salt1 != salt2  # Should be random
+
+    def test_generate_nonce(self, manager: EncryptManager) -> None:
+        """Test _generate_nonce creates random nonce of correct size."""
+        nonce1 = manager._generate_nonce()
+        nonce2 = manager._generate_nonce()
+
+        assert len(nonce1) == 12
+        assert len(nonce2) == 12
+        assert nonce1 != nonce2  # Should be random
+
+    @patch("getpass.getpass")
+    def test_execute_encrypt_success(
+        self, mock_getpass: MagicMock, manager: EncryptManager
     ) -> None:
-        """Test _verify_integrity when hashes match."""
-        test_content = b"test content"
+        """Test execute_encrypt with successful encryption."""
+        mock_getpass.side_effect = ["test_password", "test_password"]
 
-        with (
-            tempfile.NamedTemporaryFile() as decrypted_file,
-            tempfile.NamedTemporaryFile() as original_file,
-        ):
-            decrypted_file.write(test_content)
-            decrypted_file.flush()
-            original_file.write(test_content)
-            original_file.flush()
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(b"test content for encryption")
+            temp_file.flush()
+            temp_path = temp_file.name
 
-            with caplog.at_level(logging.INFO):
-                manager._verify_integrity(
-                    decrypted_file.name, original_file.name
-                )
+        try:
+            result = manager.execute_encrypt(temp_path)
+            assert result is True
 
-            assert "Integrity verified:" in caplog.text
+            # Verify .enc file was created
+            enc_path = f"{temp_path}.enc"
+            assert Path(enc_path).exists()
 
-    def test_verify_integrity_no_match(
-        self, manager: EncryptDecryptManager, caplog: pytest.LogCaptureFixture
+            # Verify file structure: salt(16) + nonce(12) + ciphertext + tag
+            encrypted_data = Path(enc_path).read_bytes()
+            assert len(encrypted_data) >= 44  # Minimum size
+
+            # Clean up
+            Path(enc_path).unlink(missing_ok=True)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    @patch("getpass.getpass")
+    def test_execute_encrypt_password_none(
+        self, mock_getpass: MagicMock, manager: EncryptManager
     ) -> None:
-        """Test _verify_integrity when hashes don't match."""
-        with (
-            tempfile.NamedTemporaryFile() as decrypted_file,
-            tempfile.NamedTemporaryFile() as original_file,
-        ):
-            decrypted_file.write(b"different content")
-            decrypted_file.flush()
-            original_file.write(b"original content")
-            original_file.flush()
+        """Test execute_encrypt when password is empty."""
+        mock_getpass.return_value = ""
 
-            with caplog.at_level(logging.ERROR):
-                manager._verify_integrity(
-                    decrypted_file.name, original_file.name
-                )
-
-            assert "Integrity check failed" in caplog.text
-
-    def test_verify_integrity_no_original_file(
-        self, manager: EncryptDecryptManager, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Test _verify_integrity when original file doesn't exist."""
-        with tempfile.NamedTemporaryFile() as decrypted_file:
-            decrypted_file.write(b"content")
-            decrypted_file.flush()
-
-            with caplog.at_level(logging.INFO):
-                manager._verify_integrity(decrypted_file.name, "/nonexistent")  # type: ignore
-
-            # Should not log anything since original doesn't exist
-            assert "Integrity verified" not in caplog.text
-            assert "Integrity check failed" not in caplog.text
-
-    def test_sanitize_logs(self, manager: EncryptDecryptManager) -> None:
-        """Test _sanitize_logs redacts sensitive information."""
-        input_bytes = b"password=secret123 ip=192.168.1.1 error"
-        expected = "password=[REDACTED] ip=[IP_REDACTED] error"
-
-        result = manager._sanitize_logs(input_bytes)  # type: ignore
-        assert result == expected
-
-    @patch("subprocess.run")
-    def test_run_encryption_process_success(
-        self, mock_subprocess: MagicMock, manager: EncryptDecryptManager
-    ) -> None:
-        """Test _run_encryption_process succeeds."""
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stderr = b"success"
-        mock_subprocess.return_value = mock_result
-
-        result = manager._run_encryption_process("/input/file", "password")  # type: ignore
-        assert result is True
-        mock_subprocess.assert_called_once()
-
-    @patch("subprocess.run")
-    def test_run_encryption_process_failure(
-        self, mock_subprocess: MagicMock, manager: EncryptDecryptManager
-    ) -> None:
-        """Test _run_encryption_process fails."""
-        mock_subprocess.side_effect = CalledProcessError(
-            1, "openssl", stderr=b"error"
-        )
-
-        result = manager._run_encryption_process("/input/file", "password")  # type: ignore
+        result = manager.execute_encrypt("/some/file")
         assert result is False
+
+    def test_execute_encrypt_invalid_file(
+        self, manager: EncryptManager
+    ) -> None:
+        """Test execute_encrypt with invalid file."""
+        result = manager.execute_encrypt("/nonexistent/file")
+        assert result is False
+
+
+class TestDecryptManager:
+    """Test cases for DecryptManager class."""
+
+    @pytest.fixture
+    def mock_config(self, tmp_path: Path) -> BackupConfig:
+        """Create a mock BackupConfig for testing.
+
+        Uses a temporary directory to ensure tests don't pollute
+        the real user configuration directory.
+        """
+        config = BackupConfig()
+        config.config_dir = str(tmp_path / "config")
+        return config
+
+    @pytest.fixture
+    def manager(self, mock_config: BackupConfig) -> DecryptManager:
+        """Create a DecryptManager instance for testing."""
+        return DecryptManager(mock_config)
+
+    def test_manager_initialization(self, mock_config: BackupConfig) -> None:
+        """Test DecryptManager initialization."""
+        manager = DecryptManager(mock_config)
+
+        assert manager.config == mock_config
+        assert isinstance(manager.logger, logging.Logger)
+        assert manager.MAX_PASSWORD_ATTEMPTS == 3
+        assert manager.BASE_BACKOFF_DELAY == 1.0
+
+    @patch("getpass.getpass")
+    def test_execute_decrypt_success(
+        self, mock_getpass: MagicMock, manager: DecryptManager
+    ) -> None:
+        """Test execute_decrypt with successful decryption."""
+        # First encrypt a file
+        encrypt_manager = EncryptManager(manager.config)
+        mock_getpass.side_effect = ["test_password", "test_password"]
+
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(b"test content for decryption")
+            temp_file.flush()
+            temp_path = temp_file.name
+
+        try:
+            # Encrypt
+            result = encrypt_manager.execute_encrypt(temp_path)
+            assert result is True
+
+            enc_path = f"{temp_path}.enc"
+            assert Path(enc_path).exists()
+
+            # Decrypt
+            mock_getpass.side_effect = ["test_password", "test_password"]
+            result = manager.execute_decrypt(enc_path)
+            assert result is True
+
+            # Verify decrypted file
+            decrypted_path = f"{temp_path}-decrypted"
+            assert Path(decrypted_path).exists()
+
+            decrypted_content = Path(decrypted_path).read_bytes()
+            assert decrypted_content == b"test content for decryption"
+
+            # Clean up
+            Path(decrypted_path).unlink(missing_ok=True)
+            Path(enc_path).unlink(missing_ok=True)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    @patch("getpass.getpass")
+    def test_execute_decrypt_wrong_password(
+        self, mock_getpass: MagicMock, manager: DecryptManager
+    ) -> None:
+        """Test execute_decrypt with wrong password."""
+        # First encrypt a file
+        encrypt_manager = EncryptManager(manager.config)
+        mock_getpass.side_effect = [
+            "correct_password",
+            "correct_password",
+        ]
+
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(b"test content")
+            temp_file.flush()
+            temp_path = temp_file.name
+
+        try:
+            # Encrypt
+            result = encrypt_manager.execute_encrypt(temp_path)
+            assert result is True
+
+            enc_path = f"{temp_path}.enc"
+
+            # Try to decrypt with wrong password (3 attempts)
+            mock_getpass.side_effect = [
+                "wrong_password",
+                "wrong_password",
+                "wrong_password",
+            ]
+
+            # Speed up test by mocking time.sleep
+            with patch("time.sleep"):
+                result = manager.execute_decrypt(enc_path)
+
+            assert result is False
+
+            # Clean up
+            Path(enc_path).unlink(missing_ok=True)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    @patch("getpass.getpass")
+    def test_execute_decrypt_password_none(
+        self, mock_getpass: MagicMock, manager: DecryptManager
+    ) -> None:
+        """Test execute_decrypt when password is empty."""
+        mock_getpass.return_value = ""
+
+        result = manager.execute_decrypt("/some/file.enc")
+        assert result is False
+
+    def test_execute_decrypt_invalid_file(
+        self, manager: DecryptManager
+    ) -> None:
+        """Test execute_decrypt with invalid file."""
+        result = manager.execute_decrypt("/nonexistent/file.enc")
+        assert result is False
+
+    @patch("getpass.getpass")
+    def test_decrypt_tampered_file(
+        self, mock_getpass: MagicMock, manager: DecryptManager
+    ) -> None:
+        """Test decryption fails when file is tampered."""
+        # First encrypt a file
+        encrypt_manager = EncryptManager(manager.config)
+        mock_getpass.side_effect = ["test_password", "test_password"]
+
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(b"test content")
+            temp_file.flush()
+            temp_path = temp_file.name
+
+        try:
+            # Encrypt
+            result = encrypt_manager.execute_encrypt(temp_path)
+            assert result is True
+
+            enc_path = f"{temp_path}.enc"
+
+            # Tamper with encrypted file
+            encrypted_data = Path(enc_path).read_bytes()
+            # Modify a byte in the ciphertext
+            tampered_data = bytearray(encrypted_data)
+            tampered_data[30] ^= 0xFF  # Flip bits
+            Path(enc_path).write_bytes(bytes(tampered_data))
+
+            # Try to decrypt tampered file
+            mock_getpass.side_effect = ["test_password"]
+
+            with patch("time.sleep"):
+                result = manager.execute_decrypt(enc_path)
+
+            assert result is False
+
+            # Clean up
+            Path(enc_path).unlink(missing_ok=True)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    def test_decrypt_file_too_small(self, manager: DecryptManager) -> None:
+        """Test decryption fails with file smaller than minimum size."""
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=".enc"
+        ) as temp_file:
+            # Write less than 44 bytes (min size)
+            temp_file.write(b"too small")
+            temp_file.flush()
+            temp_path = temp_file.name
+
+        try:
+            with patch("getpass.getpass", return_value="password"):
+                result = manager.execute_decrypt(temp_path)
+
+            assert result is False
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+
+class TestIntegration:
+    """Integration tests for encrypt and decrypt workflow."""
+
+    @pytest.fixture
+    def mock_config(self, tmp_path: Path) -> BackupConfig:
+        """Create a mock BackupConfig for testing.
+
+        Uses a temporary directory to ensure tests don't pollute
+        the real user configuration directory.
+        """
+        config = BackupConfig()
+        config.config_dir = str(tmp_path / "config")
+        return config
+
+    @patch("getpass.getpass")
+    def test_encrypt_decrypt_round_trip(
+        self, mock_getpass: MagicMock, mock_config: BackupConfig
+    ) -> None:
+        """Test complete encrypt-decrypt round trip."""
+        encrypt_manager = EncryptManager(mock_config)
+        decrypt_manager = DecryptManager(mock_config)
+
+        test_content = b"This is a test content for round trip encryption!"
+
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(test_content)
+            temp_file.flush()
+            temp_path = temp_file.name
+
+        try:
+            # Encrypt
+            mock_getpass.side_effect = ["mypassword", "mypassword"]
+            result = encrypt_manager.execute_encrypt(temp_path)
+            assert result is True
+
+            enc_path = f"{temp_path}.enc"
+            assert Path(enc_path).exists()
+
+            # Decrypt
+            mock_getpass.side_effect = ["mypassword", "mypassword"]
+            result = decrypt_manager.execute_decrypt(enc_path)
+            assert result is True
+
+            # Verify content matches
+            decrypted_path = f"{temp_path}-decrypted"
+            decrypted_content = Path(decrypted_path).read_bytes()
+            assert decrypted_content == test_content
+
+            # Clean up
+            Path(decrypted_path).unlink(missing_ok=True)
+            Path(enc_path).unlink(missing_ok=True)
+        finally:
+            Path(temp_path).unlink(missing_ok=True)
+
+    @patch("getpass.getpass")
+    def test_encrypt_with_different_nonce_produces_different_ciphertext(
+        self, mock_getpass: MagicMock, mock_config: BackupConfig
+    ) -> None:
+        """Test that encrypting same data twice produces different output."""
+        encrypt_manager = EncryptManager(mock_config)
+        test_content = b"Same content encrypted twice"
+
+        with (
+            tempfile.NamedTemporaryFile(delete=False) as temp1,
+            tempfile.NamedTemporaryFile(delete=False) as temp2,
+        ):
+            temp1.write(test_content)
+            temp1.flush()
+            temp2.write(test_content)
+            temp2.flush()
+            temp_path1 = temp1.name
+            temp_path2 = temp2.name
+
+        try:
+            # Encrypt first file
+            mock_getpass.side_effect = ["password", "password"]
+            encrypt_manager.execute_encrypt(temp_path1)
+
+            # Encrypt second file with same password
+            mock_getpass.side_effect = ["password", "password"]
+            encrypt_manager.execute_encrypt(temp_path2)
+
+            enc1 = Path(f"{temp_path1}.enc").read_bytes()
+            enc2 = Path(f"{temp_path2}.enc").read_bytes()
+
+            # Encrypted files should be different due to random nonce
+            assert enc1 != enc2
+
+            # But both should decrypt to same content
+            decrypt_manager = DecryptManager(mock_config)
+
+            mock_getpass.side_effect = ["password", "password"]
+            decrypt_manager.execute_decrypt(f"{temp_path1}.enc")
+            mock_getpass.side_effect = ["password", "password"]
+            decrypt_manager.execute_decrypt(f"{temp_path2}.enc")
+
+            dec1 = Path(f"{temp_path1}-decrypted").read_bytes()
+            dec2 = Path(f"{temp_path2}-decrypted").read_bytes()
+
+            assert dec1 == dec2 == test_content
+
+            # Clean up
+            for path in [temp_path1, temp_path2]:
+                Path(f"{path}.enc").unlink(missing_ok=True)
+                Path(f"{path}-decrypted").unlink(missing_ok=True)
+                Path(path).unlink(missing_ok=True)
+        except Exception:
+            # Clean up on error
+            for path in [temp_path1, temp_path2]:
+                Path(path).unlink(missing_ok=True)
+                Path(f"{path}.enc").unlink(missing_ok=True)
+                Path(f"{path}-decrypted").unlink(missing_ok=True)
+            raise

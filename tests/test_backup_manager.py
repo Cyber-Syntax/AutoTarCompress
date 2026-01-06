@@ -289,28 +289,29 @@ class TestBackupCommand:
 
 
 class TestEncryptCommand:
-    @patch("subprocess.run")
-    @patch("getpass.getpass", return_value="password123")
+    @patch("getpass.getpass")
     def test_encryption(
         self,
         mock_getpass: MagicMock,
-        mock_run: MagicMock,
         test_config: BackupConfig,
         temp_dir: str,
     ) -> None:
         """Test encryption command"""
+        # Mock password for AES-GCM encryption
+        mock_getpass.side_effect = ["password123", "password123"]
+
         test_file = os.path.join(temp_dir, "test.tar.xz")
         with open(test_file, "w") as f:
             f.write("test content")
 
         command = EncryptCommand(test_config, test_file)
 
-        # Mock subprocess run to return success
-        mock_run.return_value = MagicMock(stderr=b"")
-
         result = command.execute()
         assert result is True
-        assert mock_run.called
+
+        # Verify .enc file was created
+        enc_file = f"{test_file}.enc"
+        assert os.path.exists(enc_file)
 
     @patch("os.path.isfile", return_value=False)
     def test_encryption_missing_file(

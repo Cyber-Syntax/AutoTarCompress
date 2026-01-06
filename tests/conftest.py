@@ -7,18 +7,20 @@ import os
 import shutil
 import sys
 import tempfile
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 
 # Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+)
 
 from autotarcompress.config import BackupConfig
 
 
 @pytest.fixture
-def temp_dir() -> Generator[str, None, None]:
+def temp_dir() -> Generator[str]:
     """Create a temporary directory for testing that gets cleaned up afterwards."""
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
@@ -27,7 +29,11 @@ def temp_dir() -> Generator[str, None, None]:
 
 @pytest.fixture
 def test_config(temp_dir: str) -> BackupConfig:
-    """Create a test configuration for backup manager."""
+    """Create a test configuration for backup manager.
+
+    Uses a temporary directory to ensure tests don't pollute
+    the real user configuration directory.
+    """
     config = BackupConfig()
     config.backup_folder = os.path.join(temp_dir, "backups")
     config.config_dir = os.path.join(temp_dir, "config")
@@ -87,5 +93,8 @@ def mock_backup_info() -> dict[str, str | int | list[str]]:
         "backup_date": "2025-09-13T10:30:45.123456",
         "backup_size_bytes": 1073741824,  # 1 GB
         "backup_size_human": "1.00 GB",
-        "directories_backed_up": ["/home/user/Documents", "/home/user/Pictures"],
+        "directories_backed_up": [
+            "/home/user/Documents",
+            "/home/user/Pictures",
+        ],
     }

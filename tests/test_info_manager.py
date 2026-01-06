@@ -19,10 +19,14 @@ class TestInfoManager:
     """Test cases for InfoManager class."""
 
     @pytest.fixture
-    def mock_config(self) -> BackupConfig:
-        """Create a mock BackupConfig for testing."""
+    def mock_config(self, tmp_path: Path) -> BackupConfig:
+        """Create a mock BackupConfig for testing.
+
+        Uses a temporary directory to ensure tests don't pollute
+        the real user configuration directory.
+        """
         config = BackupConfig()
-        config.config_dir = "~/.config/autotarcompress"
+        config.config_dir = str(tmp_path / "config")
         return config
 
     @pytest.fixture

@@ -75,66 +75,77 @@ class TestBackupInfoSaving:
     def test_save_backup_info_success(
         self, test_config: BackupConfig, temp_dir: str
     ) -> None:
-        """Test successful saving of backup info."""
+        """Test successful saving of backup metadata."""
         backup_command = BackupCommand(test_config)
 
         # Create test directories
         for dir_path in test_config.dirs_to_backup:
             os.makedirs(dir_path, exist_ok=True)
 
-        # Mock datetime.now() to return a fixed time for both places it's used
+        # Mock datetime.now() to return a fixed time
         fixed_datetime = MagicMock()
-        fixed_datetime.isoformat.return_value = "2025-09-13T10:30:45"
+        fixed_datetime.isoformat.return_value = "2025-09-13T10:30:45+00:00"
         fixed_datetime.strftime.return_value = "13-09-2025"
 
-        with patch(
-            "autotarcompress.backup_manager.datetime.datetime"
-        ) as mock_datetime:
-            mock_datetime.now.return_value = fixed_datetime
-
-            # Also mock it for the config's current_date property
-            with patch(
-                "autotarcompress.config.datetime.datetime"
-            ) as mock_config_datetime:
-                mock_config_datetime.now.return_value = fixed_datetime
-
-                # Call the method on the manager for testing
-                backup_command.manager.save_backup_info(1073741824)  # 1 GB
-
-        # Verify the info file was created
-        info_file_path = Path(test_config.config_dir) / "metadata.json"
-        assert info_file_path.exists()
-
-        # Verify the content
-        with open(info_file_path, encoding="utf-8") as f:
-            saved_info = json.load(f)
-
+        # Create a test backup file
         expected_backup_path = (
             Path(test_config.backup_folder) / "13-09-2025.tar.zst"
         )
+        expected_backup_path.parent.mkdir(parents=True, exist_ok=True)
+        expected_backup_path.write_text("test backup content")
 
-        assert saved_info["backup_file"] == "13-09-2025.tar.zst"
-        assert saved_info["backup_path"] == str(expected_backup_path)
-        assert saved_info["backup_date"] == "2025-09-13T10:30:45"
-        assert saved_info["backup_size_bytes"] == 1073741824
-        assert saved_info["backup_size_human"] == "1.00 GB"
+        with patch("autotarcompress.metadata.datetime") as mock_datetime:
+            mock_datetime.now.return_value = fixed_datetime
+            # Mock UTC too
+            mock_datetime.UTC = MagicMock()
+
+            # Call the new metadata method
+            backup_command.manager.save_backup_metadata_with_hash(
+                expected_backup_path
+            )
+
+        # Verify the metadata file was created
+        metadata_path = Path(test_config.config_dir) / "metadata.json"
+        assert metadata_path.exists()
+
+        # Verify the content
+        with open(metadata_path, encoding="utf-8") as f:
+            saved_metadata = json.load(f)
+
+        assert saved_metadata["last_backup_file"] == str(expected_backup_path)
         assert (
-            saved_info["directories_backed_up"] == test_config.dirs_to_backup
+            saved_metadata["last_backup_time"] == "2025-09-13T10:30:45+00:00"
         )
+        assert saved_metadata["backup_count"] == 1
+        assert saved_metadata["metadata_version"] == "2.0"
+        # Should have hash with backup filename as key
+        assert "13-09-2025.tar.zst" in saved_metadata["file_hashes"]
 
     def test_save_backup_info_handles_errors(
         self, test_config: BackupConfig, caplog: Any
     ) -> None:
-        """Test that backup info saving handles errors gracefully."""
+        """Test that backup metadata saving handles errors gracefully."""
         backup_command = BackupCommand(test_config)
 
-        # Create an invalid config dir path
-        test_config.config_dir = "/invalid/path/that/does/not/exist"
+        # Use temp dir for config but create an unreadable backup file
+        backup_file = Path(test_config.backup_folder) / "test.tar.zst"
+        backup_file.parent.mkdir(parents=True, exist_ok=True)
+        backup_file.write_text("test content")
 
-        # This should not raise an exception but should log an error
-        backup_command.manager.save_backup_info(1000)
+        # Make the file unreadable to trigger hash calculation error
+        backup_file.chmod(0o000)
 
-        assert "Failed to save backup info" in caplog.text
+        try:
+            # This should not raise an exception but should log an error
+            backup_command.manager.save_backup_metadata_with_hash(backup_file)
+
+            assert (
+                "Failed to calculate backup hash" in caplog.text
+                or "Permission denied" in caplog.text
+            )
+        finally:
+            # Restore permissions for cleanup
+            backup_file.chmod(0o644)
 
     def test_format_size_various_sizes(self) -> None:
         """Test size formatting with various byte sizes."""
