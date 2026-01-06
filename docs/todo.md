@@ -23,6 +23,8 @@
 
 ## done
 
+- [x] Switch zstd from xz
+- [x] keepachangelog template for changelog file
 - [x] add success after backup and encryption
 - [x] folder/module structure
 - [x] ask 2 time for password

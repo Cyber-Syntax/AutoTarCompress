@@ -27,6 +27,7 @@ Turkish: [README.tr.md](README.tr.md)
 - **🆕 Command-line interface** for scriptable automation
 - **Interactive menu** for user-friendly operation
 - **Configurable backup directories** and ignore patterns
+- **Progress bar with ETA** for backup and extraction operations
 - **Logging and error handling** for reliable operation
 
 ---
