@@ -25,7 +25,7 @@ class PasswordContext:
         self.logger: logging.Logger = logging.getLogger(__name__)
 
     @contextmanager
-    def _password_context(self) -> Generator[str | None, None, None]:
+    def _password_context(self) -> Generator[str | None]:
         """Yield password securely with confirmation.
 
         Ensures memory is sanitized after use.
@@ -54,7 +54,7 @@ class PasswordContext:
                 yield None
                 return None
 
-            self.logger.info("Password confirmed successfully")
+            self.logger.info("Passwords match ✅")
             password_bytes = bytearray(password.encode("utf-8"))
             confirm_bytes = bytearray(confirm_password.encode("utf-8"))
             yield password_bytes.decode("utf-8")

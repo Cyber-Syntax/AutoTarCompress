@@ -370,7 +370,14 @@ def handle_decrypt_operation_cli(
             os.path.expanduser(config.backup_folder),
             selected_file,
         )
-        DecryptCommand(config, full_path).execute()
+        success = DecryptCommand(config, full_path).execute()
+        if not success:
+            typer.echo(
+                "Decryption failed. Possible reasons: incorrect password, "
+                "corrupted file, or integrity verification failed. "
+                "Please check your password and try again."
+            )
+            raise typer.Exit(1)
 
 
 def handle_extract_operation_cli(

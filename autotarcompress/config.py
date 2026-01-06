@@ -4,6 +4,8 @@ Handles loading, saving, and validation of backup configuration using INI (.conf
 Comments are supported in the config file.
 """
 
+from __future__ import annotations
+
 import configparser
 import datetime
 import json

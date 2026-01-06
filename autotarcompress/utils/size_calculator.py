@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 
-BYTES_IN_KB = 1024.0
+from .format import format_size
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +43,9 @@ class SizeCalculator:
         for directory in self.directories:
             dir_size: int = self._calculate_directory_size(directory)
             total += dir_size
-            logger.info(
-                "\U0001f4c1 %s: %s", directory, self._format_size(dir_size)
-            )
+            logger.info("\U0001f4c1 %s: %s", directory, format_size(dir_size))
         logger.info("=" * 40)
-        logger.info("\u2705 Total Backup Size: %s", self._format_size(total))
+        logger.info("\u2705 Total Backup Size: %s", format_size(total))
         return total
 
     def _calculate_directory_size(self, directory: Path) -> int:
@@ -151,21 +149,3 @@ class SizeCalculator:
                     return True
 
         return False
-
-    def _format_size(self, size_in_bytes: int) -> str:
-        """Convert a size in bytes to a human-readable format (KB, MB, GB).
-
-        Args:
-            size_in_bytes: The size in bytes.
-
-        Returns:
-            The formatted size string.
-
-        """
-        size = float(size_in_bytes)
-
-        for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if size < BYTES_IN_KB:
-                return f"{size:.2f} {unit}"
-            size /= BYTES_IN_KB
-        return f"{size:.2f} PB"

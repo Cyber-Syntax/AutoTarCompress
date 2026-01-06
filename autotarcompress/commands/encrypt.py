@@ -11,13 +11,10 @@ Features:
 """
 
 import logging
-import os
-import re
-import subprocess
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
-from autotarcompress.utils.get_password import PasswordContext
+from autotarcompress.encrypt_manager import EncryptManager
 
 
 class EncryptCommand(Command):
@@ -41,9 +38,7 @@ class EncryptCommand(Command):
         """
         self.file_to_encrypt: str = file_to_encrypt
         self.logger: logging.Logger = logging.getLogger(__name__)
-        self._password_context = PasswordContext()._password_context
-        self._safe_cleanup = PasswordContext()._safe_cleanup
-        self.required_openssl_version: tuple[int, int, int] = (3, 0, 0)
+        self.manager = EncryptManager(config, self.logger)
 
     def execute(self) -> bool:
         """Perform secure PBKDF2 encryption with OpenSSL.
@@ -52,102 +47,4 @@ class EncryptCommand(Command):
             bool: True if encryption succeeded, False otherwise.
 
         """
-        if not self._validate_input_file():
-            return False
-
-        with self._password_context() as password:
-            if not password:
-                self.logger.error("Encryption aborted due to password issues")
-                return False
-
-            result = self._run_encryption_process(password)
-            if result:
-                self.logger.info("Encryption completed successfully!")
-                self.logger.info(
-                    "Encrypted file: %s.enc", self.file_to_encrypt
-                )
-            else:
-                self.logger.error(
-                    "Encryption failed. Please check the logs for details."
-                )
-            return result
-
-    def _validate_input_file(self) -> bool:
-        """Validate input file exists and is not empty.
-
-        Returns:
-            bool: True if file is valid, False otherwise.
-
-        """
-        if not os.path.isfile(self.file_to_encrypt):
-            self.logger.error("File not found: %s", self.file_to_encrypt)
-            return False
-        if os.path.getsize(self.file_to_encrypt) == 0:
-            self.logger.error(
-                "Cannot encrypt empty file (potential tampering attempt)"
-            )
-            return False
-        return True
-
-    def _run_encryption_process(self, password: str) -> bool:
-        """Run encryption process with OpenSSL PBKDF2 parameters.
-
-        Args:
-            password (str): Password for encryption.
-
-        Returns:
-            bool: True if encryption succeeded, False otherwise.
-
-        """
-        output_path: str = f"{self.file_to_encrypt}.enc"
-        cmd: list[str] = [
-            "openssl",
-            "enc",
-            "-aes-256-cbc",
-            "-a",
-            "-salt",
-            "-pbkdf2",
-            "-iter",
-            str(self.PBKDF2_ITERATIONS),
-            "-in",
-            self.file_to_encrypt,
-            "-out",
-            output_path,
-            "-pass",
-            "fd:0",
-        ]
-
-        try:
-            result = subprocess.run(
-                cmd,
-                input=f"{password}\n".encode(),
-                check=True,
-                stderr=subprocess.PIPE,
-                timeout=300,
-                shell=False,
-            )
-            self.logger.debug(
-                "Encryption success: %s", self._sanitize_logs(result.stderr)
-            )
-            return True
-        except subprocess.CalledProcessError as e:
-            self.logger.exception(
-                "Encryption failed: %s", self._sanitize_logs(e.stderr)
-            )
-            self._safe_cleanup(output_path)
-            return False
-        except subprocess.TimeoutExpired:
-            self.logger.exception("Encryption timed out")
-            self._safe_cleanup(output_path)
-            return False
-
-    def _sanitize_logs(self, output: bytes) -> str:
-        """Safe log sanitization without modifying bytes."""
-        # Replace password=<value> with password=[REDACTED]
-        sanitized = re.sub(rb"password=[^\s]*", b"password=[REDACTED]", output)
-        sanitized = re.sub(
-            rb"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
-            b"[IP_REDACTED]",
-            sanitized,
-        )
-        return sanitized.decode("utf-8", errors="replace")
+        return self.manager.execute_encrypt(self.file_to_encrypt)
