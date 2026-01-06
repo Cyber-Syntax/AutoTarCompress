@@ -73,6 +73,7 @@ class TestExtractCommand:
         mock_tar = Mock()
         mock_member = Mock()
         mock_member.name = "test_file.txt"
+        mock_member.size = 100  # Add size for progress calculation
         mock_tar.getmembers.return_value = [mock_member]
         mock_tarfile_open.return_value.__enter__.return_value = mock_tar
 
@@ -86,7 +87,7 @@ class TestExtractCommand:
 
             assert result is True
             mock_mkdir.assert_called_once()
-            mock_tar.extractall.assert_called_once()
+            mock_tar.extract.assert_called_once()
 
     @patch("tarfile.open")
     def test_execute_path_traversal_attack(
@@ -100,6 +101,7 @@ class TestExtractCommand:
         mock_tar = Mock()
         mock_member = Mock()
         mock_member.name = "../../../etc/passwd"
+        mock_member.size = 100
         mock_tar.getmembers.return_value = [mock_member]
         mock_tarfile_open.return_value.__enter__.return_value = mock_tar
 
@@ -116,7 +118,7 @@ class TestExtractCommand:
 
                 assert result is False
                 assert "Attempted path traversal" in caplog.text
-                mock_tar.extractall.assert_not_called()
+                mock_tar.extract.assert_not_called()
 
     @patch("tarfile.open")
     def test_execute_tarfile_error(
@@ -195,6 +197,7 @@ class TestExtractCommand:
         for i in range(5):
             member = Mock()
             member.name = f"file_{i}.txt"
+            member.size = 100 + i  # Add size
             mock_members.append(member)
         mock_tar.getmembers.return_value = mock_members
         mock_tarfile_open.return_value.__enter__.return_value = mock_tar
@@ -209,7 +212,7 @@ class TestExtractCommand:
             result = extract_command.execute()
 
             assert result is True
-            mock_tar.extractall.assert_called_once()
+            assert mock_tar.extract.call_count == 5
 
     @patch("tarfile.open")
     def test_mixed_safe_unsafe_files(
@@ -222,8 +225,10 @@ class TestExtractCommand:
         mock_tar = Mock()
         safe_member = Mock()
         safe_member.name = "safe_file.txt"
+        safe_member.size = 100
         unsafe_member = Mock()
         unsafe_member.name = "../unsafe_file.txt"
+        unsafe_member.size = 50
         mock_tar.getmembers.return_value = [safe_member, unsafe_member]
         mock_tarfile_open.return_value.__enter__.return_value = mock_tar
 
@@ -298,6 +303,7 @@ class TestExtractCommand:
 
         mock_member = Mock()
         mock_member.name = filename
+        mock_member.size = 100
 
         with (
             patch("tarfile.open") as mock_tarfile_open,
@@ -382,7 +388,8 @@ class TestExtractCommand:
             result = extract_command.execute()
 
             assert result is True
-            mock_tar.extractall.assert_called_once()
+            # Empty archive - no extraction needed
+            mock_tar.extract.assert_not_called()
 
     @patch(
         "autotarcompress.commands.extract.is_pv_available", return_value=True

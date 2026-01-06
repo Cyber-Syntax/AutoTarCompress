@@ -12,6 +12,7 @@ from pathlib import Path
 
 from autotarcompress.commands.command import Command
 from autotarcompress.config import BackupConfig
+from autotarcompress.utils.progress_bar import SimpleProgressBar
 from autotarcompress.utils.utils import is_pv_available
 
 
@@ -118,6 +119,10 @@ class ExtractCommand(Command):
         """
         try:
             with tarfile.open(str(file_path), f"r:{compression}") as tar:
+                # Calculate total size for progress bar
+                total_size = sum(member.size for member in tar.getmembers())
+                progress = SimpleProgressBar(total_size)
+
                 # Prevent path traversal attacks by checking extraction target
                 for member in tar.getmembers():
                     target_path = extract_dir / member.name
@@ -128,7 +133,13 @@ class ExtractCommand(Command):
                             "Attempted path traversal: %s", member.name
                         )
                         return False
-                tar.extractall(path=extract_dir)
+
+                # Extract each member with progress tracking
+                for member in tar.getmembers():
+                    tar.extract(member, path=extract_dir)
+                    progress.update(member.size)
+
+                progress.finish()
             self.logger.info("Successfully extracted to %s", extract_dir)
             return True
         except tarfile.TarError:
