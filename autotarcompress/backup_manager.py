@@ -6,16 +6,15 @@ the core backup logic extracted from BackupCommand.
 
 from __future__ import annotations
 
-import datetime
 import fnmatch
-import json
 import logging
 import os
 import tarfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from autotarcompress.utils.format import format_size
+from autotarcompress.metadata import update_backup_metadata
+from autotarcompress.utils.hash_utils import calculate_sha256
 from autotarcompress.utils.progress_bar import SimpleProgressBar
 from autotarcompress.utils.size_calculator import SizeCalculator
 from autotarcompress.utils.utils import (
@@ -117,13 +116,12 @@ class BackupManager:
                     self._add_directory_to_tar(
                         tar, dir_path, progress, initial_dev
                     )
-
-            progress.finish()
-            self.logger.info("Backup completed successfully")
         except (OSError, PermissionError, tarfile.TarError):
             self.logger.exception("Backup failed")
             return False
         else:
+            progress.finish()
+            self.logger.info("Backup completed successfully")
             return True
 
     def _add_directory_to_tar(
@@ -253,36 +251,36 @@ class BackupManager:
 
         return False
 
-    def save_backup_info(self, total_size: int) -> None:
-        """Save backup information to metadata.json.
+    def save_backup_metadata_with_hash(self, backup_path: Path) -> None:
+        """Calculate backup hash and save metadata.
 
         Args:
-            total_size: Total size of the backup in bytes
+            backup_path: Path to the created backup file
         """
         try:
-            backup_info = {
-                "backup_file": Path(self.config.backup_path).name,
-                "backup_path": str(self.config.backup_path),
-                "backup_date": datetime.datetime.now(
-                    tz=datetime.UTC
-                ).isoformat(),
-                "backup_size_bytes": total_size,
-                "backup_size_human": format_size(total_size),
-                "directories_backed_up": self.config.dirs_to_backup,
-            }
+            self.logger.info("Calculating SHA256 hash of backup archive...")
+            backup_hash = calculate_sha256(backup_path)
+            self.logger.debug("Backup hash: %s", backup_hash[:16])
 
-            # Save the info file in the config directory
-            info_file_path = (
-                Path(self.config.config_dir).expanduser() / "metadata.json"
+            # Update metadata with backup file and hash
+            update_backup_metadata(
+                Path(self.config.config_dir),
+                backup_path,
+                backup_hash,
             )
-
-            with info_file_path.open("w", encoding="utf-8") as f:
-                json.dump(backup_info, f, indent=2)
-
-            self.logger.info("Backup info saved to %s", info_file_path)
-
-        except (OSError, PermissionError, ValueError):
-            self.logger.exception("Failed to save backup info")
+        except (FileNotFoundError, OSError, PermissionError):
+            self.logger.exception(
+                "Failed to calculate backup hash or save metadata"
+            )
+            # Try to update metadata without hash if possible
+            try:
+                update_backup_metadata(
+                    Path(self.config.config_dir),
+                    backup_path,
+                    None,
+                )
+            except (OSError, PermissionError):
+                self.logger.exception("Failed to save metadata without hash")
 
     def execute_backup(self) -> bool:
         """Execute the complete backup process.
@@ -353,7 +351,7 @@ class BackupManager:
         # Run backup process
         success = self.run_backup_process(total_size)
         if success:
-            self.save_backup_info(total_size)
+            self.save_backup_metadata_with_hash(Path(self.config.backup_path))
         return success
 
     def _backup_file_exists(self) -> bool:

@@ -1,7 +1,8 @@
 """Encrypt manager for handling encryption operations.
 
 This module contains the EncryptManager class that encapsulates
-the core encryption logic using AES-256-GCM authenticated encryption.
+the core encryption logic using AES-256-GCM authenticated encryption
+with SHA256 integrity verification.
 """
 
 from __future__ import annotations
@@ -11,6 +12,8 @@ from pathlib import Path
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from autotarcompress.base_manager import BaseCryptoManager
+from autotarcompress.metadata import update_encrypted_hash
+from autotarcompress.utils.hash_utils import calculate_sha256
 
 
 class EncryptManager(BaseCryptoManager):
@@ -40,6 +43,7 @@ class EncryptManager(BaseCryptoManager):
             result = self._run_encryption_process(file_to_encrypt, password)
             if result:
                 encrypted_file = f"{file_to_encrypt}.enc"
+                self._calculate_and_store_hash(encrypted_file)
                 self.logger.info("Encryption completed successfully!")
                 self.logger.info(
                     "Encrypted file created: %s", Path(encrypted_file).name
@@ -52,6 +56,25 @@ class EncryptManager(BaseCryptoManager):
                     "Encryption failed. Please check the logs for details."
                 )
             return result
+
+    def _calculate_and_store_hash(self, encrypted_file: str) -> None:
+        """Calculate SHA256 hash of encrypted file and store in metadata.
+
+        Args:
+            encrypted_file: Path to the encrypted file
+        """
+        try:
+            self.logger.info("Calculating SHA256 hash of encrypted file...")
+            encrypted_hash = calculate_sha256(encrypted_file)
+            self.logger.debug("Encrypted file hash: %s", encrypted_hash[:16])
+
+            update_encrypted_hash(
+                Path(self.config.config_dir),
+                Path(encrypted_file),
+                encrypted_hash,
+            )
+        except (FileNotFoundError, OSError):
+            self.logger.exception("Failed to calculate encrypted file hash")
 
     def _run_encryption_process(
         self, file_to_encrypt: str, password: str

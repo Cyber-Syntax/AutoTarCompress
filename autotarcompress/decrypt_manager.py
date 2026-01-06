@@ -1,8 +1,8 @@
 """Decrypt manager for handling decryption operations.
 
 This module contains the DecryptManager class that encapsulates
-the core decryption logic with retry and automatic integrity verification
-using AES-256-GCM authenticated encryption.
+the core decryption logic with retry, automatic integrity verification
+using AES-256-GCM authenticated encryption, and SHA256 hash verification.
 """
 
 from __future__ import annotations
@@ -14,6 +14,8 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from autotarcompress.base_manager import BaseCryptoManager
+from autotarcompress.metadata import get_file_hash, update_decrypted_hash
+from autotarcompress.utils.hash_utils import calculate_sha256
 
 
 class DecryptManager(BaseCryptoManager):
@@ -66,6 +68,11 @@ class DecryptManager(BaseCryptoManager):
                         file_path, password, str(decrypted_path)
                     )
                     if success:
+                        # Calculate hash and verify integrity
+                        self._verify_decrypted_integrity(
+                            file_path, str(decrypted_path)
+                        )
+
                         self.logger.info("Decryption completed successfully!")
                         self.logger.info(
                             "Decrypted file saved as: %s",
@@ -173,3 +180,65 @@ class DecryptManager(BaseCryptoManager):
             return False
         else:
             return True
+
+    def _verify_decrypted_integrity(
+        self, encrypted_file: str, decrypted_path: str
+    ) -> None:
+        """Calculate hash of decrypted file and verify against backup.
+
+        Args:
+            encrypted_file: Path to the encrypted file
+                (e.g., 06-01-2026.tar.zst.enc)
+            decrypted_path: Path to the decrypted file
+        """
+        try:
+            self.logger.info("Calculating SHA256 hash of decrypted file...")
+            decrypted_hash = calculate_sha256(decrypted_path)
+            self.logger.debug("Decrypted file hash: %s", decrypted_hash[:16])
+
+            # Store the decrypted file hash
+            update_decrypted_hash(
+                Path(self.config.config_dir),
+                Path(decrypted_path),
+                decrypted_hash,
+            )
+
+            # Determine original backup filename from encrypted file
+            # e.g., 06-01-2026.tar.zst.enc -> 06-01-2026.tar.zst
+            encrypted_path = Path(encrypted_file)
+            if encrypted_path.suffix == ".enc":
+                backup_filename = encrypted_path.stem
+            else:
+                backup_filename = encrypted_path.name
+
+            # Try to verify against original backup archive hash
+            backup_hash = get_file_hash(
+                Path(self.config.config_dir), backup_filename
+            )
+
+            if backup_hash:
+                if decrypted_hash == backup_hash:
+                    self.logger.info(
+                        "✓ Integrity verification passed: "
+                        "Decrypted file matches original backup (%s)",
+                        backup_filename,
+                    )
+                else:
+                    self.logger.warning(
+                        "⚠ Integrity verification failed: "
+                        "Decrypted file hash differs from backup archive (%s)",
+                        backup_filename,
+                    )
+                    self.logger.warning(
+                        "This may indicate corruption during "
+                        "encryption/decryption"
+                    )
+                    self.logger.debug("Expected: %s", backup_hash)
+                    self.logger.debug("Got: %s", decrypted_hash)
+            else:
+                self.logger.info(
+                    "No hash found for backup archive %s", backup_filename
+                )
+
+        except (FileNotFoundError, OSError):
+            self.logger.exception("Failed to verify decrypted file integrity")
