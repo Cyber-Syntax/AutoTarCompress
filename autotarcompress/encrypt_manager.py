@@ -1,14 +1,14 @@
 """Encrypt manager for handling encryption operations.
 
 This module contains the EncryptManager class that encapsulates
-the core encryption logic.
+the core encryption logic using AES-256-GCM authenticated encryption.
 """
 
 from __future__ import annotations
 
-import subprocess
-import tempfile
 from pathlib import Path
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from autotarcompress.base_manager import BaseCryptoManager
 
@@ -16,12 +16,12 @@ from autotarcompress.base_manager import BaseCryptoManager
 class EncryptManager(BaseCryptoManager):
     """Manager class for encryption operations.
 
-    Handles the core encryption logic including password management,
-    OpenSSL operations, and hash embedding for integrity.
+    Handles the core encryption logic using AES-256-GCM authenticated
+    encryption with PBKDF2-HMAC-SHA256 key derivation.
     """
 
     def execute_encrypt(self, file_to_encrypt: str) -> bool:
-        """Execute the complete encryption process with embedded hash.
+        """Execute the complete encryption process with AES-GCM.
 
         Args:
             file_to_encrypt: Path to the file to encrypt
@@ -56,8 +56,9 @@ class EncryptManager(BaseCryptoManager):
     def _run_encryption_process(
         self, file_to_encrypt: str, password: str
     ) -> bool:
-        """Run encryption process with OpenSSL PBKDF2 parameters
-        and embedded hash.
+        """Run encryption process with AES-256-GCM and PBKDF2.
+
+        File format: [salt(16)][nonce(12)][ciphertext][tag(16)]
 
         Args:
             file_to_encrypt: Path to the file to encrypt
@@ -66,68 +67,50 @@ class EncryptManager(BaseCryptoManager):
         Returns:
             True if encryption succeeded, False otherwise
         """
-        # Calculate original hash
         file_name = Path(file_to_encrypt).name
-        self.logger.info("Calculating SHA256 hash for file: %s", file_name)
+        self.logger.info("Encrypting file with AES-256-GCM: %s", file_name)
         self.logger.debug("File path: %s", file_to_encrypt)
-        original_hash = self._calculate_sha256(file_to_encrypt)
-        self.logger.info("SHA256 hash calculated: %s", original_hash)
-        self.logger.debug("SHA256 hash for %s: %s", file_name, original_hash)
-        self.logger.info("Embedding integrity hash in encrypted file")
 
-        # Create temp file with hash + original data
-        with tempfile.NamedTemporaryFile(mode="wb", delete=False) as temp_file:
-            # Write hash (64 bytes for SHA256 hex) + newline + original data
-            hash_data = f"{original_hash}\n".encode()
-            temp_file.write(hash_data)
-            self.logger.debug(
-                "Writing SHA256 hash to temp file: %s", original_hash
-            )
-            with Path(file_to_encrypt).open("rb") as orig:
-                temp_file.write(orig.read())
-            temp_path = temp_file.name
-
-        output_path: str = f"{file_to_encrypt}.enc"
-        cmd: list[str] = [
-            "openssl",
-            "enc",
-            "-aes-256-cbc",
-            "-a",
-            "-salt",
-            "-pbkdf2",
-            "-iter",
-            str(self.PBKDF2_ITERATIONS),
-            "-in",
-            temp_path,
-            "-out",
-            output_path,
-            "-pass",
-            "fd:0",
-        ]
+        output_path = f"{file_to_encrypt}.enc"
 
         try:
-            result = subprocess.run(
-                cmd,
-                input=f"{password}\n".encode(),
-                check=True,
-                stderr=subprocess.PIPE,
-                timeout=300,
-                shell=False,
-            )
+            # Generate random salt and nonce
+            salt = self._generate_salt()
+            nonce = self._generate_nonce()
+            self.logger.debug("Generated salt and nonce for encryption")
+
+            # Derive key from password using PBKDF2
+            key = self._derive_key(password, salt)
             self.logger.debug(
-                "Encryption success: %s", self._sanitize_logs(result.stderr)
+                "Derived encryption key using PBKDF2-HMAC-SHA256"
             )
+
+            # Read plaintext data
+            with Path(file_to_encrypt).open("rb") as f:
+                plaintext = f.read()
+
+            # Encrypt with AES-GCM (produces ciphertext + authentication tag)
+            aesgcm = AESGCM(key)
+            ciphertext_with_tag = aesgcm.encrypt(nonce, plaintext, None)
+            self.logger.debug(
+                "Encrypted %d bytes to %d bytes (includes auth tag)",
+                len(plaintext),
+                len(ciphertext_with_tag),
+            )
+
+            # Write encrypted file: salt + nonce + ciphertext + tag
+            with Path(output_path).open("wb") as f:
+                f.write(salt)
+                f.write(nonce)
+                f.write(ciphertext_with_tag)
+
+            self.logger.info(
+                "Encryption successful with authenticated encryption"
+            )
+
+        except Exception:
+            self.logger.exception("Encryption failed with error")
+            self._safe_cleanup(output_path)
+            return False
+        else:
             return True
-        except subprocess.CalledProcessError as e:
-            self.logger.exception(
-                "Encryption failed: %s", self._sanitize_logs(e.stderr)
-            )
-            self._safe_cleanup(output_path)
-            return False
-        except subprocess.TimeoutExpired:
-            self.logger.exception("Encryption timed out")
-            self._safe_cleanup(output_path)
-            return False
-        finally:
-            # Clean up temp file
-            Path(temp_path).unlink(missing_ok=True)

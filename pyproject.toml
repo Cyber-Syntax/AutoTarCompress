@@ -6,7 +6,7 @@ description = 'The script compresses specific directories into tar files, and it
 keywords = ["tar", "compress", "backup"]
 requires-python = ">= 3.14"
 authors = [{ name = "Cyber-Syntax" }]
-dependencies = ["typer", "typing_extensions"]
+dependencies = ["typer", "typing_extensions", "cryptography"]
 classifiers = [
   "Intended Audience :: Developers, Linux Users",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",

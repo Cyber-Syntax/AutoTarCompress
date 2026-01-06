@@ -1,16 +1,20 @@
 """Base manager for shared crypto operations.
 
 This module contains the BaseCryptoManager class that provides
-shared functionality for encryption and decryption operations.
+shared functionality for encryption and decryption operations using
+the cryptography library with AES-256-GCM authenticated encryption.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
-import re
+import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from autotarcompress.utils.get_password import PasswordContext
 
@@ -21,11 +25,17 @@ if TYPE_CHECKING:
 class BaseCryptoManager:
     """Base class for crypto operations with shared utilities.
 
-    Provides common methods for file validation, hashing, logging sanitization,
+    Provides common methods for file validation, hashing, key derivation,
     and secure cleanup used by both encryption and decryption managers.
+    Uses AES-256-GCM for authenticated encryption with PBKDF2-HMAC-SHA256.
     """
 
-    PBKDF2_ITERATIONS: int = 600000  # OWASP recommended minimum
+    # Cryptographic constants (OWASP recommended)
+    PBKDF2_ITERATIONS: int = 600000  # OWASP recommended minimum for PBKDF2
+    SALT_SIZE: int = 16  # 128 bits for PBKDF2 salt
+    NONCE_SIZE: int = 12  # 96 bits for AES-GCM nonce (recommended)
+    KEY_SIZE: int = 32  # 256 bits for AES-256
+    TAG_SIZE: int = 16  # 128 bits for GCM authentication tag
 
     def __init__(
         self, config: BackupConfig, logger: logging.Logger | None = None
@@ -79,20 +89,36 @@ class BaseCryptoManager:
                 sha256.update(data)
         return sha256.hexdigest()
 
-    def _sanitize_logs(self, output: bytes) -> str:
-        """Sanitize log output to redact sensitive information.
+    def _derive_key(self, password: str, salt: bytes) -> bytes:
+        """Derive encryption key from password using PBKDF2-HMAC-SHA256.
 
         Args:
-            output: Raw stderr output from subprocess
+            password: User password
+            salt: Random salt (16 bytes)
 
         Returns:
-            Sanitized string safe for logging
+            Derived 256-bit key for AES-256
         """
-        # Redact password and IP addresses from logs for security
-        sanitized = re.sub(rb"password=[^\s]*", b"password=[REDACTED]", output)
-        sanitized = re.sub(
-            rb"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
-            b"[IP_REDACTED]",
-            sanitized,
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=self.KEY_SIZE,
+            salt=salt,
+            iterations=self.PBKDF2_ITERATIONS,
         )
-        return sanitized.decode("utf-8", errors="replace")
+        return kdf.derive(password.encode("utf-8"))
+
+    def _generate_salt(self) -> bytes:
+        """Generate cryptographically secure random salt.
+
+        Returns:
+            Random 16-byte salt for PBKDF2
+        """
+        return secrets.token_bytes(self.SALT_SIZE)
+
+    def _generate_nonce(self) -> bytes:
+        """Generate cryptographically secure random nonce.
+
+        Returns:
+            Random 12-byte nonce for AES-GCM
+        """
+        return secrets.token_bytes(self.NONCE_SIZE)
