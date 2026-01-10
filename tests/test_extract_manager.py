@@ -187,12 +187,11 @@ class TestExtractManager:
 
         with patch(
             "tarfile.open", side_effect=tarfile.TarError("Invalid tar file")
-        ):
-            with caplog.at_level(logging.ERROR):
-                result = extract_manager.execute_extract(str(archive_file))
+        ), caplog.at_level(logging.ERROR):
+            result = extract_manager.execute_extract(str(archive_file))
 
-                assert result is False
-                assert "Extraction failed" in caplog.text
+            assert result is False
+            assert "Extraction failed" in caplog.text
 
     @patch("pathlib.Path.mkdir")
     def test_execute_extract_general_exception(
