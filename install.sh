@@ -39,6 +39,8 @@ WRAPPER_SRC="$INSTALL_DIR/scripts/venv-wrapper.sh"
 WRAPPER_DST="$HOME/.local/bin/autotarcompress"
 
 # The line to add to shell rc files to ensure ~/.local/bin is in PATH
+# We want this to output `$HOME` without expansion
+# shellcheck disable=SC2016
 EXPORT_LINE='export PATH="$HOME/.local/bin:$PATH"'
 
 # -- Helper functions --------------------------------------------------------
@@ -126,6 +128,75 @@ ensure_path_for_shells() {
   
   ensure_path_in_file "$bashrc" prepend
   ensure_path_in_file "$zshrc" append
+}
+
+# Install with uv tool in development mode
+install_uv_dev() {
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Error: uv is not installed. Please install uv first."
+    exit 1
+  fi
+
+  echo "Installing autotarcompress in development mode with uv..."
+  uv tool install --editable .
+}
+
+# Install with uv tool in production mode from URL
+install_uv_production() {
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "Error: uv is not installed. Please install uv first."
+    exit 1
+  fi
+
+  echo "Installing autotarcompress from GitHub with uv..."
+  uv tool install git+https://github.com/Cyber-Syntax/AutoTarCompress
+}
+
+# Remove legacy installations interactively with dry-run support
+remove_legacy_install() {
+  local dry_run=false
+  if [ $# -gt 0 ] && [ "$1" = "--dry-run" ]; then
+    dry_run=true
+    echo "=== Dry-run mode: Simulating removal ==="
+  else
+    echo "=== Removing legacy installations ==="
+  fi
+
+  # Check and remove installation directory
+  if [ -d "$INSTALL_DIR" ]; then
+    echo "Found installation directory: $INSTALL_DIR"
+    if [ "$dry_run" = true ]; then
+      echo "Would remove: $INSTALL_DIR"
+    else
+      read -p "Remove $INSTALL_DIR? (y/N): " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf "$INSTALL_DIR"
+        echo "Removed $INSTALL_DIR"
+      fi
+    fi
+  fi
+
+  # Check and remove wrapper script
+  if [ -f "$WRAPPER_DST" ]; then
+    echo "Found wrapper script: $WRAPPER_DST"
+    if [ "$dry_run" = true ]; then
+      echo "Would remove: $WRAPPER_DST"
+    else
+      read -p "Remove $WRAPPER_DST? (y/N): " -n 1 -r
+      echo
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -f "$WRAPPER_DST"
+        echo "Removed $WRAPPER_DST"
+      fi
+    fi
+  fi
+
+  if [ "$dry_run" = true ]; then
+    echo "=== Dry-run complete ==="
+  else
+    echo "=== Legacy install removal complete ==="
+  fi
 }
 
 # Copy source files to install directory
@@ -218,17 +289,6 @@ install_bash_completion() {
     fi
 }
 
-# Determine if user uses .config/zsh
-determine_zsh_config_dir() {
-    if [[ -d "${XDG_CONFIG_HOME:-$HOME/.config}/zsh" ]]; then
-        echo "${XDG_CONFIG_HOME:-$HOME/.config}/zsh"
-    elif [[ -d "$HOME/.config/zsh" ]]; then
-        echo "$HOME/.config/zsh"
-    else
-        echo "$HOME/.zsh"
-    fi
-}
-
 # Function to install zsh completion
 install_zsh_completion() {
     print_status "Installing Zsh completion..."
@@ -241,25 +301,28 @@ install_zsh_completion() {
         return 1
     fi
 
-    # Determine zsh config directory
-    local zsh_config_dir
-    zsh_config_dir=$(determine_zsh_config_dir)
-    print_status "Using zsh config directory: $zsh_config_dir"
-    
-    # Create user completion directory if it doesn't exist
-    mkdir -p "$zsh_config_dir/completions"
-    
-    # Copy completion file
-    cp "$zsh_autocomplete_src" "$zsh_config_dir/completions/_autotarcompress"
-    print_status "Zsh completion installed to $zsh_config_dir/completions/_autotarcompress"
+    # Always install completions to ~/.config/zsh/completions for portability
+    local completion_dir="$HOME/.config/zsh/completions"
+    mkdir -p "$completion_dir"
+    cp "$zsh_autocomplete_src" "$completion_dir/_autotarcompress"
+    print_status "Zsh completion installed to $completion_dir/_autotarcompress"
 
-    # Update zshrc if needed. Ensure fpath is present BEFORE any compinit call
-    local rc_file="$zsh_config_dir/.zshrc"
+    # Determine the rc file to update
+    local rc_file
+    rc_file=$(detect_rc_file)
     # Ensure rc_file exists
     touch "$rc_file"
 
     local comment_line="# Added by AutoTarCompress to enable shell completion"
-    local fpath_line="fpath=($zsh_config_dir/completions \$fpath)"
+    # We want this to output `$HOME` without expansion
+    # shellcheck disable=SC2016
+    local fpath_line='fpath=($HOME/.config/zsh/completions $fpath)'
+
+    # If using ~/.zshrc, notify user to add fpath manually
+    if [[ "$rc_file" == "$HOME/.zshrc" ]]; then
+        print_warning "You're using ~/.zshrc. Please manually add the following line to your ~/.zshrc before 'compinit' to enable completion: fpath=($HOME/.config/zsh/completions \$fpath)"
+        return 0
+    fi
 
     # If exact fpath line already exists, do nothing. Otherwise insert it
     if grep -qF "$fpath_line" "$rc_file" 2>/dev/null; then
@@ -354,9 +417,7 @@ install_autocomplete() {
 
     # Notify user to restart shell or source rc files
     if [[ "$(basename "$SHELL")" == "zsh" ]]; then
-        local zshrc
-        zshrc=$(determine_zsh_config_dir)/.zshrc
-        print_status "Please restart your shell or run 'source \"$zshrc\"' to enable autocompletion."
+        print_status "Please restart your shell or run 'source ~/.zshrc' to enable autocompletion."
     elif [[ "$(basename "$SHELL")" == "bash" ]]; then
         print_status "Please restart your shell or run 'source ~/.bashrc' to enable autocompletion."
     else
@@ -370,22 +431,35 @@ install_autocomplete() {
 case "${1-}" in
   install|"") install_autotarcompress ;;
   update) update_autotarcompress ;;
+  uv-dev) install_uv_dev ;;
+  uv-prod) install_uv_production ;;
+  remove)
+    shift
+    remove_legacy_install "$@"
+    ;;
   autocomplete) 
     shift
     install_autocomplete "$@" 
     ;;
   *)
     cat <<EOF
-Usage: $(basename "$0") [install|update|autocomplete]
+Usage: $(basename "$0") [install|update|uv-dev|uv-prod|remove|autocomplete]
 
 Commands:
   install       Copy source, setup venv, install wrapper, configure PATH
   update        Update venv only
+  uv-dev        Install with uv tool in development mode
+  uv-prod       Install with uv tool in production mode from GitHub
+  remove        Remove legacy installations interactively [--dry-run]
   autocomplete  Install shell completion [bash|zsh|both]
 
 Examples:
   $(basename "$0") install                    # Full installation
   $(basename "$0") update                     # Update virtual environment
+  $(basename "$0") uv-dev                     # Install in development mode
+  $(basename "$0") uv-prod                    # Install from GitHub
+  $(basename "$0") remove                     # Remove legacy installations interactively
+  $(basename "$0") remove --dry-run           # Dry-run removal
   $(basename "$0") autocomplete               # Auto-detect shell and install completion
   $(basename "$0") autocomplete bash          # Install bash completion only
   $(basename "$0") autocomplete zsh           # Install zsh completion only

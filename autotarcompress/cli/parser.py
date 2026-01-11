@@ -2,22 +2,32 @@
 
 This file contains the Typer application and CLI command handlers.
 The heavier application logic and interactive helpers live in
-``autotarcompress.runner`` to avoid circular imports.
+``autotarcompress.cli.runner`` to avoid circular imports.
 """
 
 import os
-from typing import Optional
+from typing import Annotated
 
 import typer
-from typing_extensions import Annotated
 
-from autotarcompress import runner
+from autotarcompress import __version__
+from autotarcompress.cli.runner import (
+    find_file_by_date as runner_find_file_by_date,
+)
+from autotarcompress.cli.runner import (
+    get_backup_files,
+    get_encrypted_files,
+    initialize_config,
+)
 from autotarcompress.commands import (
+    BackupCommand,
+    CleanupCommand,
     DecryptCommand,
     EncryptCommand,
     ExtractCommand,
+    InfoCommand,
 )
-from autotarcompress.facade import BackupFacade
+from autotarcompress.config import BackupConfig
 
 # Create the main Typer app
 app = typer.Typer(
@@ -27,11 +37,61 @@ app = typer.Typer(
 )
 
 
+def get_version() -> str:
+    """Return the application version."""
+    version: str = __version__
+    return version
+
+
+def _version_callback(
+    ctx: typer.Context, _param: typer.CallbackParam, value: bool
+) -> None:
+    """Typer callback to handle the global --version option.
+
+    This callback is invoked eagerly. When the flag is present we print
+    the version and exit immediately.
+    """
+    if not value or ctx.resilient_parsing:
+        return
+    typer.echo(get_version())
+    raise typer.Exit
+
+
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    _show_version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            "-V",
+            is_eager=True,
+            callback=_version_callback,
+            help="Show the application version",
+        ),
+    ] = False,
+) -> None:
+    """Allow a global --version option.
+
+    When invoked with the `--version` flag the callback prints the
+    version and exits. When run without subcommands it is a no-op.
+    """
+    if ctx.invoked_subcommand is None:
+        return
+
+
+@app.command(name="version")
+def version_cmd() -> None:
+    """Print the installed package version."""
+    typer.echo(get_version())
+
+
 @app.command()
 def backup() -> None:
     """Create a backup archive of configured directories."""
-    facade: BackupFacade = runner.initialize_config()
-    success = facade.execute_command("backup")
+    config = initialize_config()
+    command = BackupCommand(config)
+    success = command.execute()
     if not success:
         raise typer.Exit(1)
 
@@ -46,14 +106,14 @@ def encrypt(
         ),
     ] = False,
     date: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--date",
             help=("Encrypt backup from specific date (dd-mm-yyyy)"),
         ),
     ] = None,
     file: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(help="Specific backup file to encrypt"),
     ] = None,
 ) -> None:
@@ -61,15 +121,20 @@ def encrypt(
     # Validate mutually exclusive options
     options_count = sum([latest, date is not None, file is not None])
     if options_count > 1:
-        typer.echo("Error: Only one of --latest, --date, or file argument can be specified")
+        typer.echo(
+            "Error: Only one of --latest, --date, or file argument "
+            "can be specified"
+        )
         raise typer.Exit(1)
     if options_count == 0:
-        typer.echo("Error: Must specify one of --latest, --date, or file argument")
+        typer.echo(
+            "Error: Must specify one of --latest, --date, or file argument"
+        )
         raise typer.Exit(1)
 
-    facade: BackupFacade = runner.initialize_config()
+    config = initialize_config()
     try:
-        handle_encrypt_operation_cli(facade, latest, date, file)
+        handle_encrypt_operation_cli(config, latest, date, file)
     except Exception as e:
         typer.echo(f"Error: {e}")
         raise typer.Exit(1) from None
@@ -85,14 +150,14 @@ def decrypt(
         ),
     ] = False,
     date: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--date",
             help=("Decrypt backup from specific date (dd-mm-yyyy)"),
         ),
     ] = None,
     file: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(help="Specific encrypted file to decrypt"),
     ] = None,
 ) -> None:
@@ -100,15 +165,20 @@ def decrypt(
     # Validate mutually exclusive options
     options_count = sum([latest, date is not None, file is not None])
     if options_count > 1:
-        typer.echo("Error: Only one of --latest, --date, or file argument can be specified")
+        typer.echo(
+            "Error: Only one of --latest, --date, or file argument "
+            "can be specified"
+        )
         raise typer.Exit(1)
     if options_count == 0:
-        typer.echo("Error: Must specify one of --latest, --date, or file argument")
+        typer.echo(
+            "Error: Must specify one of --latest, --date, or file argument"
+        )
         raise typer.Exit(1)
 
-    facade: BackupFacade = runner.initialize_config()
+    config = initialize_config()
     try:
-        handle_decrypt_operation_cli(facade, latest, date, file)
+        handle_decrypt_operation_cli(config, latest, date, file)
     except Exception as e:
         typer.echo(f"Error: {e}")
         raise typer.Exit(1) from None
@@ -121,14 +191,14 @@ def extract(
         typer.Option("--latest", help="Extract the latest backup"),
     ] = False,
     date: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--date",
             help=("Extract backup from specific date (dd-mm-yyyy)"),
         ),
     ] = None,
     file: Annotated[
-        Optional[str],
+        str | None,
         typer.Argument(help="Specific backup file to extract"),
     ] = None,
 ) -> None:
@@ -136,15 +206,20 @@ def extract(
     # Validate mutually exclusive options
     options_count = sum([latest, date is not None, file is not None])
     if options_count > 1:
-        typer.echo("Error: Only one of --latest, --date, or file argument can be specified")
+        typer.echo(
+            "Error: Only one of --latest, --date, or file argument "
+            "can be specified"
+        )
         raise typer.Exit(1)
     if options_count == 0:
-        typer.echo("Error: Must specify one of --latest, --date, or file argument")
+        typer.echo(
+            "Error: Must specify one of --latest, --date, or file argument"
+        )
         raise typer.Exit(1)
 
-    facade: BackupFacade = runner.initialize_config()
+    config = initialize_config()
     try:
-        handle_extract_operation_cli(facade, latest, date, file)
+        handle_extract_operation_cli(config, latest, date, file)
     except Exception as e:
         typer.echo(f"Error: {e}")
         raise typer.Exit(1) from None
@@ -157,14 +232,14 @@ def cleanup(
         typer.Option("--all", help="Remove all old backups"),
     ] = False,
     older_than: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--older-than",
             help="Remove backups older than N days",
         ),
     ] = None,
     keep: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--keep",
             help="Keep only the N most recent backups",
@@ -181,11 +256,15 @@ def cleanup(
         ]
     )
     if options_count > 1:
-        typer.echo("Error: Only one of --all, --older-than, or --keep can be specified")
+        typer.echo(
+            "Error: Only one of --all, --older-than, or --keep "
+            "can be specified"
+        )
         raise typer.Exit(1)
 
-    facade: BackupFacade = runner.initialize_config()
-    success = facade.execute_command("cleanup", cleanup_all=all_backups)
+    config = initialize_config()
+    command = CleanupCommand(config, cleanup_all=all_backups)
+    success = command.execute()
     if not success:
         raise typer.Exit(1)
 
@@ -193,43 +272,37 @@ def cleanup(
 @app.command()
 def info() -> None:
     """Show information about the last backup."""
-    facade: BackupFacade = runner.initialize_config()
-    success = facade.execute_command("info")
+    config = initialize_config()
+    command = InfoCommand(config)
+    success = command.execute()
     if not success:
         raise typer.Exit(1)
 
 
-@app.command()
-def interactive() -> None:
-    """Launch the interactive menu (legacy mode)."""
-    facade: BackupFacade = runner.initialize_config()
-    runner.run_main_loop(facade)
-
-
-def find_file_by_date(files: list[str], target_date: str) -> Optional[str]:
+def find_file_by_date(files: list[str], target_date: str) -> str | None:
     """Find backup file by date pattern.
 
     Reused here for CLI helpers.
     """
-    return runner.find_file_by_date(files, target_date)
+    return runner_find_file_by_date(files, target_date)
 
 
 def handle_encrypt_operation_cli(
-    facade: BackupFacade,
+    config: BackupConfig,
     latest: bool,
-    date: Optional[str],
-    file: Optional[str],
+    date: str | None,
+    file: str | None,
 ) -> None:
     """Handle backup file encryption operation for CLI."""
-    backup_files: list[str] = runner.get_backup_files(facade.config.backup_folder)
+    backup_files: list[str] = get_backup_files(config.backup_folder)
     if not backup_files:
         typer.echo("No backup files available for encryption")
         raise typer.Exit(1)
 
-    selected_file: Optional[str] = None
+    selected_file: str | None = None
 
     if latest:
-        expanded_dir = os.path.expanduser(facade.config.backup_folder)
+        expanded_dir = os.path.expanduser(config.backup_folder)
         backup_files.sort(
             key=lambda f: os.path.getmtime(os.path.join(expanded_dir, f)),
             reverse=True,
@@ -251,28 +324,28 @@ def handle_encrypt_operation_cli(
 
     if selected_file:
         full_path = os.path.join(
-            os.path.expanduser(facade.config.backup_folder),
+            os.path.expanduser(config.backup_folder),
             selected_file,
         )
-        EncryptCommand(facade.config, full_path).execute()
+        EncryptCommand(config, full_path).execute()
 
 
 def handle_decrypt_operation_cli(
-    facade: BackupFacade,
+    config: BackupConfig,
     latest: bool,
-    date: Optional[str],
-    file: Optional[str],
+    date: str | None,
+    file: str | None,
 ) -> None:
     """Handle backup file decryption operation for CLI."""
-    enc_files: list[str] = runner.get_encrypted_files(facade.config.backup_folder)
+    enc_files: list[str] = get_encrypted_files(config.backup_folder)
     if not enc_files:
         typer.echo("No encrypted backups found")
         raise typer.Exit(1)
 
-    selected_file: Optional[str] = None
+    selected_file: str | None = None
 
     if latest:
-        expanded_dir = os.path.expanduser(facade.config.backup_folder)
+        expanded_dir = os.path.expanduser(config.backup_folder)
         enc_files.sort(
             key=lambda f: os.path.getmtime(os.path.join(expanded_dir, f)),
             reverse=True,
@@ -294,28 +367,35 @@ def handle_decrypt_operation_cli(
 
     if selected_file:
         full_path = os.path.join(
-            os.path.expanduser(facade.config.backup_folder),
+            os.path.expanduser(config.backup_folder),
             selected_file,
         )
-        DecryptCommand(facade.config, full_path).execute()
+        success = DecryptCommand(config, full_path).execute()
+        if not success:
+            typer.echo(
+                "Decryption failed. Possible reasons: incorrect password, "
+                "corrupted file, or integrity verification failed. "
+                "Please check your password and try again."
+            )
+            raise typer.Exit(1)
 
 
 def handle_extract_operation_cli(
-    facade: BackupFacade,
+    config: BackupConfig,
     latest: bool,
-    date: Optional[str],
-    file: Optional[str],
+    date: str | None,
+    file: str | None,
 ) -> None:
     """Handle backup file extraction operation for CLI."""
-    backup_files: list[str] = runner.get_backup_files(facade.config.backup_folder)
+    backup_files: list[str] = get_backup_files(config.backup_folder)
     if not backup_files:
         typer.echo("No backup files found")
         raise typer.Exit(1)
 
-    selected_file: Optional[str] = None
+    selected_file: str | None = None
 
     if latest:
-        expanded_dir = os.path.expanduser(facade.config.backup_folder)
+        expanded_dir = os.path.expanduser(config.backup_folder)
         backup_files.sort(
             key=lambda f: os.path.getmtime(os.path.join(expanded_dir, f)),
             reverse=True,
@@ -337,7 +417,7 @@ def handle_extract_operation_cli(
 
     if selected_file:
         full_path = os.path.join(
-            os.path.expanduser(facade.config.backup_folder),
+            os.path.expanduser(config.backup_folder),
             selected_file,
         )
-        ExtractCommand(facade.config, full_path).execute()
+        ExtractCommand(config, full_path).execute()

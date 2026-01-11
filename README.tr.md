@@ -1,4 +1,4 @@
-İngilizce: [README.md](https://github.com/Cyber-Syntax/AutoTarCompress/blob/main/README.md)
+İngilizce: [README.md](README.md)
 
 ---
 
@@ -10,9 +10,7 @@
 
 ---
 
-
 # **AutoTarCompress Hakkında**
-
 
 > [!NOTE]
 > AutoTarCompress, önemli dizinlerinizin sıkıştırılmış yedeklerini oluşturma ve yönetme sürecini kolaylaştıran bir Linux komut satırı aracıdır. Sıkıştırma, şifreleme ve şifre çözme gibi özellikler sunar.
@@ -21,9 +19,7 @@
 
 ---
 
-
 ## **💡 Nasıl Kullanılır**
-
 
 1. Bir terminal açın ve bu depoyu klonlayın (git'in kurulu olduğundan emin olun):
 
@@ -31,7 +27,7 @@
 git clone https://github.com/Cyber-Syntax/AutoTarCompress.git
 ```
 
-2. Proje dizinine geçin:
+1. Proje dizinine geçin:
 
 ```bash
 cd AutoTarCompress
@@ -41,19 +37,19 @@ cd AutoTarCompress
 chmod +x install.sh
 ./install.sh
 
-3. Kurulum dosyasını çalıştırılabilir yapın ve yükleme scriptini çalıştırın:
+1. Kurulum dosyasını çalıştırılabilir yapın ve yükleme scriptini çalıştırın:
 
 ```bash
 chmod +x install.sh && ./install.sh
 ```
 
-4. Kurulumdan sonra shell'i yeniden başlatın veya şunu çalıştırın:
+1. Kurulumdan sonra shell'i yeniden başlatın veya şunu çalıştırın:
 
 ```bash
 source ~/.bashrc   # veya ~/.zshrc
 ```
 
-5. Yapılandırma
+1. Yapılandırma
 
 Örnek yapılandırmayı kopyalayın ve ihtiyacınıza göre düzenleyin:
 
@@ -74,7 +70,6 @@ autotarcompress
 Yedek oluşturmak, şifrelemek veya çıkarmak için ekrandaki talimatları izleyin.
 
 ---
-
 
 ## **🙏 Bu Projeye Destek Olun**
 

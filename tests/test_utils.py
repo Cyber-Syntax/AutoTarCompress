@@ -5,15 +5,17 @@ This module tests the SizeCalculator and other utility functions.
 
 import os
 import sys
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 # Add the parent directory to sys.path so Python can find src
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
 
-from autotarcompress.utils import (
-    SizeCalculator,
+from autotarcompress.utils.format import format_size
+from autotarcompress.utils.progress_bar import SimpleProgressBar
+from autotarcompress.utils.size_calculator import SizeCalculator
+from autotarcompress.utils.utils import (
     ensure_backup_folder,
     validate_and_expand_paths,
 )
@@ -69,7 +71,7 @@ class TestSizeCalculator:
         # Size with ignore should be less than or equal to size without ignore
         assert size_with_ignore <= size_without_ignore
 
-    @patch("autotarcompress.utils.os.walk")
+    @patch("autotarcompress.utils.size_calculator.os.walk")
     def test_calculate_total_size_handles_permission_errors(
         self, mock_walk
     ) -> None:
@@ -96,7 +98,7 @@ class TestSizeCalculator:
         # Should return 0 for non-existent directory
         assert total_size == 0
 
-    @patch("autotarcompress.utils.os.walk")
+    @patch("autotarcompress.utils.size_calculator.os.walk")
     def test_calculate_total_size_with_mocked_files(self, mock_walk) -> None:
         """Test size calculation with mocked file system."""
         # Mock os.walk to return test data
@@ -114,9 +116,10 @@ class TestSizeCalculator:
             def __init__(self, size: int):
                 self.st_size = size
 
-        with patch("pathlib.Path.stat") as mock_path_stat, patch(
-            "pathlib.Path.is_symlink"
-        ) as mock_is_symlink:
+        with (
+            patch("pathlib.Path.stat") as mock_path_stat,
+            patch("pathlib.Path.is_symlink") as mock_is_symlink,
+        ):
             mock_path_stat.return_value = MockStat(FILE_SIZE)
             mock_is_symlink.return_value = False  # Treat all as regular files
 
@@ -229,3 +232,146 @@ def test_ensure_backup_folder_permission_error(monkeypatch, tmp_path) -> None:
 
     with pytest.raises(OSError):
         ensure_backup_folder(str(nested))
+
+
+class TestSimpleProgressBar:
+    """Test SimpleProgressBar functionality."""
+
+    def test_progress_bar_initialization(self) -> None:
+        """Test that SimpleProgressBar initializes correctly."""
+        total_size = 1024 * 1024 * 1024  # 1 GB
+        progress = SimpleProgressBar(total_size)
+
+        assert progress.total_size == total_size
+        assert progress.current_size == 0
+        assert progress.width == 30
+        assert progress.last_percentage == -1
+
+    def test_progress_bar_initialization_custom_width(self) -> None:
+        """Test that SimpleProgressBar accepts custom width."""
+        total_size = 1024
+        width = 50
+        progress = SimpleProgressBar(total_size, width)
+
+        assert progress.width == width
+
+    def test_calculate_eta_no_progress(self) -> None:
+        """Test ETA calculation with no progress returns empty string."""
+        progress = SimpleProgressBar(1024)
+
+        eta = progress._calculate_eta()
+        assert eta == ""
+
+    def test_calculate_eta_insufficient_time(self) -> None:
+        """Test ETA calculation with insufficient elapsed time."""
+        progress = SimpleProgressBar(1024)
+        progress.current_size = 512  # Halfway done
+
+        # Mock time to be less than 1 second
+        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+            mock_time.time.return_value = progress.start_time + 0.5
+
+            eta = progress._calculate_eta()
+            assert eta == ""
+
+    def test_calculate_eta_completion(self) -> None:
+        """Test ETA calculation when backup is complete."""
+        progress = SimpleProgressBar(1024)
+        progress.current_size = 1024  # Complete
+
+        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+            mock_time.time.return_value = progress.start_time + 10
+
+            eta = progress._calculate_eta()
+            assert eta == "00:00"
+
+    def test_calculate_eta_minutes_format(self) -> None:
+        """Test ETA calculation returns MM:SS format for less than 1 hour."""
+        progress = SimpleProgressBar(1024)  # 1 KB total
+        progress.current_size = 100  # 100 bytes done
+
+        # Mock 10 seconds elapsed, so rate = 10 bytes/sec
+        # Remaining = 924 bytes, time = 92.4 seconds = 1:32
+        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+            mock_time.time.return_value = progress.start_time + 10
+
+            eta = progress._calculate_eta()
+            assert eta == "01:32"
+
+    def test_calculate_eta_hours_format(self) -> None:
+        """Test ETA calculation returns HH:MM:SS format for 1+ hours."""
+        progress = SimpleProgressBar(7200)  # 7200 bytes total (2 hours worth)
+        progress.current_size = 1  # 1 byte done
+
+        # Mock 1 second elapsed, so rate = 1 byte/sec
+        # Remaining = 7199 bytes, time = 7199 seconds = 1:59:59
+        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+            mock_time.time.return_value = progress.start_time + 1
+
+            eta = progress._calculate_eta()
+            assert eta == "01:59:59"
+
+    @patch("sys.stdout")
+    def test_update_displays_eta(self, mock_stdout: MagicMock) -> None:
+        """Test that update method displays elapsed/ETA in progress bar."""
+        progress = SimpleProgressBar(1024)
+        progress.current_size = 512  # Halfway
+
+        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+            mock_time.time.return_value = progress.start_time + 10
+
+            progress.update(0)  # Trigger display update
+
+            # Check that stdout.write was called with elapsed/ETA
+            calls = mock_stdout.write.call_args_list
+            assert len(calls) > 0
+            progress_text = calls[-1][0][0]  # Last call's first argument
+            assert "00:10/00:10" in progress_text
+
+    @patch("sys.stdout")
+    def test_finish_displays_eta_complete(
+        self, mock_stdout: MagicMock
+    ) -> None:
+        """Test that finish method displays elapsed/00:00 when complete."""
+        progress = SimpleProgressBar(1024)
+
+        progress.finish()
+
+        # Check that stdout.write was called with elapsed/00:00
+        calls = mock_stdout.write.call_args_list
+        found_time = False
+        for call in calls:
+            progress_text = call[0][0]
+            if "/00:00" in progress_text:
+                found_time = True
+                break
+
+        assert found_time, "elapsed/00:00 not found in finish output"
+
+
+class TestFormatSize:
+    """Test format_size function."""
+
+    def test_format_size_bytes(self) -> None:
+        """Test formatting bytes."""
+        assert format_size(512) == "512.00 B"
+
+    def test_format_size_kb(self) -> None:
+        """Test formatting kilobytes."""
+        assert format_size(1024) == "1.00 KB"
+
+    def test_format_size_mb(self) -> None:
+        """Test formatting megabytes."""
+        assert format_size(1048576) == "1.00 MB"
+
+    def test_format_size_gb(self) -> None:
+        """Test formatting gigabytes."""
+        assert format_size(1073741824) == "1.00 GB"
+
+    def test_format_size_tb(self) -> None:
+        """Test formatting terabytes."""
+        assert format_size(1099511627776) == "1.00 TB"
+
+    def test_format_size_pb(self) -> None:
+        """Test formatting petabytes."""
+        assert format_size(1125899906842624) == "1.00 PB"
