@@ -1,167 +1,106 @@
 name: Create Release from CHANGELOG
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "CHANGELOG.md" # Only trigger when CHANGELOG.md is updated
+    push:
+        branches: [main]
+        paths:
+            - "CHANGELOG.md" # Only trigger when CHANGELOG.md is updated
+
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false # Don't cancel running releases
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    release:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Fetch all history to get commit messages
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v5
 
-      - name: Extract latest version and notes
-        id: changelog
-        run: |
-          # Extract the first version number from CHANGELOG.md
-          VERSION=$(grep -m 1 '^## v' CHANGELOG.md | sed 's/^## \(v[0-9.]*[0-9]\(-[a-zA-Z0-9]*\)*\).*/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+            - name: Validate CHANGELOG format
+              run: |
+                  if [[ ! -f "CHANGELOG.md" ]]; then
+                    echo "::error::CHANGELOG.md not found"
+                    exit 1
+                  fi
+                  
+                  if ! grep -q "^## \[" CHANGELOG.md && ! grep -q "^## v" CHANGELOG.md; then
+                    echo "::error::CHANGELOG.md does not contain valid version headers"
+                    echo "::error::Expected format: '## [X.Y.Z]' or '## vX.Y.Z'"
+                    exit 1
+                  fi
 
-          # Extract notes for this version (everything between this version header and the next version header)
-          NOTES=$(awk -v ver="$VERSION" '
-            BEGIN { found=0; capture=0; notes=""; }
-            $0 ~ "^## " ver { found=1; capture=1; next; }
-            $0 ~ /^## v/ && capture==1 { capture=0; }
-            capture==1 { notes = notes $0 "\n"; }
-            END { print notes; }
-          ' CHANGELOG.md)
+            - name: Extract latest version and notes
+              id: changelog
+              run: ./scripts/extract_changelog.sh
 
-          # Get recent commits since last tag with GitHub usernames
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match "v*" 2>/dev/null || echo "")
+            - name: Validate semantic version
+              if: steps.changelog.outputs.is_unreleased != 'true'
+              run: |
+                  VERSION=${{ steps.changelog.outputs.version }}
+                  # Remove 'v' prefix if present
+                  VERSION=${VERSION#v}
+                  
+                  # Validate semantic versioning format
+                  if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$ ]]; then
+                    echo "::error::Version '$VERSION' does not follow semantic versioning"
+                    echo "::error::Expected format: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]"
+                    exit 1
+                  fi
+                  
+                  echo "::notice::Version $VERSION is valid semantic version"
 
-          # Function to get GitHub username from email
-          get_github_username() {
-            local email="$1"
-            local commit_hash="$2"
+            - name: Check for existing release
+              if: steps.changelog.outputs.is_unreleased != 'true'
+              id: check_release
+              run: |
+                  VERSION=${{ steps.changelog.outputs.version }}
+                  TAG="v$VERSION"
+                  if gh release view "$TAG" &>/dev/null; then
+                    echo "::notice::Release already exists: $TAG"
+                    echo "exists=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "::notice::No existing release found for: $TAG"
+                    echo "exists=false" >> $GITHUB_OUTPUT
+                  fi
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            # First try to extract username from GitHub noreply email
-            if [[ "$email" =~ ([0-9]+\+)?([^@]+)@users\.noreply\.github\.com ]]; then
-              echo "${BASH_REMATCH[2]}"
-              return
-            fi
+            - name: Create GitHub Release
+              if: steps.changelog.outputs.is_unreleased != 'true' && steps.check_release.outputs.exists == 'false'
+              uses: softprops/action-gh-release@v2.5.0
+              with:
+                  tag_name: v${{ steps.changelog.outputs.version }}
+                  name: "Release v${{ steps.changelog.outputs.version }}"
+                  body: ${{ steps.changelog.outputs.notes }}
+                  draft: false
+                  prerelease: ${{ contains(steps.changelog.outputs.version, '-') }}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            # Try to get GitHub username via API using commit hash
-            local github_user=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$commit_hash" | \
-              jq -r '.author.login // empty' 2>/dev/null)
+            - name: Verify Release Created
+              if: steps.changelog.outputs.is_unreleased != 'true' && steps.check_release.outputs.exists == 'false'
+              run: |
+                  TAG="v${{ steps.changelog.outputs.version }}"
+                  # Wait a moment for release to be fully created
+                  sleep 5
+                  
+                  # Verify release exists
+                  if gh release view "$TAG" &>/dev/null; then
+                    RELEASE_URL=$(gh release view "$TAG" --json url --jq '.url')
+                    echo "::notice::Release successfully created: $RELEASE_URL"
+                  else
+                    echo "::error::Release verification failed for $TAG"
+                    exit 1
+                  fi
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-            if [ -n "$github_user" ] && [ "$github_user" != "null" ]; then
-              echo "$github_user"
-              return
-            fi
-
-            # Fallback: try to get user by email via API
-            local api_user=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/search/users?q=$email+in:email" | \
-              jq -r '.items[0].login // empty' 2>/dev/null)
-
-            if [ -n "$api_user" ] && [ "$api_user" != "null" ]; then
-              echo "$api_user"
-            else
-              # Final fallback: use the part before @ in email
-              echo "${email%%@*}"
-            fi
-          }
-
-          # Get ALL conventional commits, excluding merge commits to avoid duplicates
-          if [ -z "$PREVIOUS_TAG" ]; then
-            COMMIT_DATA=$(git log --pretty=format:"%H|%ae|%s" --no-merges --grep="^\(feat\|fix\|docs\|style\|refactor\|perf\|test\|build\|ci\|chore\|revert\)")
-          else
-            COMMIT_DATA=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"%H|%ae|%s" --no-merges --grep="^\(feat\|fix\|docs\|style\|refactor\|perf\|test\|build\|ci\|chore\|revert\)")
-          fi
-
-          # Initialize categorized commit arrays
-          FEATURES=""
-          BUGFIXES=""
-          OTHER_COMMITS=""
-
-          # Process ALL matching commits and categorize them
-          while IFS='|' read -r hash email subject; do
-            [ -z "$hash" ] && continue
-            
-            # Get full commit message for PR detection
-            message=$(git show -s --format=%B $hash)
-
-            # Extract username
-            username=$(get_github_username "$email" "$hash")
-
-            # Check for ANY PR reference (#number)
-            if [[ "$message" =~ \#([0-9]+) ]]; then
-              pr_num=" (#${BASH_REMATCH[1]})"
-            else
-              pr_num=""
-            fi
-
-            # Categorize based on conventional commit type
-            if [[ "$subject" =~ ^feat(\(.+\))?:* ]]; then
-              FEATURES="${FEATURES}  - ${subject}${pr_num} (@$username)\n"
-            elif [[ "$subject" =~ ^fix(\(.+\))?:* ]]; then
-              BUGFIXES="${BUGFIXES}  - ${subject}${pr_num} (@$username)\n"
-            else
-              OTHER_COMMITS="${OTHER_COMMITS}  - ${subject}${pr_num} (@$username)\n"
-            fi
-          done <<< "$COMMIT_DATA"
-
-          # Build categorized commits section
-          COMMITS=""
-          if [ -n "$FEATURES" ]; then
-            COMMITS="${COMMITS}#### 🚀 Features\n${FEATURES}\n"
-          fi
-          if [ -n "$BUGFIXES" ]; then
-            COMMITS="${COMMITS}#### 🐛 Bug Fixes\n${BUGFIXES}\n"
-          fi
-          if [ -n "$OTHER_COMMITS" ]; then
-            COMMITS="${COMMITS}#### 📝 Other Commits\n${OTHER_COMMITS}\n"
-          fi
-
-          # Combine CHANGELOG notes with categorized commit messages
-          if [ -n "$COMMITS" ]; then
-            FULL_NOTES="${NOTES}\n\n### Commits\n${COMMITS}"
-          else
-            FULL_NOTES="${NOTES}"
-          fi
-
-          # Save notes to output with correct GitHub multiline syntax
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "notes<<$EOF" >> $GITHUB_OUTPUT
-          echo -e "$FULL_NOTES" >> $GITHUB_OUTPUT
-          echo "$EOF" >> $GITHUB_OUTPUT
-
-          # For debugging
-          echo "Found version: $VERSION"
-          echo "Release notes excerpt: $(echo "$NOTES" | head -3)..."
-          echo "Commit messages excerpt: $(echo "$COMMITS" | head -3)..."
-
-      - name: Check for existing release
-        id: check_release
-        run: |
-          VERSION=${{ steps.changelog.outputs.version }}
-          if gh release view $VERSION &>/dev/null; then
-            echo "Release already exists: $VERSION"
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "No existing release found for: $VERSION"
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release
-        if: steps.check_release.outputs.exists == 'false'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.changelog.outputs.version }}
-          name: "Release ${{ steps.changelog.outputs.version }}"
-          body: ${{ steps.changelog.outputs.notes }}
-          draft: false
-          prerelease: ${{ contains(steps.changelog.outputs.version, '-') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Notify on Failure
+              if: failure()
+              run: |
+                  echo "::error::Release workflow failed"
+                  echo "::error::Please check CHANGELOG.md format and workflow logs"
