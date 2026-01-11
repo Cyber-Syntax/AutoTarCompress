@@ -1,6 +1,6 @@
 [project]
 name = 'AutoTarCompress'
-version = '0.8.0-beta'
+version = '0.8.0-alpha'
 license = { text = "GPL-3.0-or-later" }
 description = 'The script compresses specific directories into tar files, and it is able to encrypt them using the OpenSSL Python library. It also allows for decryption and extraction of the created files.'
 keywords = ["tar", "compress", "backup"]
@@ -51,7 +51,7 @@ markers = [
 [tool.ruff]
 line-length = 79
 indent-width = 4
-include = ["pyproject.toml", "src/**/*.py", "scripts/**/*.py"]
+include = ["pyproject.toml", "src/**/*.py", "scripts/**/*.py", "autotarcompress/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.format]
 # Like Black, use double quotes for strings.

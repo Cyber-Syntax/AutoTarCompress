@@ -9,6 +9,7 @@
 
 ## in-progress
 
+- [ ] cleanup codes; remove unused methods, variables, imports, etc.
 - [ ] keep more than one backup info in config file? one for current, one for previous probably better.
 - [ ] update last backup date to config file or somewhere else
       "last_backup": null

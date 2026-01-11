@@ -19,8 +19,8 @@ Turkish: [README.tr.md](README.tr.md)
 
 ## **✨ Features**
 
-- **Create compressed backups** using tar and xz compression
-- **Encrypt/decrypt backups** with GPG encryption
+- **Create compressed backups** using tar and zstd compression
+- **Encrypt/decrypt backups** with AES-256-GCM authenticated encryption
 - **Extract backup archives** to restore files
 - **Clean up old backups** with configurable retention policies
 - **Backup information display** showing file details and metadata

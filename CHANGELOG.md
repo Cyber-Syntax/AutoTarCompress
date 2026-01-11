@@ -5,16 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2026-01-06
+## [0.8.0-alpha] - 2026-01-10
+
+### BREAKING CHANGES
+
+- **Metadata Schema Update:** Upgraded metadata.json from v1.0 to v2.0 to support integrity verification hashes. Backward compatible - existing v1.0 metadata will be migrated automatically.
+- **Encryption Migration:** Migrated from OpenSSL subprocess calls to the `cryptography` library with AES-256-GCM authenticated encryption. This is a breaking change - **old .enc files encrypted with OpenSSL will not be decryptable** with the new version. Users should decrypt any existing encrypted backups before upgrading or keep the old version to decrypt legacy files.
 
 ### Added
 
+- **SHA256 Integrity Verification:** Added comprehensive file integrity verification system
+    - Calculate and store SHA256 hash of backup archives (.tar.zst)
+    - Calculate and store SHA256 hash of encrypted files (.enc)
+    - Calculate and store SHA256 hash of decrypted files
+    - Verify decrypted file integrity against original backup archive hash
+    - All hashes stored in metadata.json v2.0 with appropriate naming
+    - Added 28 new tests for hash utilities and metadata v2.0
+- Pure Python encryption using the `cryptography` library - no more external OpenSSL binary dependency
+- AES-256-GCM authenticated encryption provides both confidentiality and integrity verification
+- PBKDF2-HMAC-SHA256 key derivation with 600,000 iterations (OWASP recommended)
+- Built-in tamper detection - decryption automatically fails if encrypted file has been modified
+- Improved error handling with Python exceptions instead of subprocess stderr parsing
+- Added comprehensive encryption/decryption tests including tamper detection and round-trip validation
 - Implemented progress bar for extraction process using SimpleProgressBar, calculating total archive size for accurate progress updates
 - Migrated backup to tarfile library with zstd compression and built-in progress bar, supporting both .tar.zst and .tar.xz formats
 - Added global --version option and improved main entry point for consistent package import context
 
 ### Changed
 
+- Updated BackupMetadata dataclass to version 2.0 with file_hashes field
+- BackupManager now calculates SHA256 hash after backup creation and stores in metadata
+- EncryptManager calculates SHA256 hash after encryption and stores in metadata
+- DecryptManager calculates SHA256 hash after decryption and verifies against backup hash
+- Encryption file format changed from base64-encoded OpenSSL output to binary format: `[salt(16)][nonce(12)][ciphertext][tag(16)]`
+- Removed hash embedding - GCM mode provides built-in authentication via authentication tag
+- Simplified encryption/decryption managers - removed subprocess complexity
 - Enhanced module structure by adding runner.py, removing deprecated files, and consolidating functionality
 - Updated documentation including AGENTS.md guidelines, README revisions, and added exclude_patterns.md guide
 - Replaced print statements with logging across modules for better traceability
@@ -24,9 +49,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified zsh completion installation for better portability
 - Added installation options for uv tool including development mode and legacy removal
 
+### Removed
+
+- Removed old `save_backup_info()` method in favor of `save_backup_metadata_with_hash()`
+- Removed OpenSSL system dependency (previously required `openssl` command)
+- Removed `_sanitize_logs()` method (no longer needed without subprocess)
+- Removed `_verify_integrity_mandatory()` method (GCM provides automatic integrity verification)
+
 ### Fixed
 
-- Fixed ignore pattern matching to properly handle absolute paths and patterns like node_modules, __pycache__, etc.
+- Fixed ignore pattern matching to properly handle absolute paths and patterns like node_modules, **pycache**, etc.
 
 ## v0.7.1-beta
 
