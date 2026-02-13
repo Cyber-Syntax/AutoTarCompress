@@ -185,9 +185,13 @@ class TestExtractManager:
         archive_file = tmp_path / "test.tar.zst"
         archive_file.write_text("dummy")
 
-        with patch(
-            "tarfile.open", side_effect=tarfile.TarError("Invalid tar file")
-        ), caplog.at_level(logging.ERROR):
+        with (
+            patch(
+                "tarfile.open",
+                side_effect=tarfile.TarError("Invalid tar file"),
+            ),
+            caplog.at_level(logging.ERROR),
+        ):
             result = extract_manager.execute_extract(str(archive_file))
 
             assert result is False
