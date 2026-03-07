@@ -10,13 +10,18 @@
 ## in-progress
 
 - [ ] cleanup codes; remove unused methods, variables, imports, etc.
-- [ ] keep more than one backup info in config file? one for current, one for previous probably better.
+- [ ] keep more than one backup info in config file, one for current, one for previous
 - [ ] update last backup date to config file or somewhere else
       "last_backup": null
-- [ ] use modern encryption command?
+- [ ] add e2e test that test cli tool really by creating backup in tmp location via conftest fixtures, using tmp configs etc.
+- [ ] migrate src layout from flat
+- [ ] move commands folder to cli folder
+- [ ] remove legacy install via venv-wrapper and migrate to uv package manager
+      - [ ] update install.sh script to use uv package manager instead of venv-wrapper
 
 ## todo
 
+- [ ] use modern encryption command?
 - [ ] path uses `//` two of them (it is warning and not error but still maybe better to fix it)
       File already exist: /home/developer/Documents/backup-for-cloud//13-04-2025.tar.xz
 - [ ] multiple machine setup support with our config file?

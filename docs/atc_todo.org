@@ -1,0 +1,47 @@
+#+title: Todo TODOS
+#+author: Cyber-Syntax
+
+* 📝 TEST
+** DONE --version command
+** DONE migrate uv package manager instead of venv-wrapper #p2 #urgent
+** DONE #28 Fix spinner.
+** DONE last-backup-info.json move it to .config as a metadata.json or info.json
+
+* 🔁 DOING
+** TODO cleanup codes; remove unused methods, variables, imports, etc.
+** TODO keep more than one backup info in config file, one for current, one for previous
+** TODO update last backup date to config file or somewhere else
+      "last_backup": null
+** TODO add e2e test that test cli tool really by creating backup in tmp location via conftest fixtures, using tmp configs etc.
+** TODO migrate src layout from flat
+** TODO move commands folder to cli folder
+** TODO remove legacy install via venv-wrapper and migrate to uv package manager
+***** TODO update install.sh script to use uv package manager instead of venv-wrapper
+
+* 🔲 TODO
+** TODO use modern encryption command?
+** TODO path uses `//` two of them (it is warning and not error but still maybe better to fix it)
+      File already exist: /home/developer/Documents/backup-for-cloud//13-04-2025.tar.xz
+** TODO multiple machine setup support with our config file?
+** TODO #12 Dotfiles Compability like .zshenv .zshrc but those are not directory, so we need to make another way to backup those
+
+* 📥 BACKLOG
+
+* ✅ DONE
+** DONE Switch zstd from xz
+** DONE keepachangelog template for changelog file
+** DONE add success after backup and encryption
+** DONE folder/module structure
+** DONE ask 2 time for password
+** DONE backup choice not work
+** DONE #23 feat: Refactor code structure
+** DONE write all of config files with `~` instead of full path
+** DONE move .log files to .config
+** DONE #13 Create requirements.txt
+** DONE unittest
+** DONE is command design pattern is correct?
+** DONE #27 update dependencies
+** DONE add fpath with $HOME #p1 #urgent
+```bash
+fpath=($HOME/.config/zsh/completions $fpath)
+```
