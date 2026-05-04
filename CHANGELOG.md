@@ -48,6 +48,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated logging path to align with XDG config standards
 - Simplified zsh completion installation for better portability
 - Added installation options for uv tool including development mode and legacy removal
+- Upgraded dependencies:
+    - Updated click v8.3.1 -> v8.3.3
+    - Updated coverage v7.13.4 -> v7.13.5
+    - Updated cryptography v46.0.5 -> v47.0.0
+    - Updated hypothesis v6.151.6 -> v6.152.4
+    - Updated packaging v26.0 -> v26.2
+    - Updated pygments v2.19.2 -> v2.20.0
+    - Updated pytest v9.0.2 -> v9.0.3
+    - Updated pytest-cov v7.0.0 -> v7.1.0
+    - Updated rich v14.3.2 -> v15.0.0
+    - Updated ruff v0.15.1 -> v0.15.12
+    - Updated typer v0.23.0 -> v0.25.1
 
 ### Removed
 
