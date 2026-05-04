@@ -40,7 +40,8 @@ class InfoManager:
             bool: True if info displayed, False otherwise.
         """
         backup_info: dict[str, Any] | None = self._load_backup_info()
-        if backup_info and backup_info.get("backup_file"):
+        if backup_info and backup_info.get("last_backup_file"):
+            self.logger.info("Backup information found.")
             self._display_backup_info(backup_info)
             return True
         self.logger.info("No backup information found.")
@@ -60,6 +61,7 @@ class InfoManager:
                 Path(self.config.config_dir).expanduser() / "metadata.json"
             )
             if not info_file_path.exists():
+                self.logger.warning("No backup info file found.")
                 return None
 
             with info_file_path.open(encoding="utf-8") as f:
@@ -85,30 +87,28 @@ class InfoManager:
         """
         self.logger.info("\n===== Last Backup Information =====")
         self.logger.info(
-            "Backup File: %s", backup_info.get("backup_file", "Unknown")
+            "Backup File: %s",
+            backup_info.get("last_backup_file", "Unknown"),
         )
         self.logger.info(
-            "Full Path: %s", backup_info.get("backup_path", "Unknown")
+            "Backup Date: %s",
+            backup_info.get("last_backup_time", "Unknown"),
         )
         self.logger.info(
-            "Backup Date: %s", backup_info.get("backup_date", "Unknown")
+            "Total Backups: %s",
+            backup_info.get("backup_count", "Unknown"),
         )
         self.logger.info(
-            "Backup Size: %s", backup_info.get("backup_size_human", "Unknown")
+            "Metadata Version: %s",
+            backup_info.get("metadata_version", "Unknown"),
         )
-        dirs = backup_info.get("directories_backed_up", [])
-        if dirs:
-            self.logger.info("Directories Backed Up (%d):", len(dirs))
-            for directory in dirs:
-                self.logger.info("  - %s", directory)
+
+        file_hashes = backup_info.get("file_hashes", {})
+        if file_hashes:
+            self.logger.info("File Hashes (%d files):", len(file_hashes))
+            for filename, file_hash in file_hashes.items():
+                self.logger.info("  %s: %s", filename, file_hash)
         else:
-            self.logger.info("Directories Backed Up: None")
-        backup_path = backup_info.get("backup_path")
-        if backup_path and Path(backup_path).exists():
-            self.logger.info("Status: ✓ Backup file exists")
-        elif backup_path:
-            self.logger.info("Status: ✗ Backup file not found")
-        else:
-            self.logger.info("Status: Unknown")
+            self.logger.info("File Hashes: None")
 
         self.logger.info("=" * 35)
