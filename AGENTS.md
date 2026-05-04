@@ -58,38 +58,6 @@ autotarcompress/
     ├── format.py            # Human-readable size formatting
     └── size_calculator.py   # Directory size calculator with ignore patterns
 
-scripts/
-├── venv-wrapper.sh          # Legacy venv wrapper for global command
-└── extract_changelog.sh     # Extract version/notes from CHANGELOG for CI releases
-
-autocomplete/
-├── bash_autocomplete        # Bash completion script
-└── zsh_autocomplete         # Zsh completion script
-
-docs/
-├── wiki.md                  # Full documentation
-├── todo.md                  # ToDo list
-├── improve.md               # Improvement plan
-├── exclude_patterns.md      # Exclude patterns guide
-└── adr/                     # Architecture Decision Records
-
-tests/                       # Flat test structure (all test files at top level)
-├── conftest.py              # Shared fixtures (temp_dir, test_config, test_backup_files)
-├── test_backup_manager.py
-├── test_config.py
-├── test_commands.py
-├── test_encrypt_decrypt_manager.py
-├── test_extract_manager.py
-├── test_cleanup_manager.py
-├── test_main.py
-├── test_info_manager.py
-├── test_metadata.py
-├── test_hash_utils.py
-├── test_logger.py
-├── test_password_utils.py
-├── test_utils.py
-├── test_tar_exclude_patterns.py
-└── test_backup_info.py
 ```
 
 ## Development Workflow
@@ -144,16 +112,16 @@ uv run autotarcompress --help
 
 # 2. Run linting (auto-fix issues)
 ruff check --fix path/to/file.py
-ruff check --fix .
+ruff check --fix . # or all Python files
 
 # 3. Run formatting
 ruff format path/to/file.py
-ruff format .
+ruff format . # or all Python files
 
 # 4. Run type checking
 uv run mypy autotarcompress/
 
-# 5. Run fast tests (excludes slow/integration tests)
+# 5. Run fast tests (excludes slow logger tests)
 uv run pytest -m "not slow"
 
 # 6. Verify CLI still works
@@ -168,41 +136,42 @@ CRITICAL: All Python code MUST include type hints and return types.
 
 ```python
 # CORRECT
-def filter_old_backups(
-    backups: list[str], keep_count: int,
-) -> list[str]:
-    """Filter backups exceeding the retention count.
+def filter_unknown_users(users: list[str], known_users: set[str]) -> list[str]:
+    """Filter out users that are not in the known users set.
 
     Args:
-        backups: List of backup file paths sorted by date.
-        keep_count: Number of recent backups to retain.
+        users: List of user identifiers to filter.
+        known_users: Set of known/valid user identifiers.
 
     Returns:
-        List of backup paths that should be removed.
+        List of users that are not in the `known_users` set.
     """
-    return backups[:-keep_count] if len(backups) > keep_count else []
+    return [u for u in users if u not in known_users]
 
 # INCORRECT (no type hints)
-def filter_old_backups(backups, keep_count):
-    return backups[:-keep_count] if len(backups) > keep_count else []
+def filter_unknown_users(users, known_users):
+    return [u for u in users if u not in known_users]
 ```
 
 - **Type Annotations**: Use built-in types: `list[str]`, `dict[str, int]` (not `typing.List`, `typing.Dict`)
 
 ### Coding Standards
 
-- **Logging Format**: Use `%s` style formatting in logging statements: `logger.info("Backing up %s", directory)`
-- **Docstrings**: Google-style (enforced by ruff `pydocstyle.convention = "google"`)
-- **Line Length**: 79 characters (enforced by ruff)
-- **PEP 8**: Enforced by ruff with `select = ["ALL"]`
+- **Logging Format**: Use `%s` style formatting in logging statements: `logger.info("User %s logged in", username)`
+- **PEP 8**: Enforced by ruff
+- **Datetime**: Use `astimezone()` for local time conversions
 - **Variable Names**: Use descriptive, self-explanatory names
-- **Architecture**: Command Pattern — `Command` ABC → concrete commands → Manager classes
-- **Manager Return Values**: Managers return `bool` for success/failure; CLI translates to exit codes via `typer.Exit(1)`
+- **Functions**: Use functions over classes when state management is not needed
 - **Function Size**: Keep functions focused (<20 lines when possible)
 - **Pure Functions**: Prefer pure functions without side effects when possible
+- **Error Handling**: Use custom exceptions from `exceptions.py`
+- **Async Safe**:
+    - All I/O operations must have async variants
+    - Never block the event loop with sync I/O in async context
 - **DRY Approach**:
     - Reuse existing abstractions; don't duplicate
     - Refactor safely when duplication is found
+    - Check existing protocols before creating new ones
 
 ### Error Handling Guidelines
 
@@ -228,10 +197,6 @@ except FileNotFoundError as e:
 # INCORRECT - Don't log passwords or sensitive data
 logger.debug("Password: %s", password)  # Security risk!
 ```
-
-### File Organization
-
-Keep files focused and manageable. Current file sizes range from ~115 to ~424 lines.
 
 ## Testing Instructions
 
@@ -299,7 +264,7 @@ class TestBackupManager:
 ### Running Tests
 
 ```bash
-# Run fast tests only (excludes slow/integration tests)
+# Run fast tests only (excludes slow logger integration tests)
 uv run pytest -m "not slow"
 
 # Run all tests (including slow tests)
