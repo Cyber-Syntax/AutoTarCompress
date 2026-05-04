@@ -149,7 +149,7 @@ install_uv_production() {
   fi
 
   echo "Installing autotarcompress from GitHub with uv..."
-  uv tool install git+https://github.com/Cyber-Syntax/AutoTarCompress
+  uv tool install git+https://github.com/Cyber-Syntax/AutoTarCompress --force
 }
 
 # Remove legacy installations interactively with dry-run support
