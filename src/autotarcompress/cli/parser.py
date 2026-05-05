@@ -11,6 +11,14 @@ from typing import Annotated
 import typer
 
 from autotarcompress import __version__
+from autotarcompress.cli.commands import (
+    BackupCommand,
+    CleanupCommand,
+    DecryptCommand,
+    EncryptCommand,
+    ExtractCommand,
+    InfoCommand,
+)
 from autotarcompress.cli.runner import (
     find_file_by_date as runner_find_file_by_date,
 )
@@ -18,14 +26,6 @@ from autotarcompress.cli.runner import (
     get_backup_files,
     get_encrypted_files,
     initialize_config,
-)
-from autotarcompress.commands import (
-    BackupCommand,
-    CleanupCommand,
-    DecryptCommand,
-    EncryptCommand,
-    ExtractCommand,
-    InfoCommand,
 )
 from autotarcompress.config import BackupConfig
 

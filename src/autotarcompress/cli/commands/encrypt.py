@@ -12,7 +12,7 @@ Features:
 
 import logging
 
-from autotarcompress.commands.command import Command
+from autotarcompress.cli.commands.command import Command
 from autotarcompress.config import BackupConfig
 from autotarcompress.encrypt_manager import EncryptManager
 

@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Updated imports based on the new refactored structure
-from autotarcompress.commands import (
+from autotarcompress.cli.commands import (
     BackupCommand,
     CleanupCommand,
     EncryptCommand,
