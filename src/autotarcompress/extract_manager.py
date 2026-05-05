@@ -55,7 +55,7 @@ class ExtractManager:
         try:
             extract_dir.mkdir(exist_ok=True)
             self.logger.info("Created extraction directory: %s", extract_dir)
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             self.logger.exception("Failed to create extraction directory")
             return False
 
@@ -113,7 +113,7 @@ class ExtractManager:
         except subprocess.CalledProcessError:
             self.logger.exception("Extraction with pv failed")
             return False
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             self.logger.exception("Error during extraction")
             return False
         else:
@@ -161,6 +161,6 @@ class ExtractManager:
         except tarfile.TarError:
             self.logger.exception("Extraction failed")
             return False
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             self.logger.exception("Unexpected error during extraction")
             return False

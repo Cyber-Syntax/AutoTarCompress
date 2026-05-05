@@ -63,7 +63,7 @@ class CleanupManager:
                     ".tar.zst.enc", self.config.keep_enc_backup
                 )
                 self._cleanup_files(".tar.xz.enc", self.config.keep_enc_backup)
-        except (OSError, PermissionError, ValueError):
+        except OSError, PermissionError, ValueError:
             self.logger.exception("Cleanup failed")
             return False
         else:
@@ -103,7 +103,7 @@ class CleanupManager:
                 else:
                     file_path.unlink()
                     self.logger.info("Deleted old backup: %s", old_file)
-            except (OSError, PermissionError):
+            except OSError, PermissionError:
                 self.logger.exception("Failed to delete %s", old_file)
 
     def _cleanup_all_files(self) -> None:
@@ -136,5 +136,5 @@ class CleanupManager:
             Parsed datetime object.
         """
         return datetime.datetime.strptime(
-            filename.split(".")[0], "%d-%m-%Y"
+            filename.split(".", maxsplit=1)[0], "%d-%m-%Y"
         ).replace(tzinfo=datetime.UTC)

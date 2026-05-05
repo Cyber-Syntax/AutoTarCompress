@@ -240,5 +240,5 @@ class DecryptManager(BaseCryptoManager):
                     "No hash found for backup archive %s", backup_filename
                 )
 
-        except (FileNotFoundError, OSError):
+        except FileNotFoundError, OSError:
             self.logger.exception("Failed to verify decrypted file integrity")

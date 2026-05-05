@@ -70,7 +70,7 @@ def verify_hash(file_path: str | Path, expected_hash: str) -> bool:
     try:
         actual_hash = calculate_sha256(file_path)
         matches = actual_hash == expected_hash
-    except (FileNotFoundError, ValueError, OSError):
+    except FileNotFoundError, ValueError, OSError:
         logger.exception("Hash verification failed")
         return False
     else:

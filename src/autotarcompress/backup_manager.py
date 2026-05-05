@@ -116,7 +116,7 @@ class BackupManager:
                     self._add_directory_to_tar(
                         tar, dir_path, progress, initial_dev
                     )
-        except (OSError, PermissionError, tarfile.TarError):
+        except OSError, PermissionError, tarfile.TarError:
             self.logger.exception("Backup failed")
             return False
         else:
@@ -146,7 +146,7 @@ class BackupManager:
                     "Skipping %s (different filesystem)", directory
                 )
                 return
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             return
 
         # Add the directory itself if not excluded
@@ -170,7 +170,7 @@ class BackupManager:
                     )
                     dirs[:] = []  # Don't recurse into subdirectories
                     continue
-            except (OSError, PermissionError):
+            except OSError, PermissionError:
                 dirs[:] = []
                 continue
 
@@ -268,7 +268,7 @@ class BackupManager:
                 backup_path,
                 backup_hash,
             )
-        except (FileNotFoundError, OSError, PermissionError):
+        except FileNotFoundError, OSError, PermissionError:
             self.logger.exception(
                 "Failed to calculate backup hash or save metadata"
             )
@@ -279,7 +279,7 @@ class BackupManager:
                     backup_path,
                     None,
                 )
-            except (OSError, PermissionError):
+            except OSError, PermissionError:
                 self.logger.exception("Failed to save metadata without hash")
 
     def execute_backup(self) -> bool:
@@ -318,7 +318,7 @@ class BackupManager:
                 "Backup folder ensured at: %s",
                 self.config.backup_folder,
             )
-        except (OSError, PermissionError):
+        except OSError, PermissionError:
             self.logger.exception("Failed to ensure backup folder")
             return False
 
@@ -344,7 +344,7 @@ class BackupManager:
                 return False
             try:
                 self._remove_existing_backup()
-            except (OSError, PermissionError):
+            except OSError, PermissionError:
                 self.logger.exception("Failed to remove existing backup")
                 return False
 
