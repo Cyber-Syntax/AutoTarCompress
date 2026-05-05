@@ -7,7 +7,7 @@ using the BackupManager for core backup operations.
 import logging
 
 from autotarcompress.backup_manager import BackupManager
-from autotarcompress.commands.command import Command
+from autotarcompress.cli.commands.command import Command
 from autotarcompress.config import BackupConfig
 
 

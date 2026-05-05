@@ -7,14 +7,8 @@ Tests follow modern Python 3.12+ practices with full type annotations.
 import configparser
 import logging
 import os
-import sys
 from pathlib import Path
 from unittest.mock import patch
-
-# Add the parent directory to sys.path so Python can find src
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
 
 from autotarcompress.config import BackupConfig
 

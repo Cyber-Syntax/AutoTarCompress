@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-from autotarcompress.commands.backup import BackupCommand
+from autotarcompress.cli.commands.backup import BackupCommand
 from autotarcompress.config import BackupConfig
 from autotarcompress.utils.size_calculator import SizeCalculator
 

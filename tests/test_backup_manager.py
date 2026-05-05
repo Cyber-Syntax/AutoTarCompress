@@ -5,7 +5,6 @@ This module contains tests for the backup manager and related components.
 
 import os
 import shutil
-import sys
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
@@ -13,13 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Add the parent directory to sys.path so Python can find src
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
-
 # Updated imports based on the new refactored structure
-from autotarcompress.commands import (
+from autotarcompress.cli.commands import (
     BackupCommand,
     CleanupCommand,
     EncryptCommand,

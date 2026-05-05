@@ -16,6 +16,13 @@ classifiers = [
 ]
 readme = { file = "README.md", content-type = "text/markdown" }
 
+[project.urls]
+repository = "https://github.com/Cyber-Syntax/AutoTarCompress"
+issues = "https://github.com/Cyber-Syntax/AutoTarCompress/issues"
+changelog = "https://github.com/Cyber-Syntax/AutoTarCompress/blob/main/CHANGELOG.md"
+funding = "https://github.com/sponsors/Cyber-Syntax"
+documentation = "https://github.com/Cyber-Syntax/AutoTarCompress#readme"
+
 [project.scripts]
 autotarcompress = "autotarcompress.main:main"
 
@@ -32,21 +39,29 @@ managed = true
 required-environments = ["sys_platform == 'linux'"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["autotarcompress*"]
-exclude = ["autocomplete*", "tests*", "scripts*", "docs*", "examples*"]
-
 [tool.pytest.ini_options]
-addopts = ["-vq"]
+addopts = ["--import-mode=importlib"]
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-pythonpath = [".", "autotarcompress"]
+pythonpath = ["src"]
+log_cli = false
+log_cli_level = "INFO"
+log_file_level = "DEBUG"
+log_cli_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+log_cli_date_format = "%H:%M:%S"
 markers = [
   "slow: marks tests as slow (deselect with '-m \"not slow\"')",
   "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+  "network: marks tests that make network requests to external services",
+  "e2e: marks end-to-end integration tests",
 ]
+
+[tool.pytest_env]
+AutoTarCompress_LOG_DIR = { value = "/tmp/pytest-of-{USER}-logs/autotarcompress", transform = true }
 
 [tool.ruff]
 line-length = 79
@@ -129,6 +144,10 @@ lines-after-imports = -1
 lines-between-types = 0
 
 [tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = [
+  "INP001",  # Scripts are standalone, not part of a package
+  "T201",    # print() is expected in CLI scripts
+]
 "test_*.py" = [
   "S101",    # asserts allowed in tests...
   "ARG",     # Unused function args -> fixtures nevertheless are functionally relevant...
@@ -140,6 +159,13 @@ lines-between-types = 0
 [tool.ruff.lint.pydocstyle]
 # Use Google-style docstrings.
 convention = "google"
+
+[tool.coverage.paths]
+source = ["autotarcompress"]
+
+[tool.coverage.run]
+source = ["src/autotarcompress"]
+omit = ["tests/*", "scripts/*", "**/__pycache__/*"]
 
 [tool.mypy]
 warn_return_any = true

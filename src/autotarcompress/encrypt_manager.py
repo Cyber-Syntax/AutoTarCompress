@@ -73,7 +73,7 @@ class EncryptManager(BaseCryptoManager):
                 Path(encrypted_file),
                 encrypted_hash,
             )
-        except (FileNotFoundError, OSError):
+        except FileNotFoundError, OSError:
             self.logger.exception("Failed to calculate encrypted file hash")
 
     def _run_encryption_process(

@@ -6,7 +6,7 @@ of encrypted backup archives using OpenSSL with PBKDF2.
 
 import logging
 
-from autotarcompress.commands.command import Command
+from autotarcompress.cli.commands.command import Command
 from autotarcompress.config import BackupConfig
 from autotarcompress.decrypt_manager import DecryptManager
 

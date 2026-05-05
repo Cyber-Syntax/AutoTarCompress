@@ -72,7 +72,7 @@ class BackupMetadata:
             last_backup_file=data.get("last_backup_file"),
             backup_count=data.get("backup_count", 0),
             metadata_version="2.0",
-            file_hashes=file_hashes if file_hashes else {},
+            file_hashes=file_hashes or {},
         )
 
 

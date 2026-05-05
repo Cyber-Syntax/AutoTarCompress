@@ -6,7 +6,7 @@ of compressed backup archives.
 
 import logging
 
-from autotarcompress.commands.command import Command
+from autotarcompress.cli.commands.command import Command
 from autotarcompress.config import BackupConfig
 from autotarcompress.extract_manager import ExtractManager
 

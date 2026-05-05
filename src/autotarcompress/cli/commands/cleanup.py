@@ -10,7 +10,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from autotarcompress.cleanup_manager import CleanupManager
-from autotarcompress.commands.command import Command
+from autotarcompress.cli.commands.command import Command
 
 if TYPE_CHECKING:
     from autotarcompress.config import BackupConfig

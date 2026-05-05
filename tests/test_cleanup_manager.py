@@ -302,7 +302,7 @@ class TestCleanupManager:
         """
         # Test the date parsing logic used in the sorting
         test_filename = "15-12-2024.tar.xz"
-        date_part = test_filename.split(".")[0]
+        date_part = test_filename.split(".", maxsplit=1)[0]
         parsed_date = datetime.datetime.strptime(date_part, "%d-%m-%Y")
 
         expected_date = datetime.datetime(2024, 12, 15)

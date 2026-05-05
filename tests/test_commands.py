@@ -4,15 +4,9 @@ This module tests backup, cleanup, encrypt, decrypt, extract, and info commands.
 """
 
 import os
-import sys
 from unittest.mock import MagicMock, patch
 
-# Add the parent directory to sys.path so Python can find src
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
-
-from autotarcompress.commands import (
+from autotarcompress.cli.commands import (
     BackupCommand,
     CleanupCommand,
     DecryptCommand,
@@ -124,7 +118,7 @@ class TestInfoCommand:
         assert hasattr(command, "manager")
         assert command.manager is not None
 
-    @patch("autotarcompress.commands.info.InfoManager")
+    @patch("autotarcompress.cli.commands.info.InfoManager")
     def test_info_command_execute_success(
         self, mock_manager_class: MagicMock, test_config: BackupConfig
     ) -> None:
@@ -139,7 +133,7 @@ class TestInfoCommand:
         assert result is True
         mock_manager.execute_info.assert_called_once()
 
-    @patch("autotarcompress.commands.info.InfoManager")
+    @patch("autotarcompress.cli.commands.info.InfoManager")
     def test_info_command_execute_failure(
         self, mock_manager_class: MagicMock, test_config: BackupConfig
     ) -> None:
@@ -212,7 +206,7 @@ class TestEncryptCommand:
         assert hasattr(command, "logger")
         assert hasattr(command, "manager")
 
-    @patch("autotarcompress.commands.encrypt.EncryptManager")
+    @patch("autotarcompress.cli.commands.encrypt.EncryptManager")
     def test_encrypt_command_execute_success(
         self, mock_manager_class: MagicMock, test_config: BackupConfig
     ) -> None:
@@ -228,7 +222,7 @@ class TestEncryptCommand:
         assert result is True
         mock_manager.execute_encrypt.assert_called_once_with(test_file)
 
-    @patch("autotarcompress.commands.encrypt.EncryptManager")
+    @patch("autotarcompress.cli.commands.encrypt.EncryptManager")
     def test_encrypt_command_execute_failure(
         self, mock_manager_class: MagicMock, test_config: BackupConfig
     ) -> None:
@@ -258,7 +252,7 @@ class TestDecryptCommand:
         assert hasattr(command, "logger")
         assert hasattr(command, "manager")
 
-    @patch("autotarcompress.commands.decrypt.DecryptManager")
+    @patch("autotarcompress.cli.commands.decrypt.DecryptManager")
     def test_decrypt_command_execute_success(
         self, mock_manager_class: MagicMock, test_config: BackupConfig
     ) -> None:
@@ -274,7 +268,7 @@ class TestDecryptCommand:
         assert result is True
         mock_manager.execute_decrypt.assert_called_once_with(test_file)
 
-    @patch("autotarcompress.commands.decrypt.DecryptManager")
+    @patch("autotarcompress.cli.commands.decrypt.DecryptManager")
     def test_decrypt_command_execute_failure(
         self, mock_manager_class: MagicMock, test_config: BackupConfig
     ) -> None:

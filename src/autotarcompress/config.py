@@ -305,7 +305,7 @@ class BackupConfig:
                     dirs_to_backup=dirs_to_backup,
                     ignore_list=ignore_list,
                 )
-            except (OSError, ValueError, configparser.Error):
+            except OSError, ValueError, configparser.Error:
                 logger.exception("Error reading config file")
                 logger.warning("Using default configuration")
                 return default_config
