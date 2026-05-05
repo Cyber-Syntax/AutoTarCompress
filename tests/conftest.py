@@ -5,16 +5,10 @@ This module contains common fixtures used across multiple test modules.
 
 import os
 import shutil
-import sys
 import tempfile
 from collections.abc import Generator
 
 import pytest
-
-# Add the parent directory to sys.path so Python can find src
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
 
 from autotarcompress.config import BackupConfig
 

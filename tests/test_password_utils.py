@@ -4,15 +4,8 @@ This module tests security features including encryption, password handling,
 and other security components.
 """
 
-import os
-import sys
 from typing import Any
 from unittest.mock import MagicMock, patch
-
-# Add the parent directory to sys.path so Python can find src
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
 
 from autotarcompress.utils.get_password import PasswordContext
 

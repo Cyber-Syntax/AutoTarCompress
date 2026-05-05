@@ -5,16 +5,10 @@ Tests follow modern Python 3.12+ practices with full type annotations.
 """
 
 import os
-import sys
 import tempfile
 from unittest.mock import patch
 
 from typer.testing import CliRunner
-
-# Add the parent directory to sys.path so Python can find src
-sys.path.insert(
-    0, os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-)
 
 from autotarcompress.cli import app
 from autotarcompress.cli.runner import (

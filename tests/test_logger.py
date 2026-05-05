@@ -6,13 +6,9 @@ Tests follow modern Python 3.12+ practices with full type annotations.
 
 import logging
 import os
-import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
-
-# Add the parent directory to sys.path so Python can find src
-sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 from autotarcompress.logger import (
     get_logger,
