@@ -60,67 +60,65 @@ class BackupManager:
     def run_backup_process(self, total_size: int) -> bool:
         """Run the backup process using tarfile library.
 
+        Uses a temporary file + atomic rename to avoid TOCTOU issues
+        and prevent partial archive corruption.
+
         Args:
             total_size: Total size of files to back up, in bytes.
 
         Returns:
             True if backup succeeded, False otherwise.
         """
-        backup_path = Path(self.config.backup_path)
-        if backup_path.exists():
+        final_path = Path(self.config.backup_path)
+        temp_path = final_path.with_suffix(final_path.suffix + ".tmp")
+
+        if final_path.exists():
             self.logger.warning(
-                "File already exists: %s",
-                self.config.backup_path,
+                "Backup file already exists: %s",
+                final_path,
             )
             return False  # Let command handle prompting
 
         total_size_gb = total_size / 1024**3
 
-        self.logger.info(
-            "Starting backup to %s",
-            self.config.backup_path,
-        )
-        self.logger.info(
-            "Total size: %.2f GB",
-            total_size_gb,
-        )
+        self.logger.info("Starting backup to %s", final_path)
+        self.logger.info("Total size: %.2f GB", total_size_gb)
 
-        # Use tarfile library for backup with progress bar
-        return self._run_backup_with_tarfile(total_size)
-
-    def _run_backup_with_tarfile(self, total_size: int) -> bool:
-        """Create backup using tarfile library with progress tracking.
-
-        Args:
-            total_size: Total size in bytes for progress calculation
-
-        Returns:
-            True if backup succeeded, False otherwise
-        """
         progress = SimpleProgressBar(total_size)
-        initial_dev: int | None = None
 
         try:
-            # Open tar file with zstd compression
-            # zstd compression level can be customized via preset
-            # parameter (1-22). Using default (preset=3) for balanced
-            # speed/ratio
-            with tarfile.open(str(self.config.backup_path), "w:zst") as tar:
+            # Write to temporary file first
+            with tarfile.open(str(temp_path), "w:zst") as tar:
+                initial_dev: int | None = None
+
                 for directory in self.config.dirs_to_backup:
                     dir_path = Path(directory)
 
-                    # Get device ID for --one-file-system behavior
                     if initial_dev is None:
                         initial_dev = dir_path.stat().st_dev
 
                     self._add_directory_to_tar(
                         tar, dir_path, progress, initial_dev
                     )
+
+            progress.finish()
+
+            # Atomic replace (this eliminates race conditions)
+            Path.replace(temp_path, final_path)
+
         except OSError, tarfile.TarError:
             self.logger.exception("Backup failed")
+
+            # Cleanup partial archive
+            try:
+                if temp_path.exists():
+                    temp_path.unlink()
+            except OSError:
+                self.logger.exception("Failed to clean up temp backup file")
+
             return False
+
         else:
-            progress.finish()
             self.logger.info("Backup completed successfully")
             return True
 
@@ -268,7 +266,7 @@ class BackupManager:
                 backup_path,
                 backup_hash,
             )
-        except FileNotFoundError, OSError:
+        except OSError:
             self.logger.exception(
                 "Failed to calculate backup hash or save metadata"
             )
@@ -288,19 +286,16 @@ class BackupManager:
         Returns:
             True if backup succeeded, False otherwise
         """
-        # Validate and ensure backup directories
         existing_dirs, missing_dirs = validate_and_expand_paths(
             self.config.dirs_to_backup
         )
+
         if missing_dirs:
-            # Log missing directories; no need to print to stdout here.
             self.logger.warning(
                 "Some configured backup directories do not exist: %s",
                 missing_dirs,
             )
 
-        # Use equality comparison instead of identity; lists with the same
-        # contents should be compared by value.
         if existing_dirs != self.config.dirs_to_backup:
             self.logger.info(
                 "Proceeding with existing directories only: %s",
@@ -308,65 +303,65 @@ class BackupManager:
             )
             self.config.dirs_to_backup = existing_dirs
 
-        # Ensure backup folder exists
         try:
             backup_folder_path = ensure_backup_folder(
                 self.config.backup_folder
             )
             self.config.backup_folder = str(backup_folder_path)
-            self.logger.info(
-                "Backup folder ensured at: %s",
-                self.config.backup_folder,
-            )
         except OSError:
             self.logger.exception("Failed to ensure backup folder")
             return False
 
         if not self.config.dirs_to_backup:
-            self.logger.error(
-                "No directories configured for backup. Skipping backup."
-            )
+            self.logger.error("No directories configured for backup.")
             return False
 
-        # Calculate total size
         total_size: int = self.calculate_total_size()
         if total_size == 0:
-            self.logger.warning(
-                "Total backup size is 0 bytes. Nothing to back up."
-            )
+            self.logger.warning("Nothing to back up.")
             return False
 
-        # Check if backup file exists and prompt for overwrite
-        if self._backup_file_exists():
-            if not self._prompt_overwrite():
-                msg = "Backup aborted by user due to existing file."
-                self.logger.info("%s", msg)
-                return False
-            try:
-                self._remove_existing_backup()
-            except OSError:
-                self.logger.exception("Failed to remove existing backup")
+        backup_path = Path(self.config.backup_path)
+
+        # if the user confirms, we delete the file BEFORE proceeding.
+        if backup_path.exists():
+            if not self._prompt_overwrite(backup_path):
+                self.logger.info("Backup aborted by user.")
                 return False
 
-        # Run backup process
+            # User said yes — delete the existing file now so run_backup_process
+            # can write a fresh archive in its place.
+            try:
+                backup_path.unlink()
+                self.logger.info(
+                    "Removed existing backup: %s", backup_path.name
+                )
+            except OSError:
+                self.logger.exception(
+                    "Failed to remove existing backup file: %s", backup_path
+                )
+                return False
+
         success = self.run_backup_process(total_size)
+
         if success:
             self.save_backup_metadata_with_hash(Path(self.config.backup_path))
+
         return success
 
-    def _backup_file_exists(self) -> bool:
-        """Check if the backup file already exists."""
-        return Path(self.config.backup_path).exists()
+    def _prompt_overwrite(self, backup_path: Path) -> bool:
+        """Ask the user whether to overwrite an existing backup file.
 
-    def _remove_existing_backup(self) -> None:
-        """Remove the existing backup file."""
-        Path(self.config.backup_path).unlink()
-        self.logger.info(
-            "Removed existing backup file: %s",
-            self.config.backup_path,
+        Args:
+            backup_path: Path to the backup file that already exists.
+                         Shown to the user so they know exactly what
+                         will be deleted.
+
+        Returns:
+            True if the user wants to overwrite, False otherwise.
+        """
+        print(f"Backup already exists: {backup_path}")
+        response = (
+            input("Do you want to overwrite it? (y/n): ").strip().lower()
         )
-
-    def _prompt_overwrite(self) -> bool:
-        """Prompt user to overwrite existing backup file."""
-        response = input("Do you want to remove it? (y/n): ").strip().lower()
         return response == "y"
