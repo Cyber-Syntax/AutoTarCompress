@@ -5,10 +5,13 @@ of compressed backup archives.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from autotarcompress.cli.commands.command import Command
-from autotarcompress.config import BackupConfig
 from autotarcompress.extract_manager import ExtractManager
+
+if TYPE_CHECKING:
+    from autotarcompress.config import BackupConfig
 
 
 class ExtractCommand(Command):

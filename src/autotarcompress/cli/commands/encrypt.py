@@ -11,10 +11,13 @@ Features:
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from autotarcompress.cli.commands.command import Command
-from autotarcompress.config import BackupConfig
 from autotarcompress.encrypt_manager import EncryptManager
+
+if TYPE_CHECKING:
+    from autotarcompress.config import BackupConfig
 
 
 class EncryptCommand(Command):
