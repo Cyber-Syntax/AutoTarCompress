@@ -70,18 +70,35 @@ class CleanupManager:
             return True
 
     def _cleanup_files(self, ext: str, keep_count: int) -> None:
-        """Delete old files by extension.
+        """Delete old files by extension, keeping only the most recent ones.
 
-        Keeping only the most recent as configured.
+        Files are sorted by the date in their filename.  Files whose names
+        don't match the expected date format are silently skipped (logged at
+        DEBUG level) rather than crashing the whole cleanup run.
 
         Args:
-            ext: File extension to filter for cleanup.
-            keep_count: Number of recent files to keep.
+            ext: File extension to filter for cleanup (e.g. ".tar.zst").
+            keep_count: Number of the most-recent files to keep.
+                        0 means delete all matching files.
         """
         backup_folder: Path = Path(self.config.backup_folder).expanduser()
+
+        # _safe_date_key wraps the parse in a try/except and returns
+        # datetime.min for unrecognised names, so they sort to the front
+        # and are never incorrectly included in the "keep" slice.
+        def _safe_date_key(filename: str) -> datetime.datetime:
+            try:
+                return self._extract_date_from_filename(filename)
+            except ValueError:
+                self.logger.debug(
+                    "Skipping unrecognised filename during cleanup: %s",
+                    filename,
+                )
+                return datetime.datetime.min.replace(tzinfo=datetime.UTC)
+
         files: list[str] = sorted(
             [f.name for f in backup_folder.iterdir() if f.name.endswith(ext)],
-            key=self._extract_date_from_filename,
+            key=_safe_date_key,
         )
 
         files_to_delete: list[str] = (
@@ -95,7 +112,6 @@ class CleanupManager:
             file_path = backup_folder / old_file
             try:
                 if file_path.is_dir():
-                    # Remove directory (recursively if not empty)
                     shutil.rmtree(file_path)
                     self.logger.info(
                         "Deleted old backup directory: %s", old_file
