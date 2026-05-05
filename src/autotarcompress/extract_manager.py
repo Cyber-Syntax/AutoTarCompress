@@ -7,7 +7,6 @@ the core extraction logic extracted from ExtractCommand.
 from __future__ import annotations
 
 import logging
-import shlex
 import subprocess
 import tarfile
 from pathlib import Path
@@ -105,11 +104,22 @@ class ExtractManager:
         """
         try:
             file_size = file_path.stat().st_size
-            cmd = (
-                f"pv -s {file_size} {shlex.quote(str(file_path))} | "
-                f"tar -xJ -C {shlex.quote(str(extract_dir))}"
+
+            pv_proc = subprocess.Popen(
+                ["/usr/bin/pv", "-s", str(file_size), str(file_path)],
+                stdout=subprocess.PIPE,
             )
-            subprocess.run(cmd, shell=True, check=True)  # noqa: S602
+            try:
+                tar_proc = subprocess.run(
+                    ["/usr/bin/tar", "-xJ", "-C", str(extract_dir)],
+                    stdin=pv_proc.stdout,
+                    check=True,
+                )
+            finally:
+                if pv_proc.stdout is not None:
+                    pv_proc.stdout.close()
+                pv_proc.wait()
+
         except subprocess.CalledProcessError:
             self.logger.exception("Extraction with pv failed")
             return False
@@ -125,39 +135,48 @@ class ExtractManager:
     ) -> bool:
         """Extract archive without pv (fallback method).
 
+        Iterates members once: checks path-traversal safety, then
+        immediately extracts each member.  This is both cleaner and
+        more efficient than two separate passes.
+
         Args:
             file_path: Path to the archive file
-            extract_dir: Directory to extract to
-            compression: Compression format ('xz' or 'zst')
+            extract_dir: Directory to extract into
+            compression: Compression format ('zst' or 'xz')
 
         Returns:
             True if extraction succeeded, False otherwise
         """
         try:
-            with tarfile.open(str(file_path), f"r:{compression}") as tar:  # type: ignore[call-overload]
-                # Calculate total size for progress bar
-                total_size = sum(member.size for member in tar.getmembers())
+            with tarfile.open(str(file_path), f"r:{compression}") as tar:
+                members = tar.getmembers()
+                total_size = sum(member.size for member in members)
                 progress = SimpleProgressBar(total_size)
 
-                # Prevent path traversal attacks by checking extraction target
-                for member in tar.getmembers():
+                # single loop does both in order.
+                # This is clearer and avoids iterating the member list twice.
+                for member in members:
+                    # Security: make sure the member won't extract outside
+                    # the target directory (path traversal attack prevention).
                     target_path = extract_dir / member.name
-                    if not str(target_path.absolute()).startswith(
-                        str(extract_dir.absolute())
+                    if not str(target_path.resolve()).startswith(
+                        str(extract_dir.resolve())
                     ):
                         self.logger.error(
-                            "Attempted path traversal: %s", member.name
+                            "Attempted path traversal detected: %s — "
+                            "aborting extraction.",
+                            member.name,
                         )
                         return False
 
-                # Extract each member with progress tracking
-                for member in tar.getmembers():
-                    tar.extract(member, path=extract_dir)
+                    # Safe — extract this member immediately.
+                    tar.extract(member, path=extract_dir, filter="data")
                     progress.update(member.size)
 
                 progress.finish()
                 self.logger.info("Successfully extracted to %s", extract_dir)
                 return True
+
         except tarfile.TarError:
             self.logger.exception("Extraction failed")
             return False

@@ -111,12 +111,14 @@ class TestExtractManager:
         return_value=True,
     )
     @patch("pathlib.Path.mkdir")
+    @patch("subprocess.Popen")
     @patch("subprocess.run")
     @patch("pathlib.Path.stat")
     def test_execute_extract_with_pv_xz(
         self,
         mock_stat: Mock,
-        mock_subprocess: Mock,
+        mock_run: Mock,
+        mock_popen: Mock,
         mock_mkdir: Mock,
         mock_pv_available: Mock,
         extract_manager: ExtractManager,
@@ -127,15 +129,30 @@ class TestExtractManager:
         archive_file.write_text("dummy")
         mock_stat.return_value.st_size = 1000000
 
+        # Mock Popen stdout so the code can close it safely
+        mock_popen.return_value.stdout = Mock()
+
         result = extract_manager.execute_extract(str(archive_file))
 
         assert result is True
-        mock_subprocess.assert_called_once()
-        # Check that pv command is used
-        call_args = mock_subprocess.call_args
-        cmd = call_args[0][0]
-        assert "pv -s 1000000" in cmd
-        assert "tar -xJ" in cmd
+
+        mock_popen.assert_called_once()
+        popen_args = mock_popen.call_args[0][0]
+        assert popen_args == [
+            "/usr/bin/pv",
+            "-s",
+            "1000000",
+            str(archive_file),
+        ]
+
+        mock_run.assert_called_once()
+        run_args = mock_run.call_args[0][0]
+        assert run_args == [
+            "/usr/bin/tar",
+            "-xJ",
+            "-C",
+            str(tmp_path / "test.tar-extracted"),
+        ]
 
     @patch("pathlib.Path.mkdir")
     @patch("tarfile.open")
