@@ -83,5 +83,5 @@ class PasswordContext:
             if file_path.exists():
                 file_path.unlink()
                 self.logger.info("Cleaned up partial encrypted file")
-        except (OSError, PermissionError) as e:
+        except OSError as e:
             self.logger.error("Failed to clean up %s: %s", path, e)

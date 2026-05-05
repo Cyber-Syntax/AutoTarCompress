@@ -75,7 +75,7 @@ class InfoManager:
         except json.JSONDecodeError:
             self.logger.exception("Error reading backup info file")
             return None
-        except OSError, PermissionError:
+        except OSError:
             self.logger.exception("Failed to load backup info")
             return None
 
