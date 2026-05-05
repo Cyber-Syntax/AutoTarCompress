@@ -28,8 +28,8 @@ def main() -> None:
     directly.
     """
     # Import by module name so the package is always imported the same way.
-    cli_module = import_module("autotarcompress.cli")  # type: Any
-    app = cli_module.app  # type: Any
+    cli_module = import_module("autotarcompress.cli")
+    app = cli_module.app
 
     try:
         # Build and run the underlying Click application. This matches
