@@ -12,7 +12,7 @@ import tarfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from autotarcompress.utils.progress_bar import SimpleProgressBar
+from autotarcompress.progress_bar import SimpleProgressBar
 from autotarcompress.utils.utils import is_pv_available
 
 if TYPE_CHECKING:

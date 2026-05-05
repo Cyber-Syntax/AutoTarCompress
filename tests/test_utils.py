@@ -6,8 +6,8 @@ This module tests the SizeCalculator and other utility functions.
 from unittest.mock import MagicMock, patch
 
 from autotarcompress.utils.format import format_size
-from autotarcompress.utils.progress_bar import SimpleProgressBar
-from autotarcompress.utils.size_calculator import SizeCalculator
+from autotarcompress.progress_bar import SimpleProgressBar
+from autotarcompress.size_calculator import SizeCalculator
 from autotarcompress.utils.utils import (
     ensure_backup_folder,
     validate_and_expand_paths,
@@ -64,7 +64,7 @@ class TestSizeCalculator:
         # Size with ignore should be less than or equal to size without ignore
         assert size_with_ignore <= size_without_ignore
 
-    @patch("autotarcompress.utils.size_calculator.os.walk")
+    @patch("autotarcompress.size_calculator.os.walk")
     def test_calculate_total_size_handles_permission_errors(
         self, mock_walk
     ) -> None:
@@ -91,7 +91,7 @@ class TestSizeCalculator:
         # Should return 0 for non-existent directory
         assert total_size == 0
 
-    @patch("autotarcompress.utils.size_calculator.os.walk")
+    @patch("autotarcompress.size_calculator.os.walk")
     def test_calculate_total_size_with_mocked_files(self, mock_walk) -> None:
         """Test size calculation with mocked file system."""
         # Mock os.walk to return test data
@@ -261,7 +261,7 @@ class TestSimpleProgressBar:
         progress.current_size = 512  # Halfway done
 
         # Mock time to be less than 1 second
-        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+        with patch("autotarcompress.progress_bar.time") as mock_time:
             mock_time.time.return_value = progress.start_time + 0.5
 
             eta = progress._calculate_eta()
@@ -272,7 +272,7 @@ class TestSimpleProgressBar:
         progress = SimpleProgressBar(1024)
         progress.current_size = 1024  # Complete
 
-        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+        with patch("autotarcompress.progress_bar.time") as mock_time:
             mock_time.time.return_value = progress.start_time + 10
 
             eta = progress._calculate_eta()
@@ -285,7 +285,7 @@ class TestSimpleProgressBar:
 
         # Mock 10 seconds elapsed, so rate = 10 bytes/sec
         # Remaining = 924 bytes, time = 92.4 seconds = 1:32
-        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+        with patch("autotarcompress.progress_bar.time") as mock_time:
             mock_time.time.return_value = progress.start_time + 10
 
             eta = progress._calculate_eta()
@@ -298,7 +298,7 @@ class TestSimpleProgressBar:
 
         # Mock 1 second elapsed, so rate = 1 byte/sec
         # Remaining = 7199 bytes, time = 7199 seconds = 1:59:59
-        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+        with patch("autotarcompress.progress_bar.time") as mock_time:
             mock_time.time.return_value = progress.start_time + 1
 
             eta = progress._calculate_eta()
@@ -310,7 +310,7 @@ class TestSimpleProgressBar:
         progress = SimpleProgressBar(1024)
         progress.current_size = 512  # Halfway
 
-        with patch("autotarcompress.utils.progress_bar.time") as mock_time:
+        with patch("autotarcompress.progress_bar.time") as mock_time:
             mock_time.time.return_value = progress.start_time + 10
 
             progress.update(0)  # Trigger display update

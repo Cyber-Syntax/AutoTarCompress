@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from autotarcompress.utils.get_password import PasswordContext
+from autotarcompress.get_password import PasswordContext
 
 if TYPE_CHECKING:
     from autotarcompress.config import BackupConfig

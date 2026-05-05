@@ -1,11 +1,11 @@
-"""Utility to calculate and display total size of backup directories."""
+"""Size calculator to calculate and display total size of backup directories."""
 
 import fnmatch
 import logging
 import os
 from pathlib import Path
 
-from .format import format_size
+from autotarcompress.utils.format import format_size
 
 logger = logging.getLogger(__name__)
 
