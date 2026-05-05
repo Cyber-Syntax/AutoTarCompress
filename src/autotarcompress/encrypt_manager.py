@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from autotarcompress.base_manager import BaseCryptoManager
 from autotarcompress.metadata import update_encrypted_hash
-from autotarcompress.utils.hash_utils import calculate_sha256
+from autotarcompress.utils import calculate_sha256
 
 
 class EncryptManager(BaseCryptoManager):

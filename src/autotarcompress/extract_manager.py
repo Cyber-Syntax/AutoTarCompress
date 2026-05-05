@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from autotarcompress.progress_bar import SimpleProgressBar
-from autotarcompress.utils.utils import is_pv_available
+from autotarcompress.utils import is_pv_available
 
 if TYPE_CHECKING:
     from autotarcompress.config import BackupConfig

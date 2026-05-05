@@ -14,10 +14,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from autotarcompress.metadata import update_backup_metadata
-from autotarcompress.utils.hash_utils import calculate_sha256
+from autotarcompress.utils import calculate_sha256
 from autotarcompress.progress_bar import SimpleProgressBar
 from autotarcompress.size_calculator import SizeCalculator
-from autotarcompress.utils.utils import (
+from autotarcompress.utils import (
     ensure_backup_folder,
     validate_and_expand_paths,
 )

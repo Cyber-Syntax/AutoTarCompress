@@ -5,7 +5,7 @@ import logging
 import os
 from pathlib import Path
 
-from autotarcompress.utils.format import format_size
+from autotarcompress.utils import format_size
 
 logger = logging.getLogger(__name__)
 

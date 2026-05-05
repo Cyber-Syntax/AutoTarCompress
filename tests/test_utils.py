@@ -5,10 +5,10 @@ This module tests the SizeCalculator and other utility functions.
 
 from unittest.mock import MagicMock, patch
 
-from autotarcompress.utils.format import format_size
+from autotarcompress.utils import format_size
 from autotarcompress.progress_bar import SimpleProgressBar
 from autotarcompress.size_calculator import SizeCalculator
-from autotarcompress.utils.utils import (
+from autotarcompress.utils import (
     ensure_backup_folder,
     validate_and_expand_paths,
 )
