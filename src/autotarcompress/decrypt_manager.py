@@ -30,6 +30,43 @@ class DecryptManager(BaseCryptoManager):
     MAX_BACKOFF_DELAY = 30.0
     MIN_ENCRYPTED_SIZE = 44  # salt(16) + nonce(12) + tag(16)
 
+    def _validate_input_file(self, file_path: str) -> bool:
+        """Validate the encrypted file before attempting decryption.
+
+        Extends the base validation with a minimum-size check specific to
+        encrypted files.  A valid encrypted file must contain at least:
+          - 16 bytes of PBKDF2 salt
+          - 12 bytes of AES-GCM nonce
+          - 16 bytes of GCM authentication tag
+        = 44 bytes minimum (MIN_ENCRYPTED_SIZE).
+
+        Without this check, a truncated file passes the base empty-file
+        check but then fails mid-decryption with a confusing internal error.
+
+        Args:
+            file_path: Path to the encrypted file to validate
+
+        Returns:
+            True if the file is valid for decryption, False otherwise
+        """
+        # call the parent class check first (file must exist, not empty)
+        if not super()._validate_input_file(file_path):
+            return False
+
+        # additionally enforce minimum encrypted file size
+        size = Path(file_path).stat().st_size
+        if size < self.MIN_ENCRYPTED_SIZE:
+            self.logger.error(
+                "File is too small to be a valid encrypted archive "
+                "(%d bytes; minimum expected is %d bytes). "
+                "The file may be truncated or corrupted.",
+                size,
+                self.MIN_ENCRYPTED_SIZE,
+            )
+            return False
+
+        return True
+
     def execute_decrypt(self, file_path: str) -> bool:
         """Execute the complete decryption process with retries.
 
@@ -112,72 +149,61 @@ class DecryptManager(BaseCryptoManager):
     def _run_decryption_process(
         self, file_path: str, password: str, decrypted_path: str
     ) -> bool:
-        """Run decryption with AES-256-GCM.
+        """Run streaming decryption with AES-256-GCM (chunked)."""
 
-        File format: [salt(16)][nonce(12)][ciphertext][tag(16)]
+        CHUNK_SIZE = 64 * 1024  # must match encryption logic
+        TAG_SIZE = 16
+        NONCE_SIZE = self.NONCE_SIZE
 
-        Args:
-            file_path: Path to the encrypted file
-            password: Password for decryption
-            decrypted_path: Path for the decrypted output
-
-        Returns:
-            True if decryption succeeded, False if wrong password or tampered
-        """
         try:
-            # Read encrypted file
-            with Path(file_path).open("rb") as f:
-                encrypted_data = f.read()
+            with (
+                Path(file_path).open("rb") as fin,
+                Path(decrypted_path).open("wb") as fout,
+            ):
+                salt = fin.read(self.SALT_SIZE)
+                if len(salt) != self.SALT_SIZE:
+                    self.logger.error(
+                        "Invalid or corrupted encrypted file (salt missing)"
+                    )
+                    return False
 
-            # Validate minimum encrypted file size
-            if len(encrypted_data) < self.MIN_ENCRYPTED_SIZE:
-                self.logger.error("Encrypted file is too small or corrupted")
-                return False
+                key = self._derive_key(password, salt)
+                aesgcm = AESGCM(key)
 
-            # Extract components
-            salt = encrypted_data[: self.SALT_SIZE]
-            nonce = encrypted_data[
-                self.SALT_SIZE : self.SALT_SIZE + self.NONCE_SIZE
-            ]
-            ciphertext_with_tag = encrypted_data[
-                self.SALT_SIZE + self.NONCE_SIZE :
-            ]
+                while True:
+                    nonce = fin.read(NONCE_SIZE)
+                    if not nonce:
+                        break
 
-            self.logger.debug("Extracted salt and nonce from encrypted file")
+                    if len(nonce) != NONCE_SIZE:
+                        self.logger.error("Corrupted nonce block detected")
+                        return False
 
-            # Derive key from password
-            key = self._derive_key(password, salt)
-            self.logger.debug("Derived decryption key using PBKDF2")
+                    # ciphertext + tag
+                    chunk = fin.read(CHUNK_SIZE + TAG_SIZE)
+                    if not chunk:
+                        break
 
-            # Decrypt and verify with AES-GCM
-            aesgcm = AESGCM(key)
-            plaintext = aesgcm.decrypt(nonce, ciphertext_with_tag, None)
+                    try:
+                        plaintext = aesgcm.decrypt(nonce, chunk, None)
+                    except InvalidTag:
+                        self.logger.warning(
+                            "Decryption failed: wrong password or tampered data"
+                        )
+                        self._safe_cleanup(decrypted_path)
+                        return False
 
-            # Write decrypted data
-            with Path(decrypted_path).open("wb") as f:
-                f.write(plaintext)
+                    fout.write(plaintext)
 
             self.logger.info(
                 "Decryption and integrity verification successful"
             )
-            self.logger.debug(
-                "Decrypted %d bytes to %d bytes",
-                len(ciphertext_with_tag),
-                len(plaintext),
-            )
-
-        except InvalidTag:
-            # Wrong password or tampered data
-            self.logger.warning(
-                "Decryption failed: wrong password or file has been tampered"
-            )
-            self._safe_cleanup(decrypted_path)
-            return False
 
         except Exception:
             self.logger.exception("Decryption failed with error")
             self._safe_cleanup(decrypted_path)
             return False
+
         else:
             return True
 
@@ -240,5 +266,5 @@ class DecryptManager(BaseCryptoManager):
                     "No hash found for backup archive %s", backup_filename
                 )
 
-        except FileNotFoundError, OSError:
+        except OSError:
             self.logger.exception("Failed to verify decrypted file integrity")

@@ -73,67 +73,67 @@ class EncryptManager(BaseCryptoManager):
                 Path(encrypted_file),
                 encrypted_hash,
             )
-        except FileNotFoundError, OSError:
+        except OSError:
             self.logger.exception("Failed to calculate encrypted file hash")
 
     def _run_encryption_process(
         self, file_to_encrypt: str, password: str
     ) -> bool:
-        """Run encryption process with AES-256-GCM and PBKDF2.
+        """Run streaming encryption with AES-256-GCM (chunked).
 
-        File format: [salt(16)][nonce(12)][ciphertext][tag(16)]
+        Reads the input file in 64 KB chunks.  Each chunk gets its own
+        random nonce and is encrypted independently.  The salt is written
+        once at the start of the output file; each chunk is preceded by
+        its nonce.
+
+        File layout on disk:
+            [16-byte salt][12-byte nonce][ciphertext+16-byte tag] × N chunks
 
         Args:
-            file_to_encrypt: Path to the file to encrypt
-            password: Password for encryption
+            file_to_encrypt: Path to the plaintext file
+            password: The user's password (will be key-derived with PBKDF2)
 
         Returns:
             True if encryption succeeded, False otherwise
         """
+        CHUNK_SIZE = 64 * 1024  # 64 KB per chunk
+
         file_name = Path(file_to_encrypt).name
         self.logger.info("Encrypting file with AES-256-GCM: %s", file_name)
-        self.logger.debug("File path: %s", file_to_encrypt)
 
         output_path = f"{file_to_encrypt}.enc"
 
         try:
-            # Generate random salt and nonce
             salt = self._generate_salt()
-            nonce = self._generate_nonce()
-            self.logger.debug("Generated salt and nonce for encryption")
-
-            # Derive key from password using PBKDF2
             key = self._derive_key(password, salt)
-            self.logger.debug(
-                "Derived encryption key using PBKDF2-HMAC-SHA256"
-            )
 
-            # Read plaintext data
-            with Path(file_to_encrypt).open("rb") as f:
-                plaintext = f.read()
+            self.logger.debug("Generated salt and derived key")
 
-            # Encrypt with AES-GCM (produces ciphertext + authentication tag)
-            aesgcm = AESGCM(key)
-            ciphertext_with_tag = aesgcm.encrypt(nonce, plaintext, None)
-            self.logger.debug(
-                "Encrypted %d bytes to %d bytes (includes auth tag)",
-                len(plaintext),
-                len(ciphertext_with_tag),
-            )
+            with (
+                Path(file_to_encrypt).open("rb") as fin,
+                Path(output_path).open("wb") as fout,
+            ):
+                fout.write(salt)
 
-            # Write encrypted file: salt + nonce + ciphertext + tag
-            with Path(output_path).open("wb") as f:
-                f.write(salt)
-                f.write(nonce)
-                f.write(ciphertext_with_tag)
+                aesgcm = AESGCM(key)
 
-            self.logger.info(
-                "Encryption successful with authenticated encryption"
-            )
+                while True:
+                    plaintext_chunk = fin.read(CHUNK_SIZE)
+                    if not plaintext_chunk:
+                        break
 
-        except Exception:
+                    nonce = self._generate_nonce()
+                    ciphertext = aesgcm.encrypt(nonce, plaintext_chunk, None)
+
+                    fout.write(nonce)
+                    fout.write(ciphertext)
+
+            self.logger.info("Encryption successful with streaming AES-GCM")
+
+        except OSError, ValueError:
             self.logger.exception("Encryption failed with error")
             self._safe_cleanup(output_path)
             return False
+
         else:
             return True
