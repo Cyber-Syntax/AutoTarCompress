@@ -18,6 +18,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# TODO: include backed up dirs and no such file dirs to metadata
+
 
 @dataclass
 class BackupMetadata:

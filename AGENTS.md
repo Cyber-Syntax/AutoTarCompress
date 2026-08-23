@@ -222,7 +222,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 from autotarcompress.backup_manager import BackupManager
-from autotarcompress.utils.hash_utils import verify_hash
+from autotarcompress.utils import verify_hash
 
 
 class TestBackupManager:

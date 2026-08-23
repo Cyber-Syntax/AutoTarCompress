@@ -18,6 +18,8 @@ from autotarcompress.utils import is_pv_available
 if TYPE_CHECKING:
     from autotarcompress.config import BackupConfig
 
+# TODO: extract decrypted not only .zst also .zst-decrypted file too.
+
 
 class ExtractManager:
     """Manager class for extraction operations.

@@ -53,6 +53,10 @@ def setup_application_logging(log_level: int = logging.INFO) -> None:
     file_handler.setFormatter(file_formatter)
     file_handler.setLevel(log_level)
 
+    # TODO: refactor stdout to stderr to support pipe and automation via jq etc.
+    # user still see the errors on console but piping would only show outputs
+    # ofcourse you need to use stdout(e.g print) to show output to user
+    #
     # Configure console handler (user feedback and errors)
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
