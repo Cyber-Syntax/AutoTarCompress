@@ -130,7 +130,7 @@ class EncryptManager(BaseCryptoManager):
 
             self.logger.info("Encryption successful with streaming AES-GCM")
 
-        except OSError, ValueError:
+        except (OSError, ValueError):
             self.logger.exception("Encryption failed with error")
             self._safe_cleanup(output_path)
             return False
