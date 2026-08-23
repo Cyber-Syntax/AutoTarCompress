@@ -19,8 +19,8 @@ from autotarcompress.cli.commands import (
     EncryptCommand,
 )
 from autotarcompress.config import BackupConfig
-from autotarcompress.utils.get_password import PasswordContext
-from autotarcompress.utils.size_calculator import SizeCalculator
+from autotarcompress.get_password import PasswordContext
+from autotarcompress.size_calculator import SizeCalculator
 
 
 # Fixtures

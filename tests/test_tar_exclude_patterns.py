@@ -14,7 +14,7 @@ import pytest
 
 from autotarcompress.cli.commands.backup import BackupCommand
 from autotarcompress.config import BackupConfig
-from autotarcompress.utils.size_calculator import SizeCalculator
+from autotarcompress.size_calculator import SizeCalculator
 
 
 class TestIgnorePatternMatching:

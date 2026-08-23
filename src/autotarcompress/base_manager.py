@@ -7,7 +7,6 @@ the cryptography library with AES-256-GCM authenticated encryption.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import secrets
 from pathlib import Path
@@ -16,7 +15,7 @@ from typing import TYPE_CHECKING
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from autotarcompress.utils.get_password import PasswordContext
+from autotarcompress.get_password import PasswordContext
 
 if TYPE_CHECKING:
     from autotarcompress.config import BackupConfig
@@ -48,8 +47,9 @@ class BaseCryptoManager:
         """
         self.config = config
         self.logger = logger or logging.getLogger(__name__)
-        self._password_context = PasswordContext()._password_context
-        self._safe_cleanup = PasswordContext()._safe_cleanup
+        _ctx = PasswordContext()
+        self._password_context = _ctx._password_context
+        self._safe_cleanup = _ctx._safe_cleanup
 
     def _validate_input_file(self, file_path: str) -> bool:
         """Validate input file exists and is not empty.
@@ -70,24 +70,6 @@ class BaseCryptoManager:
             )
             return False
         return True
-
-    def _calculate_sha256(self, file_path: str) -> str:
-        """Calculate SHA256 checksum for a file.
-
-        Args:
-            file_path: Path to the file
-
-        Returns:
-            SHA256 hex digest of the file contents
-        """
-        sha256 = hashlib.sha256()
-        with Path(file_path).open("rb") as file_obj:
-            while True:
-                data = file_obj.read(65536)
-                if not data:
-                    break
-                sha256.update(data)
-        return sha256.hexdigest()
 
     def _derive_key(self, password: str, salt: bytes) -> bytes:
         """Derive encryption key from password using PBKDF2-HMAC-SHA256.

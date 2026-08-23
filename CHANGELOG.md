@@ -5,11 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.0-alpha] - 2026-08-23
+
+### BREAKING CHANGES
+
+- Switch encryption format to streaming AES-GCM with per-chunk nonces; existing data from previous versions cannot be decrypted
+
+### Added
+
+- Implement safe backup write by writing to a temporary file and atomically
+  replacing the final archive to avoid TOCTOU issues and partial files.
+- Introduce a cross-process lock via a .lock file and atomic write of
+  metadata.json to prevent corruption during concurrent updates.
 
 ### Changed
 
 - Migrated to src layout from flat layout.
+- Updated dependencies:
+
+```
+Updated annotated-doc v0.0.4 -> v0.0.5
+Updated cffi v2.0.0 -> v2.1.1
+Removed click v8.3.3
+Updated coverage v7.13.5 -> v7.15.4
+Updated cryptography v47.0.0 -> v50.0.0
+Updated hypothesis v6.152.4 -> v6.165.10
+Updated markdown-it-py v4.0.0 -> v4.2.0
+Updated packaging v26.2 -> v26.3
+Updated pygments v2.20.0 -> v2.21.0
+Updated pytest v9.0.3 -> v9.1.1
+Updated ruff v0.15.12 -> v0.16.4
+Updated typer v0.25.1 -> v0.27.1
+Updated typing-extensions v4.15.0 -> v4.16.0
+```
+
+### Fixed
+
+- Skip unrecognised filenames when pruning
 
 ## [0.8.1-alpha] - 2026-05-04
 
@@ -27,12 +59,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **SHA256 Integrity Verification:** Added comprehensive file integrity verification system
-    - Calculate and store SHA256 hash of backup archives (.tar.zst)
-    - Calculate and store SHA256 hash of encrypted files (.enc)
-    - Calculate and store SHA256 hash of decrypted files
-    - Verify decrypted file integrity against original backup archive hash
-    - All hashes stored in metadata.json v2.0 with appropriate naming
-    - Added 28 new tests for hash utilities and metadata v2.0
+  - Calculate and store SHA256 hash of backup archives (.tar.zst)
+  - Calculate and store SHA256 hash of encrypted files (.enc)
+  - Calculate and store SHA256 hash of decrypted files
+  - Verify decrypted file integrity against original backup archive hash
+  - All hashes stored in metadata.json v2.0 with appropriate naming
+  - Added 28 new tests for hash utilities and metadata v2.0
 - Pure Python encryption using the `cryptography` library - no more external OpenSSL binary dependency
 - AES-256-GCM authenticated encryption provides both confidentiality and integrity verification
 - PBKDF2-HMAC-SHA256 key derivation with 600,000 iterations (OWASP recommended)
@@ -61,17 +93,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified zsh completion installation for better portability
 - Added installation options for uv tool including development mode and legacy removal
 - Upgraded dependencies:
-    - Updated click v8.3.1 -> v8.3.3
-    - Updated coverage v7.13.4 -> v7.13.5
-    - Updated cryptography v46.0.5 -> v47.0.0
-    - Updated hypothesis v6.151.6 -> v6.152.4
-    - Updated packaging v26.0 -> v26.2
-    - Updated pygments v2.19.2 -> v2.20.0
-    - Updated pytest v9.0.2 -> v9.0.3
-    - Updated pytest-cov v7.0.0 -> v7.1.0
-    - Updated rich v14.3.2 -> v15.0.0
-    - Updated ruff v0.15.1 -> v0.15.12
-    - Updated typer v0.23.0 -> v0.25.1
+  - Updated click v8.3.1 -> v8.3.3
+  - Updated coverage v7.13.4 -> v7.13.5
+  - Updated cryptography v46.0.5 -> v47.0.0
+  - Updated hypothesis v6.151.6 -> v6.152.4
+  - Updated packaging v26.0 -> v26.2
+  - Updated pygments v2.19.2 -> v2.20.0
+  - Updated pytest v9.0.2 -> v9.0.3
+  - Updated pytest-cov v7.0.0 -> v7.1.0
+  - Updated rich v14.3.2 -> v15.0.0
+  - Updated ruff v0.15.1 -> v0.15.12
+  - Updated typer v0.23.0 -> v0.25.1
 
 ### Removed
 

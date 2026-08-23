@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from autotarcompress.utils.hash_utils import calculate_sha256, verify_hash
+from autotarcompress.utils import calculate_sha256, verify_hash
 
 if TYPE_CHECKING:
     from pathlib import Path

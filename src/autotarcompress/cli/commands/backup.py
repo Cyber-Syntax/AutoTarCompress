@@ -5,10 +5,13 @@ using the BackupManager for core backup operations.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from autotarcompress.backup_manager import BackupManager
 from autotarcompress.cli.commands.command import Command
-from autotarcompress.config import BackupConfig
+
+if TYPE_CHECKING:
+    from autotarcompress.config import BackupConfig
 
 
 class BackupCommand(Command):

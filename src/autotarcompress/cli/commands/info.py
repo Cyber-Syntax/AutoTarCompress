@@ -5,10 +5,13 @@ the last backup operation.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from autotarcompress.cli.commands.command import Command
-from autotarcompress.config import BackupConfig
 from autotarcompress.info_manager import InfoManager
+
+if TYPE_CHECKING:
+    from autotarcompress.config import BackupConfig
 
 
 class InfoCommand(Command):

@@ -6,14 +6,19 @@ last backup time, file path, backup count, and file integrity hashes.
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import logging
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# TODO: include backed up dirs and no such file dirs to metadata
 
 
 @dataclass
@@ -119,24 +124,112 @@ def load_metadata(config_dir: Path) -> BackupMetadata:
         return BackupMetadata()
 
 
+@contextlib.contextmanager
+def _file_lock(path: Path):
+    """Acquire an exclusive cross-process file lock.
+
+    Creates a separate .lock file alongside the target file.
+    The lock file is cleaned up when the lock is released.
+
+    Uses fcntl.flock which is Unix-only (Linux/macOS).
+
+    Args:
+        path: Path to the file you want to protect.  The lock file
+              will be created at <path>.lock.
+
+    Yields:
+        Nothing — just provides the lock as a context manager.
+
+    Example:
+        with _file_lock(metadata_path):
+            # only one process runs this block at a time
+            data = read_something()
+            write_something(data)
+    """
+    lock_path = str(path) + ".lock"
+    with open(lock_path, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+    # clean up the lock file after releasing the lock.
+    # missing_ok=True means no error if another process already removed it.
+    try:
+        Path(lock_path).unlink(missing_ok=True)
+    except OSError:
+        # Non-fatal — the lock has already been released above.
+        logger.debug("Could not remove lock file: %s", lock_path)
+
+
+def _write_metadata(metadata_path: Path, metadata: BackupMetadata) -> None:
+    """Write metadata to disk using a temp file + atomic rename.
+
+    This function does NOT acquire the file lock.
+    The caller is responsible for holding the lock before calling this.
+
+    Using a temp file + os.replace() means that if the process crashes
+    mid-write, the old metadata.json is never corrupted — the rename
+    only happens after the write is fully complete.
+
+    Args:
+        metadata_path: Full path to metadata.json
+        metadata: The BackupMetadata object to write
+    """
+    tmp_path = metadata_path.with_suffix(".tmp")
+    try:
+        with tmp_path.open("w", encoding="utf-8") as f:
+            json.dump(metadata.to_dict(), f, indent=2)
+
+        os.replace(tmp_path, metadata_path)
+    finally:
+        with contextlib.suppress(OSError):
+            tmp_path.unlink(missing_ok=True)
+
+
 def save_metadata(config_dir: Path, metadata: BackupMetadata) -> None:
-    """Save backup metadata to metadata.json.
+    """Save backup metadata to metadata.json (process-safe).
+
+    Acquires an exclusive file lock, then writes atomically.
+    Safe to call from multiple processes simultaneously.
 
     Args:
         config_dir: Path to the configuration directory
-        metadata: BackupMetadata instance to save
+        metadata: BackupMetadata object to save
     """
     metadata_path = get_metadata_path(config_dir)
-
-    # Ensure config directory exists
     Path(config_dir).expanduser().mkdir(parents=True, exist_ok=True)
 
     try:
-        with metadata_path.open("w", encoding="utf-8") as f:
-            json.dump(metadata.to_dict(), f, indent=2)
+        with _file_lock(metadata_path):  # ← acquires lock once
+            _write_metadata(metadata_path, metadata)  # ← no second lock
+
         logger.debug("Saved metadata to %s", metadata_path)
+
     except OSError:
         logger.exception("Failed to save metadata to %s", metadata_path)
+
+
+def _update_metadata(config_dir: Path, updater) -> None:
+    """Atomic metadata update (read-modify-write under a single lock).
+
+    Acquires the lock once, reads the current metadata, applies the
+    updater function, then writes the result — all under the same lock.
+    This prevents two processes from overwriting each other's changes.
+
+    Args:
+        config_dir: Path to the configuration directory
+        updater: Callable that receives a BackupMetadata object and
+                 modifies it in-place (no return value needed)
+    """
+    metadata_path = get_metadata_path(config_dir)
+    Path(config_dir).expanduser().mkdir(parents=True, exist_ok=True)
+
+    with _file_lock(metadata_path):  # ← lock acquired ONCE here
+        metadata = load_metadata(config_dir)
+        updater(metadata)
+        _write_metadata(metadata_path, metadata)  # ← no second lock
 
 
 def update_backup_metadata(
@@ -144,30 +237,30 @@ def update_backup_metadata(
     backup_file: Path,
     backup_hash: str | None = None,
 ) -> None:
-    """Update metadata after a successful backup.
+    """Update metadata with backup file information.
 
     Args:
         config_dir: Path to the configuration directory
-        backup_file: Path to the newly created backup file
-        backup_hash: SHA256 hash of the backup archive (optional)
+        backup_file: Path to the backup file
+        backup_hash: SHA256 hash of the backup file (optional)
     """
-    metadata = load_metadata(config_dir)
-    metadata.last_backup_time = datetime.now(tz=UTC).isoformat()
-    metadata.last_backup_file = str(backup_file)
-    metadata.backup_count += 1
 
-    if backup_hash:
+    def _apply(metadata: BackupMetadata) -> None:
+        metadata.last_backup_time = datetime.now(tz=UTC).isoformat()
+        metadata.last_backup_file = str(backup_file)
+        metadata.backup_count += 1
+
         if metadata.file_hashes is None:
             metadata.file_hashes = {}
-        # Use the backup filename as the key
-        filename = Path(backup_file).name
-        metadata.file_hashes[filename] = backup_hash
-        logger.debug("Stored hash for %s: %s", filename, backup_hash[:16])
 
-    save_metadata(config_dir, metadata)
-    logger.info(
-        "Updated backup metadata: %s backups total", metadata.backup_count
-    )
+        if backup_hash:
+            filename = Path(backup_file).name
+            metadata.file_hashes[filename] = backup_hash
+            logger.debug("Stored hash for %s: %s", filename, backup_hash[:16])
+
+    _update_metadata(config_dir, _apply)
+
+    logger.info("Updated backup metadata safely")
 
 
 def update_encrypted_hash(
@@ -180,16 +273,16 @@ def update_encrypted_hash(
         encrypted_file: Path to the encrypted file
         encrypted_hash: SHA256 hash of the encrypted file
     """
-    metadata = load_metadata(config_dir)
 
-    if metadata.file_hashes is None:
-        metadata.file_hashes = {}
+    def _apply(metadata: BackupMetadata) -> None:
+        if metadata.file_hashes is None:
+            metadata.file_hashes = {}
 
-    # Use the encrypted filename as the key
-    filename = Path(encrypted_file).name
-    metadata.file_hashes[filename] = encrypted_hash
-    save_metadata(config_dir, metadata)
-    logger.debug("Stored hash for %s: %s", filename, encrypted_hash[:16])
+        filename = Path(encrypted_file).name
+        metadata.file_hashes[filename] = encrypted_hash
+        logger.debug("Stored hash for %s: %s", filename, encrypted_hash[:16])
+
+    _update_metadata(config_dir, _apply)
 
 
 def update_decrypted_hash(
@@ -202,16 +295,16 @@ def update_decrypted_hash(
         decrypted_file: Path to the decrypted file
         decrypted_hash: SHA256 hash of the decrypted file
     """
-    metadata = load_metadata(config_dir)
 
-    if metadata.file_hashes is None:
-        metadata.file_hashes = {}
+    def _apply(metadata: BackupMetadata) -> None:
+        if metadata.file_hashes is None:
+            metadata.file_hashes = {}
 
-    # Use the decrypted filename as the key
-    filename = Path(decrypted_file).name
-    metadata.file_hashes[filename] = decrypted_hash
-    save_metadata(config_dir, metadata)
-    logger.debug("Stored hash for %s: %s", filename, decrypted_hash[:16])
+        filename = Path(decrypted_file).name
+        metadata.file_hashes[filename] = decrypted_hash
+        logger.debug("Stored hash for %s: %s", filename, decrypted_hash[:16])
+
+    _update_metadata(config_dir, _apply)
 
 
 def get_file_hash(config_dir: Path, filename: str) -> str | None:

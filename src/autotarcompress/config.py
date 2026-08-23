@@ -336,12 +336,10 @@ class BackupConfig:
             tuple containing:
             - bool: True if configuration is valid, False otherwise
             - str: Message describing the verification result
-
         """
         default_config = cls()
         config_path = default_config.config_path
 
-        # Check if config file exists
         if not config_path.exists():
             return False, f"Configuration file not found at {config_path}"
 
@@ -349,11 +347,17 @@ class BackupConfig:
             config = configparser.ConfigParser()
             config.read(config_path, encoding="utf-8")
             section = config["DEFAULT"]
+
+            # The config file uses newline-delimited (INI multiline) format,
+            # not comma-separated.  Using split(",") produced a one-element
+            # list containing all paths as a single garbled string.
+            raw = section.get("dirs_to_backup", "")
             dirs_to_backup = [
-                d.strip()
-                for d in section.get("dirs_to_backup", "").split(",")
-                if d.strip()
+                line.strip()
+                for line in raw.strip().splitlines()
+                if line.strip()
             ]
+
             backup_folder = section.get(
                 "backup_folder", default_config.backup_folder
             )

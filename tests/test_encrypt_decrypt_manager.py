@@ -68,20 +68,6 @@ class TestEncryptManager:
             result = manager._validate_input_file(temp_file.name)
             assert result is False
 
-    def test_calculate_sha256(self, manager: EncryptManager) -> None:
-        """Test _calculate_sha256 calculates correct hash."""
-        test_content = b"Hello, World!"
-        expected_hash = (
-            "dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f"
-        )
-
-        with tempfile.NamedTemporaryFile() as temp_file:
-            temp_file.write(test_content)
-            temp_file.flush()
-
-            result = manager._calculate_sha256(temp_file.name)
-            assert result == expected_hash
-
     def test_derive_key_deterministic(self, manager: EncryptManager) -> None:
         """Test _derive_key produces same key with same password and salt."""
         password = "test_password"

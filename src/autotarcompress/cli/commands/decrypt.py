@@ -5,10 +5,13 @@ of encrypted backup archives using OpenSSL with PBKDF2.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from autotarcompress.cli.commands.command import Command
-from autotarcompress.config import BackupConfig
 from autotarcompress.decrypt_manager import DecryptManager
+
+if TYPE_CHECKING:
+    from autotarcompress.config import BackupConfig
 
 
 class DecryptCommand(Command):
