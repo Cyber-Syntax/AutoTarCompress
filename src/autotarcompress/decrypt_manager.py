@@ -177,6 +177,7 @@ class DecryptManager(BaseCryptoManager):
 
                     if len(nonce) != NONCE_SIZE:
                         self.logger.error("Corrupted nonce block detected")
+                        self._safe_cleanup(decrypted_path)
                         return False
 
                     # ciphertext + tag
