@@ -178,12 +178,14 @@ def _write_metadata(metadata_path: Path, metadata: BackupMetadata) -> None:
         metadata: The BackupMetadata object to write
     """
     tmp_path = metadata_path.with_suffix(".tmp")
+    try:
+        with tmp_path.open("w", encoding="utf-8") as f:
+            json.dump(metadata.to_dict(), f, indent=2)
 
-    with tmp_path.open("w", encoding="utf-8") as f:
-        json.dump(metadata.to_dict(), f, indent=2)
-
-    # os.replace is atomic on Linux — readers always see a complete file
-    os.replace(tmp_path, metadata_path)
+        os.replace(tmp_path, metadata_path)
+    finally:
+        with contextlib.suppress(OSError):
+            tmp_path.unlink(missing_ok=True)
 
 
 def save_metadata(config_dir: Path, metadata: BackupMetadata) -> None:
